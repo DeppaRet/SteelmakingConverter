@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1031</width>
+    <width>993</width>
     <height>670</height>
    </rect>
   </property>
@@ -19,7 +19,7 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>1021</width>
+      <width>981</width>
       <height>731</height>
      </rect>
     </property>
@@ -151,7 +151,7 @@
      <widget class="QGroupBox" name="groupBox_2">
       <property name="geometry">
        <rect>
-        <x>360</x>
+        <x>330</x>
         <y>10</y>
         <width>301</width>
         <height>201</height>
@@ -163,8 +163,8 @@
       <widget class="QLineEdit" name="castTemperature">
        <property name="geometry">
         <rect>
-         <x>120</x>
-         <y>30</y>
+         <x>110</x>
+         <y>20</y>
          <width>81</width>
          <height>20</height>
         </rect>
@@ -176,8 +176,8 @@
       <widget class="QLabel" name="label_5">
        <property name="geometry">
         <rect>
-         <x>20</x>
-         <y>30</y>
+         <x>10</x>
+         <y>20</y>
          <width>101</width>
          <height>16</height>
         </rect>
@@ -189,8 +189,8 @@
       <widget class="QLabel" name="label_6">
        <property name="geometry">
         <rect>
-         <x>20</x>
-         <y>60</y>
+         <x>10</x>
+         <y>50</y>
          <width>101</width>
          <height>16</height>
         </rect>
@@ -202,8 +202,8 @@
       <widget class="QLineEdit" name="castWeight">
        <property name="geometry">
         <rect>
-         <x>120</x>
-         <y>60</y>
+         <x>110</x>
+         <y>50</y>
          <width>81</width>
          <height>20</height>
         </rect>
@@ -216,9 +216,9 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>100</y>
+         <y>70</y>
          <width>281</width>
-         <height>81</height>
+         <height>111</height>
         </rect>
        </property>
        <property name="title">
@@ -316,6 +316,35 @@
          </rect>
         </property>
        </widget>
+       <widget class="QLineEdit" name="castManganese">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="geometry">
+         <rect>
+          <x>220</x>
+          <y>80</y>
+          <width>51</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_24">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>80</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Марганец (Mn):</string>
+        </property>
+       </widget>
       </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_5">
@@ -386,7 +415,7 @@
      <widget class="QGroupBox" name="groupBox_3">
       <property name="geometry">
        <rect>
-        <x>700</x>
+        <x>640</x>
         <y>10</y>
         <width>301</width>
         <height>201</height>
@@ -425,9 +454,9 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>100</y>
+         <y>70</y>
          <width>281</width>
-         <height>81</height>
+         <height>111</height>
         </rect>
        </property>
        <property name="title">
@@ -525,12 +554,41 @@
          </rect>
         </property>
        </widget>
+       <widget class="QLabel" name="label_25">
+        <property name="geometry">
+         <rect>
+          <x>130</x>
+          <y>80</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Марганец (Mn):</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="scrapManganese">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="geometry">
+         <rect>
+          <x>220</x>
+          <y>80</y>
+          <width>51</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
       </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_8">
       <property name="geometry">
        <rect>
-        <x>360</x>
+        <x>330</x>
         <y>220</y>
         <width>471</width>
         <height>80</height>
@@ -672,32 +730,6 @@
         <string>Марганец (Mn):</string>
        </property>
       </widget>
-      <widget class="QPushButton" name="calcChem">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="geometry">
-        <rect>
-         <x>410</x>
-         <y>10</y>
-         <width>51</width>
-         <height>61</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="icon">
-        <iconset>
-         <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
-       </property>
-       <property name="iconSize">
-        <size>
-         <width>48</width>
-         <height>48</height>
-        </size>
-       </property>
-      </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_9">
       <property name="geometry">
@@ -828,7 +860,7 @@
         </property>
        </item>
       </widget>
-      <widget class="QPushButton" name="calcChem_2">
+      <widget class="QPushButton" name="calcTable">
        <property name="enabled">
         <bool>true</bool>
        </property>
@@ -844,8 +876,8 @@
         <string/>
        </property>
        <property name="icon">
-        <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
-         <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
+        <iconset>
+         <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
        </property>
        <property name="iconSize">
         <size>
@@ -871,7 +903,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -1321,7 +1353,7 @@
         <string/>
        </property>
        <property name="icon">
-        <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+        <iconset>
          <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
        </property>
        <property name="iconSize">
@@ -1707,7 +1739,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -2018,7 +2050,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -2634,7 +2666,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/flask_green.png</normaloff>:/icons/icons/flask_green.png</iconset>
       </property>
       <property name="iconSize">
@@ -2660,7 +2692,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/graph1.ico</normaloff>:/icons/icons/graph1.ico</iconset>
       </property>
       <property name="iconSize">
@@ -2686,7 +2718,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/graph.ico</normaloff>:/icons/icons/graph.ico</iconset>
       </property>
       <property name="iconSize">
@@ -2709,7 +2741,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/help.ico</normaloff>:/icons/icons/help.ico</iconset>
       </property>
       <property name="iconSize">
@@ -2745,7 +2777,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
       </property>
       <property name="iconSize">
@@ -2768,7 +2800,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -2790,7 +2822,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -2898,7 +2930,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
       </property>
       <property name="iconSize">
@@ -3009,7 +3041,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/add.ico</normaloff>:/icons/icons/add.ico</iconset>
       </property>
      </widget>
@@ -3213,7 +3245,7 @@
        <string/>
       </property>
       <property name="icon">
-       <iconset resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">
+       <iconset>
         <normaloff>:/icons/icons/remove.ico</normaloff>:/icons/icons/remove.ico</iconset>
       </property>
      </widget>
@@ -3233,7 +3265,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -3247,7 +3279,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1031</width>
+     <width>993</width>
      <height>21</height>
     </rect>
    </property>

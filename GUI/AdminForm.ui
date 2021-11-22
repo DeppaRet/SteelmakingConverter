@@ -33,16 +33,6 @@
      <attribute name="title">
       <string>Промышленные данные</string>
      </attribute>
-     <widget class="QTableView" name="tableView">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>60</y>
-        <width>521</width>
-        <height>441</height>
-       </rect>
-      </property>
-     </widget>
      <widget class="QGroupBox" name="groupBox">
       <property name="geometry">
        <rect>
@@ -75,7 +65,7 @@
         <x>10</x>
         <y>30</y>
         <width>131</width>
-        <height>18</height>
+        <height>21</height>
        </rect>
       </property>
      </widget>
@@ -96,6 +86,29 @@
       </property>
       <property name="text">
        <string>Таблица:</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="showTableForFactory">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>30</y>
+        <width>75</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Показать</string>
+      </property>
+     </widget>
+     <widget class="QTableWidget" name="tableWidgetFactory">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>60</y>
+        <width>531</width>
+        <height>441</height>
+       </rect>
       </property>
      </widget>
     </widget>
@@ -230,25 +243,25 @@
        </layout>
       </widget>
      </widget>
-     <widget class="QTableView" name="tableView_2">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>60</y>
-        <width>521</width>
-        <height>441</height>
-       </rect>
-      </property>
-     </widget>
      <widget class="QComboBox" name="choosenTableForUsers">
       <property name="geometry">
        <rect>
         <x>10</x>
         <y>30</y>
         <width>131</width>
-        <height>18</height>
+        <height>21</height>
        </rect>
       </property>
+      <item>
+       <property name="text">
+        <string>Пользователи</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Роли</string>
+       </property>
+      </item>
      </widget>
      <widget class="QLabel" name="tabelLabel_4">
       <property name="geometry">
@@ -267,6 +280,29 @@
       </property>
       <property name="text">
        <string>Таблица:</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="showTableForUsers">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>30</y>
+        <width>75</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Показать</string>
+      </property>
+     </widget>
+     <widget class="QTableWidget" name="tableWidgetUsers">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>60</y>
+        <width>521</width>
+        <height>441</height>
+       </rect>
       </property>
      </widget>
     </widget>
