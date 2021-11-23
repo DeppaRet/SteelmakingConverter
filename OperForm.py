@@ -2,11 +2,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 
 
+
 class Ui_OperatorForm(object):
 
     def calcMetalChargeClicked(self):
         try:
-            self.calcMetalCharge.clicked.connect(self.calcMetalChargeClicked())
             steelCarbonValue = float(self.steelCarbon.text())
             steelSerumValue = float(self.steelSerum.text())
             steelSiliconValue = float(self.steelSilicon.text())
@@ -28,12 +28,13 @@ class Ui_OperatorForm(object):
             scrapManganeseValue = float(self.scrapPhosphor.text())
 
             totalWeightValue = castSteelWeightValue + scrapWeightValue
-            self.MetalCharge = totalWeightValue
-            self.ChemCarbon = (castSteelCarbonValue * castSteelWeightValue + scrapCarbonValue * scrapWeightValue)/totalWeightValue
-            self.ChemSerum = (castSteelSerumValue * castSteelWeightValue + scrapSerumValue * scrapWeightValue)/totalWeightValue
-            self.ChemPhosphor = (castSteelPhosphorValue * castSteelWeightValue + scrapPhosphorValue * scrapWeightValue)/totalWeightValue
-            self.ChemSilicon = (castSteelSiliconValue * castSteelWeightValue + scrapSiliconValue * scrapWeightValue)/totalWeightValue
-            self.ChemManganese = (castSteelManganeseValue * castSteelWeightValue + scrapManganeseValue * scrapWeightValue)/totalWeightValue
+            self.MetalCharge.text = totalWeightValue
+            carbonVhem = (castSteelCarbonValue * castSteelWeightValue + scrapCarbonValue * scrapWeightValue)/totalWeightValue
+            self.ChemCarbon.setText(carbonVhem)
+            # self.ChemSerum = (castSteelSerumValue * castSteelWeightValue + scrapSerumValue * scrapWeightValue)/totalWeightValue
+            # self.ChemPhosphor = (castSteelPhosphorValue * castSteelWeightValue + scrapPhosphorValue * scrapWeightValue)/totalWeightValue
+            # self.ChemSilicon = (castSteelSiliconValue * castSteelWeightValue + scrapSiliconValue * scrapWeightValue)/totalWeightValue
+            # self.ChemManganese = (castSteelManganeseValue * castSteelWeightValue + scrapManganeseValue * scrapWeightValue)/totalWeightValue
 
         except Exception as err:  # mc.Error
             msg = QMessageBox()
@@ -151,9 +152,9 @@ class Ui_OperatorForm(object):
         self.calcMetalCharge.setEnabled(True)
         self.calcMetalCharge.setGeometry(QtCore.QRect(240, 10, 51, 61))
         self.calcMetalCharge.setText("")
+        self.calcMetalCharge.clicked.connect(self.calcMetalChargeClicked)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/calculate.ico"), QtGui.QIcon.Normal,
-                       QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/calculate.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.calcMetalCharge.setIcon(icon)
         self.calcMetalCharge.setIconSize(QtCore.QSize(48, 48))
         self.calcMetalCharge.setObjectName("calcMetalCharge")
@@ -319,8 +320,7 @@ class Ui_OperatorForm(object):
         self.AddNewMode.setGeometry(QtCore.QRect(260, 50, 31, 21))
         self.AddNewMode.setText("")
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal,
-                        QtGui.QIcon.Off)
+        icon1.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.AddNewMode.setIcon(icon1)
         self.AddNewMode.setObjectName("AddNewMode")
         self.tabWidget.addTab(self.tab, "")
@@ -361,8 +361,7 @@ class Ui_OperatorForm(object):
         self.RemoveFluxeButton.setGeometry(QtCore.QRect(190, 220, 31, 21))
         self.RemoveFluxeButton.setText("")
         icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal,
-                        QtGui.QIcon.Off)
+        icon2.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.RemoveFluxeButton.setIcon(icon2)
         self.RemoveFluxeButton.setObjectName("RemoveFluxeButton")
         self.shlak_group_box = QtWidgets.QGroupBox(self.tab_2)
@@ -582,12 +581,10 @@ class Ui_OperatorForm(object):
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit = QtWidgets.QLineEdit(self.tab_3)
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setEnabled(False)
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setGeometry(QtCore.QRect(380, 50, 81, 20))
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setObjectName(
-            "vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit")
+        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setObjectName("vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit")
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label = QtWidgets.QLabel(self.tab_3)
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setGeometry(QtCore.QRect(10, 50, 311, 16))
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setObjectName(
-            "vyhod_zhidkovo_metalla_pered_raskisleniem_label")
+        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setObjectName("vyhod_zhidkovo_metalla_pered_raskisleniem_label")
         self.rashodnaya_chast_group_box = QtWidgets.QGroupBox(self.tab_3)
         self.rashodnaya_chast_group_box.setGeometry(QtCore.QRect(470, 80, 471, 371))
         self.rashodnaya_chast_group_box.setObjectName("rashodnaya_chast_group_box")
@@ -614,8 +611,7 @@ class Ui_OperatorForm(object):
         self.poteri_metalla_s_vynosami_i_vybrosami_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
         self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setEnabled(False)
         self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setGeometry(QtCore.QRect(270, 70, 101, 20))
-        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setObjectName(
-            "poteri_metalla_s_vynosami_i_vybrosami_line_edit")
+        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setObjectName("poteri_metalla_s_vynosami_i_vybrosami_line_edit")
         self.poteri_zheleza_s_pylyu_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
         self.poteri_zheleza_s_pylyu_line_edit.setEnabled(False)
         self.poteri_zheleza_s_pylyu_line_edit.setGeometry(QtCore.QRect(270, 90, 101, 20))
@@ -658,8 +654,7 @@ class Ui_OperatorForm(object):
         self.tab_4.setObjectName("tab_4")
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2 = QtWidgets.QLabel(self.tab_4)
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setGeometry(QtCore.QRect(0, 410, 291, 16))
-        self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setObjectName(
-            "temperatura_zhidkovo_metalla_v_konce_produvki_label_2")
+        self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setObjectName("temperatura_zhidkovo_metalla_v_konce_produvki_label_2")
         self.label_49 = QtWidgets.QLabel(self.tab_4)
         self.label_49.setGeometry(QtCore.QRect(290, 540, 201, 16))
         self.label_49.setObjectName("label_49")
@@ -680,17 +675,14 @@ class Ui_OperatorForm(object):
         self.phizicheskoe_teplo_zhidkovo_metalla_line_edit_2 = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.phizicheskoe_teplo_zhidkovo_metalla_line_edit_2.setEnabled(False)
         self.phizicheskoe_teplo_zhidkovo_metalla_line_edit_2.setGeometry(QtCore.QRect(300, 20, 101, 20))
-        self.phizicheskoe_teplo_zhidkovo_metalla_line_edit_2.setObjectName(
-            "phizicheskoe_teplo_zhidkovo_metalla_line_edit_2")
+        self.phizicheskoe_teplo_zhidkovo_metalla_line_edit_2.setObjectName("phizicheskoe_teplo_zhidkovo_metalla_line_edit_2")
         self.poteri_tepla_s_vynosami_i_vybrosami_line_edit_2 = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.poteri_tepla_s_vynosami_i_vybrosami_line_edit_2.setEnabled(False)
         self.poteri_tepla_s_vynosami_i_vybrosami_line_edit_2.setGeometry(QtCore.QRect(300, 100, 101, 20))
-        self.poteri_tepla_s_vynosami_i_vybrosami_line_edit_2.setObjectName(
-            "poteri_tepla_s_vynosami_i_vybrosami_line_edit_2")
+        self.poteri_tepla_s_vynosami_i_vybrosami_line_edit_2.setObjectName("poteri_tepla_s_vynosami_i_vybrosami_line_edit_2")
         self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2.setGeometry(QtCore.QRect(20, 80, 281, 16))
-        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2.setObjectName(
-            "zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2")
+        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2.setObjectName("zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2")
         self.poteri_tepla_s_vynosami_i_vybrosami_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.poteri_tepla_s_vynosami_i_vybrosami_label_2.setGeometry(QtCore.QRect(20, 100, 251, 16))
         self.poteri_tepla_s_vynosami_i_vybrosami_label_2.setObjectName("poteri_tepla_s_vynosami_i_vybrosami_label_2")
@@ -703,17 +695,14 @@ class Ui_OperatorForm(object):
         self.phizicheskoe_teplo_othodyashih_gazov_line_edit_2 = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.phizicheskoe_teplo_othodyashih_gazov_line_edit_2.setEnabled(False)
         self.phizicheskoe_teplo_othodyashih_gazov_line_edit_2.setGeometry(QtCore.QRect(300, 60, 101, 20))
-        self.phizicheskoe_teplo_othodyashih_gazov_line_edit_2.setObjectName(
-            "phizicheskoe_teplo_othodyashih_gazov_line_edit_2")
+        self.phizicheskoe_teplo_othodyashih_gazov_line_edit_2.setObjectName("phizicheskoe_teplo_othodyashih_gazov_line_edit_2")
         self.phizicheskoe_teplo_shlaka_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.phizicheskoe_teplo_shlaka_label_2.setGeometry(QtCore.QRect(20, 40, 251, 16))
         self.phizicheskoe_teplo_shlaka_label_2.setObjectName("phizicheskoe_teplo_shlaka_label_2")
-        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2 = QtWidgets.QLineEdit(
-            self.rashodnie_statii_group_box_2)
+        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2 = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2.setEnabled(False)
         self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2.setGeometry(QtCore.QRect(300, 80, 101, 20))
-        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2.setObjectName(
-            "zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2")
+        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2.setObjectName("zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2")
         self.teplovie_poteri_line_edit_2 = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.teplovie_poteri_line_edit_2.setEnabled(False)
         self.teplovie_poteri_line_edit_2.setGeometry(QtCore.QRect(300, 160, 101, 20))
@@ -769,47 +758,38 @@ class Ui_OperatorForm(object):
         self.temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2 = QtWidgets.QLineEdit(self.tab_4)
         self.temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2.setEnabled(False)
         self.temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2.setGeometry(QtCore.QRect(300, 410, 101, 20))
-        self.temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2.setObjectName(
-            "temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2")
+        self.temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2.setObjectName("temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2")
         self.prihodnie_statii_group_box_2 = QtWidgets.QGroupBox(self.tab_4)
         self.prihodnie_statii_group_box_2.setGeometry(QtCore.QRect(0, 10, 481, 391))
         self.prihodnie_statii_group_box_2.setObjectName("prihodnie_statii_group_box_2")
-        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2 = QtWidgets.QLineEdit(
-            self.prihodnie_statii_group_box_2)
+        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2 = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2.setEnabled(False)
         self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2.setGeometry(QtCore.QRect(290, 70, 101, 20))
-        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2.setObjectName(
-            "himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2")
+        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2.setObjectName("himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2")
         self.teplovoi_effect_reakcii_okisleniya_line_edit_2 = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.teplovoi_effect_reakcii_okisleniya_line_edit_2.setEnabled(False)
         self.teplovoi_effect_reakcii_okisleniya_line_edit_2.setGeometry(QtCore.QRect(290, 50, 101, 20))
-        self.teplovoi_effect_reakcii_okisleniya_line_edit_2.setObjectName(
-            "teplovoi_effect_reakcii_okisleniya_line_edit_2")
-        self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2 = QtWidgets.QLineEdit(
-            self.prihodnie_statii_group_box_2)
+        self.teplovoi_effect_reakcii_okisleniya_line_edit_2.setObjectName("teplovoi_effect_reakcii_okisleniya_line_edit_2")
+        self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2 = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2.setEnabled(False)
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2.setGeometry(QtCore.QRect(290, 90, 101, 20))
-        self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2.setObjectName(
-            "teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2")
+        self.teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2.setObjectName("teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2")
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setGeometry(QtCore.QRect(10, 90, 281, 16))
-        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setObjectName(
-            "teplovoi_effect_reakcii_shlakoobrazovaniya_label_2")
+        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setObjectName("teplovoi_effect_reakcii_shlakoobrazovaniya_label_2")
         self.teplovoi_effect_reakcii_okisleniya_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.teplovoi_effect_reakcii_okisleniya_label_2.setGeometry(QtCore.QRect(10, 50, 251, 16))
         self.teplovoi_effect_reakcii_okisleniya_label_2.setObjectName("teplovoi_effect_reakcii_okisleniya_label_2")
         self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2.setGeometry(QtCore.QRect(10, 70, 261, 16))
-        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2.setObjectName(
-            "himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2")
+        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2.setObjectName("himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2")
         self.phizicheskoe_teplo_zhidkovo_chuguna_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.phizicheskoe_teplo_zhidkovo_chuguna_label_2.setGeometry(QtCore.QRect(10, 30, 221, 16))
         self.phizicheskoe_teplo_zhidkovo_chuguna_label_2.setObjectName("phizicheskoe_teplo_zhidkovo_chuguna_label_2")
         self.phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2 = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2.setEnabled(False)
         self.phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2.setGeometry(QtCore.QRect(290, 30, 101, 20))
-        self.phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2.setObjectName(
-            "phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2")
+        self.phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2.setObjectName("phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2")
         self.teplo_ot_dozhiganiya_co_line_edit_2 = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.teplo_ot_dozhiganiya_co_line_edit_2.setEnabled(False)
         self.teplo_ot_dozhiganiya_co_line_edit_2.setGeometry(QtCore.QRect(290, 110, 101, 20))
@@ -848,43 +828,31 @@ class Ui_OperatorForm(object):
         self.prihodnie_statii_table_widget_2.setHorizontalHeaderItem(1, item)
         self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2 = QtWidgets.QPushButton(self.tab_4)
         self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setEnabled(True)
-        self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setGeometry(
-            QtCore.QRect(360, 470, 51, 61))
+        self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setGeometry(QtCore.QRect(360, 470, 51, 61))
         self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setText("")
         icon4 = QtGui.QIcon()
         icon4.addPixmap(QtGui.QPixmap(":/icons/icons/flask_green.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setIcon(icon4)
         self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setIconSize(QtCore.QSize(50, 50))
-        self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setObjectName(
-            "pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2")
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2 = QtWidgets.QPushButton(
-            self.tab_4)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setEnabled(
-            True)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setGeometry(
-            QtCore.QRect(230, 470, 51, 61))
+        self.pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2.setObjectName("pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2")
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2 = QtWidgets.QPushButton(self.tab_4)
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setEnabled(True)
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setGeometry(QtCore.QRect(230, 470, 51, 61))
         self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setText("")
         icon5 = QtGui.QIcon()
         icon5.addPixmap(QtGui.QPixmap(":/icons/icons/graph1.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setIcon(
-            icon5)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setIconSize(
-            QtCore.QSize(45, 45))
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setObjectName(
-            "pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2")
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2 = QtWidgets.QPushButton(
-            self.tab_4)
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setIcon(icon5)
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setIconSize(QtCore.QSize(45, 45))
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2.setObjectName("pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2")
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2 = QtWidgets.QPushButton(self.tab_4)
         self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setEnabled(True)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setGeometry(
-            QtCore.QRect(170, 470, 51, 61))
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setGeometry(QtCore.QRect(170, 470, 51, 61))
         self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setText("")
         icon6 = QtGui.QIcon()
         icon6.addPixmap(QtGui.QPixmap(":/icons/icons/graph.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setIcon(icon6)
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setIconSize(
-            QtCore.QSize(45, 45))
-        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setObjectName(
-            "pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2")
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setIconSize(QtCore.QSize(45, 45))
+        self.pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2.setObjectName("pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2")
         self.spravka_o_teplovom_balanse_push_button_2 = QtWidgets.QPushButton(self.tab_4)
         self.spravka_o_teplovom_balanse_push_button_2.setGeometry(QtCore.QRect(50, 470, 51, 61))
         self.spravka_o_teplovom_balanse_push_button_2.setText("")
@@ -925,8 +893,7 @@ class Ui_OperatorForm(object):
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setEnabled(False)
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setGeometry(QtCore.QRect(770, 80, 91, 20))
-        self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setObjectName(
-            "vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2")
+        self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setObjectName("vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2")
         self.balans_pri_raskislenii_stali_label_2 = QtWidgets.QLabel(self.tab_5)
         self.balans_pri_raskislenii_stali_label_2.setGeometry(QtCore.QRect(10, 160, 251, 16))
         font = QtGui.QFont()
@@ -940,8 +907,7 @@ class Ui_OperatorForm(object):
         self.vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2.setEnabled(False)
         self.vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2.setGeometry(QtCore.QRect(770, 140, 91, 20))
-        self.vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2.setObjectName(
-            "vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2")
+        self.vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2.setObjectName("vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2")
         self.rashod_tretievo_ferrosplava_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.rashod_tretievo_ferrosplava_line_edit_2.setEnabled(False)
         self.rashod_tretievo_ferrosplava_line_edit_2.setGeometry(QtCore.QRect(630, 140, 91, 20))
@@ -955,8 +921,7 @@ class Ui_OperatorForm(object):
         self.vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2.setEnabled(False)
         self.vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2.setGeometry(QtCore.QRect(770, 110, 91, 20))
-        self.vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2.setObjectName(
-            "vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2")
+        self.vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2.setObjectName("vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2")
         self.tip_ferrosplava_combo_box_2 = QtWidgets.QComboBox(self.tab_5)
         self.tip_ferrosplava_combo_box_2.setGeometry(QtCore.QRect(110, 10, 161, 22))
         self.tip_ferrosplava_combo_box_2.setEditable(False)
@@ -964,8 +929,7 @@ class Ui_OperatorForm(object):
         self.himicheskii_sostav_poluchennoi_stali_table_widget_2 = QtWidgets.QTableWidget(self.tab_5)
         self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setEnabled(False)
         self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setGeometry(QtCore.QRect(10, 430, 511, 61))
-        self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setObjectName(
-            "himicheskii_sostav_poluchennoi_stali_table_widget_2")
+        self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setObjectName("himicheskii_sostav_poluchennoi_stali_table_widget_2")
         self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setColumnCount(5)
         self.himicheskii_sostav_poluchennoi_stali_table_widget_2.setRowCount(1)
         item = QtWidgets.QTableWidgetItem()
@@ -1000,12 +964,9 @@ class Ui_OperatorForm(object):
         self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2 = QtWidgets.QTableWidget(self.tab_5)
         self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setEnabled(True)
         self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setGeometry(QtCore.QRect(10, 60, 611, 91))
-        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setEditTriggers(
-            QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectRows)
-        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setObjectName(
-            "himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2")
+        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setObjectName("himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2")
         self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setColumnCount(6)
         self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.setRowCount(0)
         item = QtWidgets.QTableWidgetItem()
@@ -1222,14 +1183,12 @@ class Ui_OperatorForm(object):
         self.SlagMgOLabel_2.setText(_translate("OperatorForm", "MgO:"))
         self.SlagOthersLabel_2.setText(_translate("OperatorForm", "Прочие:"))
         self.raschet_dutya_group_box.setTitle(_translate("OperatorForm", "Расчет дутья"))
-        self.TotalOxygenDemandBlastLabel.setText(
-            _translate("OperatorForm", "Общая потребность в кислороде дутья [кг]:"))
+        self.TotalOxygenDemandBlastLabel.setText(_translate("OperatorForm", "Общая потребность в кислороде дутья [кг]:"))
         self.TotalConsumptionOfBlastKgLabel.setText(_translate("OperatorForm", "Общий расход дутья [кг]:"))
         self.ExcessBlastLabel.setText(_translate("OperatorForm", "Избыток дутья [кг]:"))
         self.TotalConsumptionOfBlastM3Label.setText(_translate("OperatorForm", "Общий расход дутья [м^3]:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("OperatorForm", "Шлак"))
-        self.ReclaimedIronWeightLabel.setText(
-            _translate("OperatorForm", "Кол-во железа, восстановленного из неметаллических материалов [т]:"))
+        self.ReclaimedIronWeightLabel.setText(_translate("OperatorForm", "Кол-во железа, восстановленного из неметаллических материалов [т]:"))
         item = self.prihodnie_dannye_table_widget.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Наименование"))
         item = self.prihodnie_dannye_table_widget.horizontalHeaderItem(1)
@@ -1238,14 +1197,11 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "Наименование"))
         item = self.rashodnie_dannye_table_widget.horizontalHeaderItem(1)
         item.setText(_translate("OperatorForm", "кг"))
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setText(
-            _translate("OperatorForm", "Выход жидкого металла перед раскислением [т]:"))
+        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setText(_translate("OperatorForm", "Выход жидкого металла перед раскислением [т]:"))
         self.rashodnaya_chast_group_box.setTitle(_translate("OperatorForm", "Расходная часть"))
         self.massa_okislivshihsya_primesei_label.setText(_translate("OperatorForm", "Масса окислившихся примесей [т]:"))
-        self.massa_oksidov_zheleza_label.setText(
-            _translate("OperatorForm", "Масса оксидов железа, переходящих в шлак [т]:"))
-        self.poteri_metalla_s_vynosami_i_vybrosami_label.setText(
-            _translate("OperatorForm", "Потери металла с выносами и выбросами [т]:"))
+        self.massa_oksidov_zheleza_label.setText(_translate("OperatorForm", "Масса оксидов железа, переходящих в шлак [т]:"))
+        self.poteri_metalla_s_vynosami_i_vybrosami_label.setText(_translate("OperatorForm", "Потери металла с выносами и выбросами [т]:"))
         self.poteri_zheleza_s_pylyu_label.setText(_translate("OperatorForm", "Потери железа с пылью [т]:"))
         item = self.rashodnaya_chast_table_widget.verticalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Окисление углерода"))
@@ -1268,24 +1224,17 @@ class Ui_OperatorForm(object):
         item = self.rashodnaya_chast_table_widget.horizontalHeaderItem(2)
         item.setText(_translate("OperatorForm", "Всего"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("OperatorForm", "Материальный баланс"))
-        self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setText(
-            _translate("OperatorForm", "Температура жидкого металла в конце продувки [°C]:"))
+        self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setText(_translate("OperatorForm", "Температура жидкого металла в конце продувки [°C]:"))
         self.label_49.setText(_translate("OperatorForm", "Перейти к расчёту раскисления стали"))
         self.rashodnie_statii_group_box_2.setTitle(_translate("OperatorForm", "Расходные статьи"))
-        self.phizicheskoe_teplo_zhidkovo_metalla_label_2.setText(
-            _translate("OperatorForm", "Физическое тепло жидкого металла [кДж]:"))
-        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2.setText(
-            _translate("OperatorForm", "Затраты тепла на разложение оксидов железа [кДж]:"))
-        self.poteri_tepla_s_vynosami_i_vybrosami_label_2.setText(
-            _translate("OperatorForm", "Потери тепла с выносами и выбросами [кДж]:"))
-        self.zatrati_tepla_na_pileobrazovanie_label_2.setText(
-            _translate("OperatorForm", "Затраты тепла на пылеобразование [кДж]:"))
-        self.phizicheskoe_teplo_othodyashih_gazov_label_2.setText(
-            _translate("OperatorForm", "Физическое тепло отходящих газов [кДж]:"))
+        self.phizicheskoe_teplo_zhidkovo_metalla_label_2.setText(_translate("OperatorForm", "Физическое тепло жидкого металла [кДж]:"))
+        self.zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2.setText(_translate("OperatorForm", "Затраты тепла на разложение оксидов железа [кДж]:"))
+        self.poteri_tepla_s_vynosami_i_vybrosami_label_2.setText(_translate("OperatorForm", "Потери тепла с выносами и выбросами [кДж]:"))
+        self.zatrati_tepla_na_pileobrazovanie_label_2.setText(_translate("OperatorForm", "Затраты тепла на пылеобразование [кДж]:"))
+        self.phizicheskoe_teplo_othodyashih_gazov_label_2.setText(_translate("OperatorForm", "Физическое тепло отходящих газов [кДж]:"))
         self.phizicheskoe_teplo_shlaka_label_2.setText(_translate("OperatorForm", "Физическое тепло шлака [кДж]:"))
         self.teplovie_poteri_label_2.setText(_translate("OperatorForm", "Тепловые потери [кДж]:"))
-        self.teplo_na_razlozhenie_karbonatov_label_2.setText(
-            _translate("OperatorForm", "Тепло на разложение карбонатов [кДж]:"))
+        self.teplo_na_razlozhenie_karbonatov_label_2.setText(_translate("OperatorForm", "Тепло на разложение карбонатов [кДж]:"))
         self.obshii_rashod_tepla_label_2.setText(_translate("OperatorForm", "Общий расход тепла [кДж]:"))
         item = self.rashodnie_statii_table_widget_2.verticalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Физ. тепло жидкого металла"))
@@ -1311,14 +1260,10 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "Кол-во, %"))
         self.temperatura_peregreva_label_2.setText(_translate("OperatorForm", "Температура перегрева [°C]:"))
         self.prihodnie_statii_group_box_2.setTitle(_translate("OperatorForm", "Приходные статьи"))
-        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setText(
-            _translate("OperatorForm", "Тепловой эффект реакций шлакообразования [кДж]:"))
-        self.teplovoi_effect_reakcii_okisleniya_label_2.setText(
-            _translate("OperatorForm", "Тепловой эффект реакции окисления [кДж]:"))
-        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2.setText(
-            _translate("OperatorForm", "Химическое тепло от образования оксидов [кДж]:"))
-        self.phizicheskoe_teplo_zhidkovo_chuguna_label_2.setText(
-            _translate("OperatorForm", "Физическое тепло жидкого чугуна [кДж]:"))
+        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setText(_translate("OperatorForm", "Тепловой эффект реакций шлакообразования [кДж]:"))
+        self.teplovoi_effect_reakcii_okisleniya_label_2.setText(_translate("OperatorForm", "Тепловой эффект реакции окисления [кДж]:"))
+        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2.setText(_translate("OperatorForm", "Химическое тепло от образования оксидов [кДж]:"))
+        self.phizicheskoe_teplo_zhidkovo_chuguna_label_2.setText(_translate("OperatorForm", "Физическое тепло жидкого чугуна [кДж]:"))
         self.teplo_ot_dozhiganiya_co_label_2.setText(_translate("OperatorForm", "Тепло от дожигания CO [кДж]:"))
         self.obshii_prihod_tepla_label_2.setText(_translate("OperatorForm", "Общий приход тепла [кДж]:"))
         item = self.prihodnie_statii_table_widget_2.verticalHeaderItem(0)
@@ -1339,8 +1284,7 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "Кол-во, %"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_4), _translate("OperatorForm", "Тепловой баланс"))
         self.tip_ferrosplava_label_2.setText(_translate("OperatorForm", "Тип ферросллава:"))
-        self.balans_pri_raskislenii_stali_label_2.setText(
-            _translate("OperatorForm", "Баланс элементов при раскислении стали"))
+        self.balans_pri_raskislenii_stali_label_2.setText(_translate("OperatorForm", "Баланс элементов при раскислении стали"))
         self.label_51.setText(_translate("OperatorForm", "Выход металла после раскисления [кг]:"))
         item = self.himicheskii_sostav_poluchennoi_stali_table_widget_2.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "C"))
@@ -1352,8 +1296,7 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "S"))
         item = self.himicheskii_sostav_poluchennoi_stali_table_widget_2.horizontalHeaderItem(4)
         item.setText(_translate("OperatorForm", "P"))
-        self.himicheskii_sostav_poluchennoi_stali_label_2.setText(
-            _translate("OperatorForm", "Химический состав полученной стали"))
+        self.himicheskii_sostav_poluchennoi_stali_label_2.setText(_translate("OperatorForm", "Химический состав полученной стали"))
         self.label_52.setText(_translate("OperatorForm", "Расход ферросплава [кг]:"))
         item = self.himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Тип"))
@@ -1411,13 +1354,12 @@ class Ui_OperatorForm(object):
         self.AddDbData.setText(_translate("OperatorForm", "Добавить данные в бд"))
 
 
-
 if __name__ == "__main__":
     import sys
-
     app = QtWidgets.QApplication(sys.argv)
     OperatorForm = QtWidgets.QMainWindow()
     ui = Ui_OperatorForm()
     ui.setupUi(OperatorForm)
     OperatorForm.show()
     sys.exit(app.exec_())
+
