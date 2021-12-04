@@ -90,6 +90,39 @@ class Ui_AdminFom(object):
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
 
+    def insertDataIntoFactory(self):
+        try:
+            query = "INSERT INTO users (Login, Password, Roles_idRoles) values (%s, %s, %s)"
+            login = self.LoginCreate.text()
+            password = self.PasswordCreate.text()
+            if self.UserRoleCreate.currentText() == "Оператор":
+                role = 2
+            elif self.UserRoleCreate.currentText() == "Администратор":
+                role = 1
+            elif self.UserRoleCreate.currentText() == "Разработчик модели":
+                role = 3
+            value = (login, password, role)
+            usersDB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="mydb"
+            )
+            mycursor = usersDB.cursor()
+            mycursor.execute(query, value)
+            usersDB.commit()                # Обязательно для записи
+            msg = QMessageBox()
+            msg.setWindowTitle("Успех")
+            msg.setText("Выполнено")
+            msg.setInformativeText("Учетная запись создана успешно")
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+
     def setupUi(self, AdminFom):
         AdminFom.setObjectName("AdminFom")
         AdminFom.resize(896, 620)
