@@ -1,7 +1,22 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem
+import mysql.connector as mc
 
 
+class FluxeComposition(object):
+    name = "Флюс"
+    fluxeCaO = 0.0
+    fluxeSiO2 = 0.0
+    fluxeMgO = 0.0
+    fluxeFe2O3 = 0.0
+    fluxeFeO = 0.0
+    fluxeAl2O3 = 0.0
+    fluxeCaCO3 = 0.0
+    fluxeMgCO3 = 0.0
+    fluxeWeight = 0.0
+
+listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6', 'fluxe7', 'fluxe8',
+                               'fluxe9']
 class Ui_OperatorForm(object):
 
     def calcMetalChargeClicked(self):
@@ -173,9 +188,172 @@ class Ui_OperatorForm(object):
             msg.exec_()
         return
 
+    def getFluxes(self):
+        try:
+            query = "select FluxeName from fluxedata;"
+            usersDB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = usersDB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.FluxeType.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+    def AddFluxeButtonClicked(self):
+        try:
+            rows = self.FluxeTable.rowCount()
+            text = self.FluxeType.currentText()
+            self.FluxeTable.insertRow(rows)
+            self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+    def removeFluxeButtonClicked(self):
+        rows = self.FluxeTable.rowCount()
+        self.FluxeTable.setRowCount(0)
+
+    def slagCalcClicked(self):
+        try:
+            oxidesSilicon = float(self.OxidationTable.item(5,3).text())
+            oxidesManganes = float(self.OxidationTable.item(5,4).text())
+            oxidesPhosphor = float(self.OxidationTable.item(5,5).text())
+            oxidesSerum = float(self.OxidationTable.item(5,6).text())
+            slagSiO2 = 0
+            slagAl2O3 = 0
+            slagCaO = 0
+            slagFeO = 0
+            slagMgO = 0
+            slagFe2O3 = 0
+            slagOthers = 0
+            # listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6', 'fluxe7', 'fluxe8',
+            #                        'fluxe9']
+            fluxesRowCount = self.FluxeTable.rowCount()
+            for row in range(fluxesRowCount):
+                listOfNamesForClass[row] = FluxeComposition()
+                listOfNamesForClass[row].name = str(self.FluxeTable.item(row, 0).text())
+                name = listOfNamesForClass[row].name
+                query = "select * from fluxecomposition where idFluxeComposition in (select (FluxeComposition_idFluxeComposition) from fluxedata where FluxeName = '" + name + "');"
+                usersDB = mc.connect(
+                    host="localhost",
+                    user="root",
+                    password="root",
+                    database="regimdata"
+                )
+                result = ""
+                mycursor = usersDB.cursor()
+                mycursor.execute(query)
+                result = mycursor.fetchall()
+                listOfNamesForClass[row].fluxeCaO = result[0][1]
+                listOfNamesForClass[row].fluxeSiO2 = result[0][2]
+                listOfNamesForClass[row].fluxeMgO = result[0][3]
+                listOfNamesForClass[row].fluxeFe2O3 = result[0][4]
+                listOfNamesForClass[row].fluxeFeO = result[0][5]
+                listOfNamesForClass[row].fluxeMnO = result[0][6]
+                listOfNamesForClass[row].fluxeAl2O3 = result[0][7]
+                listOfNamesForClass[row].fluxeCaCO3 = result[0][8]
+                listOfNamesForClass[row].fluxeMgCO3 = result[0][9]
+                listOfNamesForClass[row].fluxeWeight = float(self.FluxeTable.item(row, 1).text())
+                slagSiO2 += listOfNamesForClass[row].fluxeWeight * listOfNamesForClass[row].fluxeSiO2/100
+                slagCaO += listOfNamesForClass[row].fluxeWeight * (listOfNamesForClass[row].fluxeCaO/100 + listOfNamesForClass[row].fluxeCaCO3 / 100 * 52/96)
+                slagMgO += listOfNamesForClass[row].fluxeWeight * (listOfNamesForClass[row].fluxeMgO/100 + listOfNamesForClass[row].fluxeMgCO3 / 100 * 40/84)
+                slagAl2O3 += listOfNamesForClass[row].fluxeWeight * listOfNamesForClass[row].fluxeAl2O3 / 100
+
+            FeO = 20.0 + 0.218 / float(self.steelCarbon.text()) + 0.031 / float(self.steelPhosphor.text())
+            Fe2O3 = 0.0
+            steelCarbon = float(self.steelCarbon.text())
+            steelPhosphor = float(self.steelPhosphor.text())
+            slagSiO2 = oxidesSilicon * float(self.MetalCharge.text())/100 + slagSiO2
+            slagOthers = (oxidesManganes + oxidesPhosphor + oxidesSerum) * float(self.MetalCharge.text())/100
+            slagWeight = ((slagSiO2 + slagCaO + slagMgO + slagAl2O3 + slagOthers) / (100 - FeO - Fe2O3)) * 100
+            slagFeO = FeO/100 * float(self.MetalCharge.text())
+            slagFe2O3 = Fe2O3 / 100 * float(self.MetalCharge.text())
+
+            self.SlagWeight.setText(str(round(slagWeight, 4)))
+            self.SlagSiO2.setText(str(round(slagSiO2, 4)))
+            self.SlagSiO2Perc.setText(str(round(slagSiO2/slagWeight * 100, 4)))
+            self.SlagAl2O3.setText(str(round(slagAl2O3, 4)))
+            self.SlagAl2O3Perc.setText(str(round(slagAl2O3/slagWeight*100, 4)))
+            self.SlagCaO.setText(str(round(slagCaO, 4)))
+            self.SlagCaOPerc.setText(str(round(slagCaO/slagWeight*100, 4)))
+            self.SlagFeO.setText(str(round(slagFeO, 4)))
+            self.SlagFeOPerc.setText(str(round(slagFeO/slagWeight*100, 4)))
+            self.SlagMgO.setText(str(round(slagMgO, 4)))
+            self.SlagMgOPerc.setText(str(round(slagMgO/slagWeight*100, 4)))
+            self.SlagFe2O3.setText(str(round(slagFe2O3)))
+            self.SlagFe2O3Perc.setText(str(round(slagFe2O3/slagWeight*100)))
+            self.SlagOthers.setText(str(round(slagOthers, 4)))
+            self.SlagOthersPerc.setText(str(round(slagOthers/slagWeight*100,4)))
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+
+    def blastCalcClicked(self):
+        try:
+            metalChargeWeight = float(self.MetalCharge.text())
+            totalOxygenRequired = float(self.OxidationTable.item(3,7).text())/100 * metalChargeWeight
+
+            FeO = 0.0
+            Fe2O3 = 0.0
+            fluxesRowCount = self.FluxeTable.rowCount()
+            for row in range(fluxesRowCount):
+                currentFluxeWeight = listOfNamesForClass[row].fluxeWeight
+                FeO += currentFluxeWeight * listOfNamesForClass[row].fluxeFeO / 100
+                Fe2O3 += currentFluxeWeight * listOfNamesForClass[row].fluxeFe2O3 / 100
+
+            tmpOxygenRequired = FeO * 16 / 72 + Fe2O3 * 48 / 160.0
+
+            ironOxygenRequired = float(self.SlagFeO.text()) * 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
+            carbonOxygenRequired = float(self.OxidationTable.item(5,1).text()) / 100 * metalChargeWeight * 0.1 * 16/28
+            summaryOxygenRequired = totalOxygenRequired + ironOxygenRequired + carbonOxygenRequired - tmpOxygenRequired
+            totalBlastConsumptionKg = (summaryOxygenRequired * 0.01 + summaryOxygenRequired) * 100 / 99.5
+            totalBlastConsumptionM3 = totalBlastConsumptionKg * 22.4/32
+            excessBlast = totalBlastConsumptionKg * 0.08
+
+            self.TotalOxygenDemandBlast.setText(str(round(summaryOxygenRequired, 4)))
+            self.TotalConsumptionOfBlastKg.setText(str(round(totalBlastConsumptionKg, 4)))
+            self.TotalConsumptionOfBlastM3.setText(str(round(totalBlastConsumptionM3, 4)))
+            self.ExcessBlast.setText(str(round(excessBlast, 4)))
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+
+
     def setupUi(self, OperatorForm):
         OperatorForm.setObjectName("OperatorForm")
-        # OperatorForm.resize(993, 670)
         OperatorForm.setMaximumSize(993, 670)
         OperatorForm.setMinimumSize(993, 670)
         self.centralwidget = QtWidgets.QWidget(OperatorForm)
@@ -480,6 +658,7 @@ class Ui_OperatorForm(object):
         self.AddFluxeButton.setText("")
         self.AddFluxeButton.setIcon(icon1)
         self.AddFluxeButton.setObjectName("AddFluxeButton")
+        self.AddFluxeButton.clicked.connect(self.AddFluxeButtonClicked)
         self.tip_flyusa_label = QtWidgets.QLabel(self.groupBox_10)
         self.tip_flyusa_label.setGeometry(QtCore.QRect(10, 30, 71, 16))
         self.tip_flyusa_label.setObjectName("tip_flyusa_label")
@@ -494,6 +673,7 @@ class Ui_OperatorForm(object):
         icon2.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.RemoveFluxeButton.setIcon(icon2)
         self.RemoveFluxeButton.setObjectName("RemoveFluxeButton")
+        self.RemoveFluxeButton.clicked.connect(self.removeFluxeButtonClicked)
         self.shlak_group_box = QtWidgets.QGroupBox(self.tab_2)
         self.shlak_group_box.setGeometry(QtCore.QRect(260, 20, 651, 241))
         self.shlak_group_box.setObjectName("shlak_group_box")
@@ -572,6 +752,7 @@ class Ui_OperatorForm(object):
         self.SlagCalc.setIcon(icon3)
         self.SlagCalc.setIconSize(QtCore.QSize(48, 48))
         self.SlagCalc.setObjectName("SlagCalc")
+        self.SlagCalc.clicked.connect(self.slagCalcClicked)
         self.him_sostav_shlaka_v_procentah_group_box = QtWidgets.QGroupBox(self.shlak_group_box)
         self.him_sostav_shlaka_v_procentah_group_box.setGeometry(QtCore.QRect(330, 70, 311, 161))
         self.him_sostav_shlaka_v_procentah_group_box.setObjectName("him_sostav_shlaka_v_procentah_group_box")
@@ -669,6 +850,7 @@ class Ui_OperatorForm(object):
         self.BlastCalc.setIcon(icon)
         self.BlastCalc.setIconSize(QtCore.QSize(48, 48))
         self.BlastCalc.setObjectName("BlastCalc")
+        self.BlastCalc.clicked.connect(self.blastCalcClicked)
         self.NextMat = QtWidgets.QLabel(self.tab_2)
         self.NextMat.setEnabled(False)
         self.NextMat.setGeometry(QtCore.QRect(940, 540, 61, 61))
@@ -687,91 +869,91 @@ class Ui_OperatorForm(object):
         self.ReclaimedIronWeight.setEnabled(False)
         self.ReclaimedIronWeight.setGeometry(QtCore.QRect(380, 20, 81, 20))
         self.ReclaimedIronWeight.setObjectName("ReclaimedIronWeight")
-        self.prihodnie_dannye_table_widget = QtWidgets.QTableWidget(self.tab_3)
-        self.prihodnie_dannye_table_widget.setEnabled(False)
-        self.prihodnie_dannye_table_widget.setGeometry(QtCore.QRect(10, 90, 211, 361))
-        self.prihodnie_dannye_table_widget.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.prihodnie_dannye_table_widget.setObjectName("prihodnie_dannye_table_widget")
-        self.prihodnie_dannye_table_widget.setColumnCount(2)
-        self.prihodnie_dannye_table_widget.setRowCount(0)
+        self.IncomingData = QtWidgets.QTableWidget(self.tab_3)
+        self.IncomingData.setEnabled(False)
+        self.IncomingData.setGeometry(QtCore.QRect(10, 90, 211, 361))
+        self.IncomingData.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.IncomingData.setObjectName("IncomingData")
+        self.IncomingData.setColumnCount(2)
+        self.IncomingData.setRowCount(0)
         item = QtWidgets.QTableWidgetItem()
-        self.prihodnie_dannye_table_widget.setHorizontalHeaderItem(0, item)
+        self.IncomingData.setHorizontalHeaderItem(0, item)
         item = QtWidgets.QTableWidgetItem()
-        self.prihodnie_dannye_table_widget.setHorizontalHeaderItem(1, item)
-        self.rashodnie_dannye_table_widget = QtWidgets.QTableWidget(self.tab_3)
-        self.rashodnie_dannye_table_widget.setEnabled(False)
-        self.rashodnie_dannye_table_widget.setGeometry(QtCore.QRect(250, 90, 211, 361))
-        self.rashodnie_dannye_table_widget.setObjectName("rashodnie_dannye_table_widget")
-        self.rashodnie_dannye_table_widget.setColumnCount(2)
-        self.rashodnie_dannye_table_widget.setRowCount(0)
+        self.IncomingData.setHorizontalHeaderItem(1, item)
+        self.OutputData = QtWidgets.QTableWidget(self.tab_3)
+        self.OutputData.setEnabled(False)
+        self.OutputData.setGeometry(QtCore.QRect(250, 90, 211, 361))
+        self.OutputData.setObjectName("OutputData")
+        self.OutputData.setColumnCount(2)
+        self.OutputData.setRowCount(0)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnie_dannye_table_widget.setHorizontalHeaderItem(0, item)
+        self.OutputData.setHorizontalHeaderItem(0, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnie_dannye_table_widget.setHorizontalHeaderItem(1, item)
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit = QtWidgets.QLineEdit(self.tab_3)
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setEnabled(False)
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setGeometry(QtCore.QRect(380, 50, 81, 20))
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit.setObjectName("vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit")
+        self.OutputData.setHorizontalHeaderItem(1, item)
+        self.LiquidIronYield = QtWidgets.QLineEdit(self.tab_3)
+        self.LiquidIronYield.setEnabled(False)
+        self.LiquidIronYield.setGeometry(QtCore.QRect(380, 50, 81, 20))
+        self.LiquidIronYield.setObjectName("LiquidIronYield")
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label = QtWidgets.QLabel(self.tab_3)
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setGeometry(QtCore.QRect(10, 50, 311, 16))
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setObjectName("vyhod_zhidkovo_metalla_pered_raskisleniem_label")
-        self.rashodnaya_chast_group_box = QtWidgets.QGroupBox(self.tab_3)
-        self.rashodnaya_chast_group_box.setGeometry(QtCore.QRect(470, 80, 471, 371))
-        self.rashodnaya_chast_group_box.setObjectName("rashodnaya_chast_group_box")
-        self.massa_okislivshihsya_primesei_label = QtWidgets.QLabel(self.rashodnaya_chast_group_box)
-        self.massa_okislivshihsya_primesei_label.setGeometry(QtCore.QRect(20, 30, 181, 16))
-        self.massa_okislivshihsya_primesei_label.setObjectName("massa_okislivshihsya_primesei_label")
-        self.massa_oksidov_zheleza_label = QtWidgets.QLabel(self.rashodnaya_chast_group_box)
-        self.massa_oksidov_zheleza_label.setGeometry(QtCore.QRect(20, 50, 251, 16))
-        self.massa_oksidov_zheleza_label.setObjectName("massa_oksidov_zheleza_label")
-        self.poteri_metalla_s_vynosami_i_vybrosami_label = QtWidgets.QLabel(self.rashodnaya_chast_group_box)
-        self.poteri_metalla_s_vynosami_i_vybrosami_label.setGeometry(QtCore.QRect(20, 70, 251, 16))
-        self.poteri_metalla_s_vynosami_i_vybrosami_label.setObjectName("poteri_metalla_s_vynosami_i_vybrosami_label")
-        self.poteri_zheleza_s_pylyu_label = QtWidgets.QLabel(self.rashodnaya_chast_group_box)
-        self.poteri_zheleza_s_pylyu_label.setGeometry(QtCore.QRect(20, 90, 251, 16))
-        self.poteri_zheleza_s_pylyu_label.setObjectName("poteri_zheleza_s_pylyu_label")
-        self.massa_okislivshihsya_primesei_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
-        self.massa_okislivshihsya_primesei_line_edit.setEnabled(False)
-        self.massa_okislivshihsya_primesei_line_edit.setGeometry(QtCore.QRect(270, 30, 101, 20))
-        self.massa_okislivshihsya_primesei_line_edit.setObjectName("massa_okislivshihsya_primesei_line_edit")
-        self.massa_oksidov_zheleza_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
-        self.massa_oksidov_zheleza_line_edit.setEnabled(False)
-        self.massa_oksidov_zheleza_line_edit.setGeometry(QtCore.QRect(270, 50, 101, 20))
-        self.massa_oksidov_zheleza_line_edit.setObjectName("massa_oksidov_zheleza_line_edit")
-        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
-        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setEnabled(False)
-        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setGeometry(QtCore.QRect(270, 70, 101, 20))
-        self.poteri_metalla_s_vynosami_i_vybrosami_line_edit.setObjectName("poteri_metalla_s_vynosami_i_vybrosami_line_edit")
-        self.poteri_zheleza_s_pylyu_line_edit = QtWidgets.QLineEdit(self.rashodnaya_chast_group_box)
-        self.poteri_zheleza_s_pylyu_line_edit.setEnabled(False)
-        self.poteri_zheleza_s_pylyu_line_edit.setGeometry(QtCore.QRect(270, 90, 101, 20))
-        self.poteri_zheleza_s_pylyu_line_edit.setObjectName("poteri_zheleza_s_pylyu_line_edit")
-        self.rashodnaya_chast_table_widget = QtWidgets.QTableWidget(self.rashodnaya_chast_group_box)
-        self.rashodnaya_chast_table_widget.setEnabled(False)
-        self.rashodnaya_chast_table_widget.setGeometry(QtCore.QRect(20, 120, 441, 241))
-        self.rashodnaya_chast_table_widget.setObjectName("rashodnaya_chast_table_widget")
-        self.rashodnaya_chast_table_widget.setColumnCount(3)
-        self.rashodnaya_chast_table_widget.setRowCount(7)
+        self.OutputDataGroupBox = QtWidgets.QGroupBox(self.tab_3)
+        self.OutputDataGroupBox.setGeometry(QtCore.QRect(470, 80, 471, 371))
+        self.OutputDataGroupBox.setObjectName("OutputDataGroupBox")
+        self.MassOfOxidizedImpuritiesLabel = QtWidgets.QLabel(self.OutputDataGroupBox)
+        self.MassOfOxidizedImpuritiesLabel.setGeometry(QtCore.QRect(20, 30, 181, 16))
+        self.MassOfOxidizedImpuritiesLabel.setObjectName("MassOfOxidizedImpuritiesLabel")
+        self.MassOfOxidesPassingIntoSlagLabel = QtWidgets.QLabel(self.OutputDataGroupBox)
+        self.MassOfOxidesPassingIntoSlagLabel.setGeometry(QtCore.QRect(20, 50, 251, 16))
+        self.MassOfOxidesPassingIntoSlagLabel.setObjectName("MassOfOxidesPassingIntoSlagLabel")
+        self.LossWithCarryOverLabel = QtWidgets.QLabel(self.OutputDataGroupBox)
+        self.LossWithCarryOverLabel.setGeometry(QtCore.QRect(20, 70, 251, 16))
+        self.LossWithCarryOverLabel.setObjectName("LossWithCarryOverLabel")
+        self.DustLossLabel = QtWidgets.QLabel(self.OutputDataGroupBox)
+        self.DustLossLabel.setGeometry(QtCore.QRect(20, 90, 251, 16))
+        self.DustLossLabel.setObjectName("DustLossLabel")
+        self.MassOfOxidizedImpurities = QtWidgets.QLineEdit(self.OutputDataGroupBox)
+        self.MassOfOxidizedImpurities.setEnabled(False)
+        self.MassOfOxidizedImpurities.setGeometry(QtCore.QRect(350, 30, 101, 20))
+        self.MassOfOxidizedImpurities.setObjectName("MassOfOxidizedImpurities")
+        self.MassOfOxidesPassingIntoSlag = QtWidgets.QLineEdit(self.OutputDataGroupBox)
+        self.MassOfOxidesPassingIntoSlag.setEnabled(False)
+        self.MassOfOxidesPassingIntoSlag.setGeometry(QtCore.QRect(350, 50, 101, 20))
+        self.MassOfOxidesPassingIntoSlag.setObjectName("MassOfOxidesPassingIntoSlag")
+        self.LossWithCarryOver = QtWidgets.QLineEdit(self.OutputDataGroupBox)
+        self.LossWithCarryOver.setEnabled(False)
+        self.LossWithCarryOver.setGeometry(QtCore.QRect(350, 70, 101, 20))
+        self.LossWithCarryOver.setObjectName("LossWithCarryOver")
+        self.DustLoss = QtWidgets.QLineEdit(self.OutputDataGroupBox)
+        self.DustLoss.setEnabled(False)
+        self.DustLoss.setGeometry(QtCore.QRect(350, 90, 101, 20))
+        self.DustLoss.setObjectName("DustLoss")
+        self.OutputDataTable = QtWidgets.QTableWidget(self.OutputDataGroupBox)
+        self.OutputDataTable.setEnabled(False)
+        self.OutputDataTable.setGeometry(QtCore.QRect(20, 120, 441, 241))
+        self.OutputDataTable.setObjectName("OutputDataTable")
+        self.OutputDataTable.setColumnCount(3)
+        self.OutputDataTable.setRowCount(7)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(0, item)
+        self.OutputDataTable.setVerticalHeaderItem(0, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(1, item)
+        self.OutputDataTable.setVerticalHeaderItem(1, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(2, item)
+        self.OutputDataTable.setVerticalHeaderItem(2, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(3, item)
+        self.OutputDataTable.setVerticalHeaderItem(3, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(4, item)
+        self.OutputDataTable.setVerticalHeaderItem(4, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(5, item)
+        self.OutputDataTable.setVerticalHeaderItem(5, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setVerticalHeaderItem(6, item)
+        self.OutputDataTable.setVerticalHeaderItem(6, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setHorizontalHeaderItem(0, item)
+        self.OutputDataTable.setHorizontalHeaderItem(0, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setHorizontalHeaderItem(1, item)
+        self.OutputDataTable.setHorizontalHeaderItem(1, item)
         item = QtWidgets.QTableWidgetItem()
-        self.rashodnaya_chast_table_widget.setHorizontalHeaderItem(2, item)
+        self.OutputDataTable.setHorizontalHeaderItem(2, item)
         self.NextTerm = QtWidgets.QLabel(self.tab_3)
         self.NextTerm.setEnabled(False)
         self.NextTerm.setGeometry(QtCore.QRect(950, 540, 61, 61))
@@ -779,6 +961,13 @@ class Ui_OperatorForm(object):
         self.NextTerm.setPixmap(QtGui.QPixmap(":/icons/icons/arrow_right.ico"))
         self.NextTerm.setScaledContents(True)
         self.NextTerm.setObjectName("NextTerm")
+        self.MaterialBalanceCalc = QtWidgets.QPushButton(self.tab_3)
+        self.MaterialBalanceCalc.setEnabled(True)
+        self.MaterialBalanceCalc.setGeometry(QtCore.QRect(890, 460, 51, 61))
+        self.MaterialBalanceCalc.setText("")
+        self.MaterialBalanceCalc.setIcon(icon)
+        self.MaterialBalanceCalc.setIconSize(QtCore.QSize(48, 48))
+        self.MaterialBalanceCalc.setObjectName("MaterialBalanceCalc")
         self.tabWidget.addTab(self.tab_3, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
@@ -998,6 +1187,8 @@ class Ui_OperatorForm(object):
         self.raschet_teplovovo_balansa_push_button_2 = QtWidgets.QPushButton(self.tab_4)
         self.raschet_teplovovo_balansa_push_button_2.setGeometry(QtCore.QRect(110, 470, 51, 61))
         self.raschet_teplovovo_balansa_push_button_2.setText("")
+        icon7 = QtGui.QIcon()
+        icon7.addPixmap(QtGui.QPixmap(":/icons/icons/calculate.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.raschet_teplovovo_balansa_push_button_2.setIcon(icon3)
         self.raschet_teplovovo_balansa_push_button_2.setIconSize(QtCore.QSize(48, 48))
         self.raschet_teplovovo_balansa_push_button_2.setObjectName("raschet_teplovovo_balansa_push_button_2")
@@ -1341,39 +1532,41 @@ class Ui_OperatorForm(object):
         self.TotalConsumptionOfBlastM3Label.setText(_translate("OperatorForm", "Общий расход дутья [м^3]:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("OperatorForm", "Шлак"))
         self.ReclaimedIronWeightLabel.setText(_translate("OperatorForm", "Кол-во железа, восстановленного из неметаллических материалов [т]:"))
-        item = self.prihodnie_dannye_table_widget.horizontalHeaderItem(0)
+        item = self.IncomingData.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Наименование"))
-        item = self.prihodnie_dannye_table_widget.horizontalHeaderItem(1)
+        item = self.IncomingData.horizontalHeaderItem(1)
         item.setText(_translate("OperatorForm", "кг"))
-        item = self.rashodnie_dannye_table_widget.horizontalHeaderItem(0)
+        item = self.OutputData.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Наименование"))
-        item = self.rashodnie_dannye_table_widget.horizontalHeaderItem(1)
+        item = self.OutputData.horizontalHeaderItem(1)
         item.setText(_translate("OperatorForm", "кг"))
-        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setText(_translate("OperatorForm", "Выход жидкого металла перед раскислением [т]:"))
-        self.rashodnaya_chast_group_box.setTitle(_translate("OperatorForm", "Расходная часть"))
-        self.massa_okislivshihsya_primesei_label.setText(_translate("OperatorForm", "Масса окислившихся примесей [т]:"))
-        self.massa_oksidov_zheleza_label.setText(_translate("OperatorForm", "Масса оксидов железа, переходящих в шлак [т]:"))
-        self.poteri_metalla_s_vynosami_i_vybrosami_label.setText(_translate("OperatorForm", "Потери металла с выносами и выбросами [т]:"))
-        self.poteri_zheleza_s_pylyu_label.setText(_translate("OperatorForm", "Потери железа с пылью [т]:"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(0)
+        self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setText(
+            _translate("OperatorForm", "Выход жидкого металла перед раскислением [т]:"))
+        self.OutputDataGroupBox.setTitle(_translate("OperatorForm", "Расходная часть"))
+        self.MassOfOxidizedImpuritiesLabel.setText(_translate("OperatorForm", "Масса окислившихся примесей [т]:"))
+        self.MassOfOxidesPassingIntoSlagLabel.setText(
+            _translate("OperatorForm", "Масса оксидов железа, переходящих в шлак [т]:"))
+        self.LossWithCarryOverLabel.setText(_translate("OperatorForm", "Потери металла с выносами и выбросами [т]:"))
+        self.DustLossLabel.setText(_translate("OperatorForm", "Потери железа с пылью [т]:"))
+        item = self.OutputDataTable.verticalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Окисление углерода"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(1)
+        item = self.OutputDataTable.verticalHeaderItem(1)
         item.setText(_translate("OperatorForm", "Разложение CaCO3"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(2)
+        item = self.OutputDataTable.verticalHeaderItem(2)
         item.setText(_translate("OperatorForm", "Дожигание части CO"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(3)
+        item = self.OutputDataTable.verticalHeaderItem(3)
         item.setText(_translate("OperatorForm", "Разложение MgCO3"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(4)
+        item = self.OutputDataTable.verticalHeaderItem(4)
         item.setText(_translate("OperatorForm", "Итого, кг"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(5)
+        item = self.OutputDataTable.verticalHeaderItem(5)
         item.setText(_translate("OperatorForm", "Итого, м^3"))
-        item = self.rashodnaya_chast_table_widget.verticalHeaderItem(6)
+        item = self.OutputDataTable.verticalHeaderItem(6)
         item.setText(_translate("OperatorForm", "Состав газа, %"))
-        item = self.rashodnaya_chast_table_widget.horizontalHeaderItem(0)
+        item = self.OutputDataTable.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "CO"))
-        item = self.rashodnaya_chast_table_widget.horizontalHeaderItem(1)
+        item = self.OutputDataTable.horizontalHeaderItem(1)
         item.setText(_translate("OperatorForm", "CO2"))
-        item = self.rashodnaya_chast_table_widget.horizontalHeaderItem(2)
+        item = self.OutputDataTable.horizontalHeaderItem(2)
         item.setText(_translate("OperatorForm", "Всего"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("OperatorForm", "Материальный баланс"))
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setText(_translate("OperatorForm", "Температура жидкого металла в конце продувки [°C]:"))
@@ -1504,6 +1697,9 @@ class Ui_OperatorForm(object):
         self.addUser.setText(_translate("OperatorForm", "Добавить пользователя"))
         self.AddUser.setText(_translate("OperatorForm", "Добавить пользователя"))
         self.AddDbData.setText(_translate("OperatorForm", "Добавить данные в бд"))
+        self.getFluxes()
+
+
 
 
 if __name__ == "__main__":

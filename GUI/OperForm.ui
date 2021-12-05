@@ -48,7 +48,7 @@
      </size>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
@@ -1378,7 +1378,7 @@
        </property>
        <property name="icon">
         <iconset>
-         <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
+         <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
        </property>
        <property name="iconSize">
         <size>
@@ -1803,7 +1803,7 @@
        </rect>
       </property>
      </widget>
-     <widget class="QTableWidget" name="prihodnie_dannye_table_widget">
+     <widget class="QTableWidget" name="IncomingData">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -1829,7 +1829,7 @@
        </property>
       </column>
      </widget>
-     <widget class="QTableWidget" name="rashodnie_dannye_table_widget">
+     <widget class="QTableWidget" name="OutputData">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -1852,7 +1852,7 @@
        </property>
       </column>
      </widget>
-     <widget class="QLineEdit" name="vyhod_zhidkovo_metalla_pered_raskisleniem_line_edit">
+     <widget class="QLineEdit" name="LiquidIronYield">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -1878,7 +1878,7 @@
        <string>Выход жидкого металла перед раскислением [т]:</string>
       </property>
      </widget>
-     <widget class="QGroupBox" name="rashodnaya_chast_group_box">
+     <widget class="QGroupBox" name="OutputDataGroupBox">
       <property name="geometry">
        <rect>
         <x>470</x>
@@ -1890,7 +1890,7 @@
       <property name="title">
        <string>Расходная часть</string>
       </property>
-      <widget class="QLabel" name="massa_okislivshihsya_primesei_label">
+      <widget class="QLabel" name="MassOfOxidizedImpuritiesLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -1903,7 +1903,7 @@
         <string>Масса окислившихся примесей [т]:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="massa_oksidov_zheleza_label">
+      <widget class="QLabel" name="MassOfOxidesPassingIntoSlagLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -1916,7 +1916,7 @@
         <string>Масса оксидов железа, переходящих в шлак [т]:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="poteri_metalla_s_vynosami_i_vybrosami_label">
+      <widget class="QLabel" name="LossWithCarryOverLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -1929,7 +1929,7 @@
         <string>Потери металла с выносами и выбросами [т]:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="poteri_zheleza_s_pylyu_label">
+      <widget class="QLabel" name="DustLossLabel">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -1942,59 +1942,59 @@
         <string>Потери железа с пылью [т]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="massa_okislivshihsya_primesei_line_edit">
+      <widget class="QLineEdit" name="MassOfOxidizedImpurities">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="geometry">
         <rect>
-         <x>270</x>
+         <x>350</x>
          <y>30</y>
          <width>101</width>
          <height>20</height>
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="massa_oksidov_zheleza_line_edit">
+      <widget class="QLineEdit" name="MassOfOxidesPassingIntoSlag">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="geometry">
         <rect>
-         <x>270</x>
+         <x>350</x>
          <y>50</y>
          <width>101</width>
          <height>20</height>
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="poteri_metalla_s_vynosami_i_vybrosami_line_edit">
+      <widget class="QLineEdit" name="LossWithCarryOver">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="geometry">
         <rect>
-         <x>270</x>
+         <x>350</x>
          <y>70</y>
          <width>101</width>
          <height>20</height>
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="poteri_zheleza_s_pylyu_line_edit">
+      <widget class="QLineEdit" name="DustLoss">
        <property name="enabled">
         <bool>false</bool>
        </property>
        <property name="geometry">
         <rect>
-         <x>270</x>
+         <x>350</x>
          <y>90</y>
          <width>101</width>
          <height>20</height>
         </rect>
        </property>
       </widget>
-      <widget class="QTableWidget" name="rashodnaya_chast_table_widget">
+      <widget class="QTableWidget" name="OutputDataTable">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2078,6 +2078,32 @@
       </property>
       <property name="scaledContents">
        <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="MaterialBalanceCalc">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>890</x>
+        <y>460</y>
+        <width>51</width>
+        <height>61</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>48</width>
+        <height>48</height>
+       </size>
       </property>
      </widget>
     </widget>
