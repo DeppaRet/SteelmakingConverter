@@ -351,6 +351,56 @@ class Ui_OperatorForm(object):
             msg.exec_()
 
 
+    def MaterialBalanceCalcClicked(self):
+        totalOxygenRequired = float(self.SlagFeO.text())* 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
+        totalFeO = 0
+        totalFe2O3 = 0
+        totalCaCO3 = 0
+        totalMgCO3 = 0
+        fluxesRowCount = self.FluxeTable.rowCount()
+        for row in range(fluxesRowCount):
+            currentFluxeWeight = listOfNamesForClass[row].fluxeWeight
+            totalFeO += currentFluxeWeight * listOfNamesForClass[row].fluxeFeO / 100
+            totalFe2O3 += currentFluxeWeight * listOfNamesForClass[row].fluxeFe2O3 / 100
+            totalCaCO3 += currentFluxeWeight * listOfNamesForClass[row].fluxeCaCO3 / 100
+            totalMgCO3 += currentFluxeWeight * listOfNamesForClass[row].fluxeMgCO3 / 100
+        amountOfReclaimedIron = totalFeO + totalFe2O3 - totalFeO * 16/72 - totalFe2O3 * 48/160
+        self.ReclaimedIronWeight.setText(str(round(amountOfReclaimedIron, 4)))
+        weightOfOxedizedImpurities = float(self.OxidationTable.item(2,7).text())/100 * float(self.MetalCharge.text())
+        self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 4)))
+        weightOfIronOxides = float(self.SlagFeO.text()) + float(self.SlagFe2O3.text()) - totalOxygenRequired
+        self.MassOfOxidesPassingIntoSlag.setText(str(round(weightOfIronOxides, 4)))
+        self.LossWithCarryOver.setText(str(round(0.02 * float(self.MetalCharge.text()))))
+
+        oxidesToCO = float(self.OxidationTable.item(5, 1).text())
+        oxidesToCO2 = float(self.OxidationTable.item(5, 2).text())
+        metalChargeWeight = float(self.MetalCharge.text())
+        self.OutputDataTable.setItem(0, 0, QTableWidgetItem(str(round(oxidesToCO * metalChargeWeight / 100, 4))))
+        self.OutputDataTable.setItem(0, 1, QTableWidgetItem(str(round(oxidesToCO2 * metalChargeWeight / 100, 4))))
+        self.OutputDataTable.setItem(0, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(0,1).text()), 4))))
+        self.OutputDataTable.setItem(1, 0, QTableWidgetItem(str("-")))
+        self.OutputDataTable.setItem(1, 1, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 4))))
+        self.OutputDataTable.setItem(1, 2, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 4))))
+        self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-0.1 * float(self.OutputDataTable.item(0, 0).text()),4))))
+        self.OutputDataTable.setItem(2, 1, QTableWidgetItem(str(round(0.1 * float(self.OutputDataTable.item(0, 0).text())* 44 / 28,4))))
+        self.OutputDataTable.setItem(2, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(2, 0).text()) + float(self.OutputDataTable.item(2, 1).text()), 4))))
+        self.OutputDataTable.setItem(3, 0, QTableWidgetItem(str("-")))
+        self.OutputDataTable.setItem(3, 1, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84,4))))
+        self.OutputDataTable.setItem(3, 2, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84,4))))
+        tmp = float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(2, 0).text());
+        self.OutputDataTable.setItem(4, 0, QTableWidgetItem(str(round(tmp, 4))))
+        tmp = float(self.OutputDataTable.item(0, 1).text()) + float(self.OutputDataTable.item(1, 1).text()) + float(self.OutputDataTable.item(2, 1).text()) + float(self.OutputDataTable.item(3, 1).text())
+        self.OutputDataTable.setItem(4, 1, QTableWidgetItem(str(round(tmp, 4))))
+        tmp = float(self.OutputDataTable.item(0, 2).text()) + float(self.OutputDataTable.item(1, 2).text()) + float(self.OutputDataTable.item(2, 2).text()) + float(self.OutputDataTable.item(3, 2).text())
+        self.OutputDataTable.setItem(4, 2, QTableWidgetItem(str(round(tmp, 4))))
+        self.OutputDataTable.setItem(5, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4, 0).text()) * 22.4 / 28, 4))))
+        self.OutputDataTable.setItem(5, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4, 0).text()) * 22.4 / 44, 4))))
+        self.OutputDataTable.setItem(5, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(5, 0).text()) + float(self.OutputDataTable.item(5, 1).text()), 4))))
+        self.OutputDataTable.setItem(6, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,0).text())/float(self.OutputDataTable.item(4,2).text()), 4))))
+        self.OutputDataTable.setItem(6, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,1).text())/float(self.OutputDataTable.item(4,2).text()), 4))))
+        self.OutputDataTable.setItem(6, 2, QTableWidgetItem(str(100)))
+
+        s = 0
 
     def setupUi(self, OperatorForm):
         OperatorForm.setObjectName("OperatorForm")
@@ -968,6 +1018,7 @@ class Ui_OperatorForm(object):
         self.MaterialBalanceCalc.setIcon(icon)
         self.MaterialBalanceCalc.setIconSize(QtCore.QSize(48, 48))
         self.MaterialBalanceCalc.setObjectName("MaterialBalanceCalc")
+        self.MaterialBalanceCalc.clicked.connect(self.MaterialBalanceCalcClicked)
         self.tabWidget.addTab(self.tab_3, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
