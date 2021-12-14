@@ -43,6 +43,9 @@ class Ui_AdminFom(object):
                 for column_number, data in enumerate(row_data):
                     self.tableWidgetUsers.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
+            usersCount = self.tableWidgetUsers.rowCount()
+            for row in range(usersCount):
+                self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)

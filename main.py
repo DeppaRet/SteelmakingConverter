@@ -87,8 +87,7 @@ class Ui_LoginForm(object):
         self.label.setGeometry(QtCore.QRect(20, 30, 111, 121))
         self.label.setMaximumSize(QtCore.QSize(291, 151))
         self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap(
-            "../../../Рабочий стол/ВУЗ/6 сем/Методы оптимизации/Курсовой проект МО/Курсовой проект методы оптимизации Левинский/OptimizationCourseProject/OptimizationMethods/WindowsFormsApp1/sources/emergency-exit.png"))
+        self.label.setPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/emergency-exit.png"))
         self.label.setScaledContents(True)
         self.label.setObjectName("label")
         self.widget = QtWidgets.QWidget(self.centralwidget)
