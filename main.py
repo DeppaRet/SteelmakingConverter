@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QLineEdit
 import AdminForm
 import OperForm
+import DeveloperForm
 import mysql.connector as mc
 
 
@@ -50,15 +51,14 @@ class Ui_LoginForm(object):
                 self.ui.setupUi(self.window)
                 self.window.show()
             elif result == 3:
-                msg.setInformativeText('Логин в качестве разработчика модели')
-                msg.setWindowTitle("Успех")
-                msg.exec_()
-                # self.window = QtWidgets.QMainWindow()
+                # msg.setInformativeText('Логин в качестве разработчика модели')
+                # msg.setWindowTitle("Успех")
+                # msg.exec_()
+                self.window = QtWidgets.QMainWindow()
                 # self.window.setWindowModality(QtCore.Qt.WindowModal)
-                # self.ui = OperForm.Ui_OperatorForm()
-                # self.ui.administrate.isEnabled(True)
-                # self.ui.setupUi(self.window)
-                # self.window.show()
+                self.ui = DeveloperForm.Ui_Form()
+                self.ui.setupUi(self.window)
+                self.window.show()
 
         except Exception as err:  # mc.Error
             msg.setIcon(QMessageBox.Critical)
