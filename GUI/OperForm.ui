@@ -911,28 +911,6 @@
        </property>
       </widget>
      </widget>
-     <widget class="QLabel" name="NextSlag">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>940</x>
-        <y>530</y>
-        <width>61</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
-      </property>
-     </widget>
      <widget class="QGroupBox" name="groupBox_11">
       <property name="geometry">
        <rect>
@@ -1614,7 +1592,7 @@
        </rect>
       </property>
       <property name="title">
-       <string>Расчет дутья</string>
+       <string>Параметры дутья</string>
       </property>
       <widget class="QLineEdit" name="TotalConsumptionOfBlastKg">
        <property name="enabled">
@@ -1746,28 +1724,19 @@
         </size>
        </property>
       </widget>
-     </widget>
-     <widget class="QLabel" name="NextMat">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>940</x>
-        <y>540</y>
-        <width>61</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
-      </property>
+      <widget class="QCheckBox" name="changeSetings">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>20</y>
+         <width>221</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Изменить текущие настройки дутья</string>
+       </property>
+      </widget>
      </widget>
     </widget>
     <widget class="QWidget" name="tab_3">
@@ -2028,7 +1997,7 @@
        </row>
        <row>
         <property name="text">
-         <string>Итого, кг</string>
+         <string>Итого, т</string>
         </property>
        </row>
        <row>
@@ -2057,28 +2026,6 @@
         </property>
        </column>
       </widget>
-     </widget>
-     <widget class="QLabel" name="NextTerm">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>950</x>
-        <y>540</y>
-        <width>61</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
-      </property>
      </widget>
      <widget class="QPushButton" name="MaterialBalanceCalc">
       <property name="enabled">
@@ -2124,19 +2071,6 @@
        <string>Температура жидкого металла в конце продувки [°C]:</string>
       </property>
      </widget>
-     <widget class="QLabel" name="label_49">
-      <property name="geometry">
-       <rect>
-        <x>290</x>
-        <y>540</y>
-        <width>201</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Перейти к расчёту раскисления стали</string>
-      </property>
-     </widget>
      <widget class="QGroupBox" name="rashodnie_statii_group_box_2">
       <property name="geometry">
        <rect>
@@ -2149,7 +2083,7 @@
       <property name="title">
        <string>Расходные статьи</string>
       </property>
-      <widget class="QLineEdit" name="zatrati_tepla_na_pileobrazovanie_line_edit_2">
+      <widget class="QLineEdit" name="HeatDustForm">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2162,7 +2096,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="phizicheskoe_teplo_shlaka_line_edit_2">
+      <widget class="QLineEdit" name="PhysHeatSlag">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2188,7 +2122,7 @@
         <string>Физическое тепло жидкого металла [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="phizicheskoe_teplo_zhidkovo_metalla_line_edit_2">
+      <widget class="QLineEdit" name="PhysHeatLiquidSteel">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2201,7 +2135,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="poteri_tepla_s_vynosami_i_vybrosami_line_edit_2">
+      <widget class="QLineEdit" name="HeatLosesRemove">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2214,7 +2148,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLabel" name="zatrati_tepla_na_razlozhenie_oksidov_zheleza_label_2">
+      <widget class="QLabel" name="HeatConsDecompos_label">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -2240,7 +2174,7 @@
         <string>Потери тепла с выносами и выбросами [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLabel" name="zatrati_tepla_na_pileobrazovanie_label_2">
+      <widget class="QLabel" name="HeatDustForm_label">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -2266,7 +2200,7 @@
         <string>Физическое тепло отходящих газов [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="phizicheskoe_teplo_othodyashih_gazov_line_edit_2">
+      <widget class="QLineEdit" name="PhysHeatOutGas">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2292,7 +2226,7 @@
         <string>Физическое тепло шлака [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="zatrati_tepla_na_razlozhenie_oksidov_zheleza_line_edit_2">
+      <widget class="QLineEdit" name="HeatConsDecompos">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2305,7 +2239,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="teplovie_poteri_line_edit_2">
+      <widget class="QLineEdit" name="HeatLoses">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2357,7 +2291,7 @@
         <string>Общий расход тепла [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="teplo_na_razlozhenie_karbonatov_line_edit_2">
+      <widget class="QLineEdit" name="HeatCarbonDecom">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2370,7 +2304,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="obshii_rashod_tepla_line_edit_2">
+      <widget class="QLineEdit" name="TotalHeatCons">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2383,7 +2317,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QTableWidget" name="rashodnie_statii_table_widget_2">
+      <widget class="QTableWidget" name="OutputHeatTable">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2465,7 +2399,7 @@
        <string>Температура перегрева [°C]:</string>
       </property>
      </widget>
-     <widget class="QLineEdit" name="temperatura_zhidkovo_metalla_v_konce_produvki_line_edit_2">
+     <widget class="QLineEdit" name="LiquidSteelTemp">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -2490,7 +2424,7 @@
       <property name="title">
        <string>Приходные статьи</string>
       </property>
-      <widget class="QLineEdit" name="himicheskoe_teplo_ot_obrazovaniya_oksidov_line_edit_2">
+      <widget class="QLineEdit" name="ChemHeatOxyd">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2503,7 +2437,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="teplovoi_effect_reakcii_okisleniya_line_edit_2">
+      <widget class="QLineEdit" name="ThermalReactEffect">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2516,7 +2450,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="teplovoi_effect_reakcii_shlakoobrazovaniya_line_edit_2">
+      <widget class="QLineEdit" name="ChemHeatSlag">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2581,7 +2515,7 @@
         <string>Физическое тепло жидкого чугуна [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="phizicheskoe_teplo_zhidkovo_chuguna_line_edit_2">
+      <widget class="QLineEdit" name="CastPhysHeat">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2594,7 +2528,7 @@
         </rect>
        </property>
       </widget>
-      <widget class="QLineEdit" name="teplo_ot_dozhiganiya_co_line_edit_2">
+      <widget class="QLineEdit" name="HeatCO">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2620,7 +2554,7 @@
         <string>Тепло от дожигания CO [кДж]:</string>
        </property>
       </widget>
-      <widget class="QLineEdit" name="obshii_prihod_tepla_line_edit_2">
+      <widget class="QLineEdit" name="TotalHeatInc">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2646,7 +2580,7 @@
         <string>Общий приход тепла [кДж]:</string>
        </property>
       </widget>
-      <widget class="QTableWidget" name="prihodnie_statii_table_widget_2">
+      <widget class="QTableWidget" name="IncomingHeatTable">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -2700,108 +2634,7 @@
        </column>
       </widget>
      </widget>
-     <widget class="QPushButton" name="pereiti_k_raschetu_raskisleniya_stali_i_him_sostava_push_button_2">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>360</x>
-        <y>470</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/flask_green.png</normaloff>:/icons/icons/flask_green.png</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>50</width>
-        <height>50</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="pokazat_graphik_zavimisoti_temperatury_plavki_ot_soderzhaniya_ugleroda_v_chugune_push_button_2">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>230</x>
-        <y>470</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/graph1.ico</normaloff>:/icons/icons/graph1.ico</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>45</width>
-        <height>45</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="pokazat_graphik_zavimisoti_temperatury_plavki_ot_temperatury_chuguna_push_button_2">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>170</x>
-        <y>470</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/graph.ico</normaloff>:/icons/icons/graph.ico</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>45</width>
-        <height>45</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="spravka_o_teplovom_balanse_push_button_2">
-      <property name="geometry">
-       <rect>
-        <x>50</x>
-        <y>470</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/help.ico</normaloff>:/icons/icons/help.ico</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>48</width>
-        <height>48</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="temperatura_peregreva_line_edit_2">
+     <widget class="QLineEdit" name="OverheatTemp">
       <property name="enabled">
        <bool>false</bool>
       </property>
@@ -2812,48 +2645,6 @@
         <width>101</width>
         <height>20</height>
        </rect>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="raschet_teplovovo_balansa_push_button_2">
-      <property name="geometry">
-       <rect>
-        <x>110</x>
-        <y>470</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>48</width>
-        <height>48</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_50">
-      <property name="geometry">
-       <rect>
-        <x>290</x>
-        <y>470</y>
-        <width>61</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
-      </property>
-      <property name="scaledContents">
-       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLabel" name="NextSteel">
@@ -2872,10 +2663,36 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
+       <pixmap resource="../../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation код/smelting_calculation/res.qrc">:/icons/icons/arrow_right.ico</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="HeatBalanceCalc">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>430</x>
+        <y>470</y>
+        <width>51</width>
+        <height>61</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
+      </property>
+      <property name="iconSize">
+       <size>
+        <width>48</width>
+        <height>48</height>
+       </size>
       </property>
      </widget>
     </widget>
@@ -2941,69 +2758,7 @@
        <string>Выход металла после раскисления [кг]:</string>
       </property>
      </widget>
-     <widget class="QLineEdit" name="vyhod_tretievo_metalla_posle_raskisleniya_line_edit_2">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>770</x>
-        <y>140</y>
-        <width>91</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="rashod_tretievo_ferrosplava_line_edit_2">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>630</x>
-        <y>140</y>
-        <width>91</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="raschet_raskisleniya_stali_push_button_2">
-      <property name="geometry">
-       <rect>
-        <x>530</x>
-        <y>430</y>
-        <width>51</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/calculate.ico</normaloff>:/icons/icons/calculate.ico</iconset>
-      </property>
-      <property name="iconSize">
-       <size>
-        <width>48</width>
-        <height>48</height>
-       </size>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="vyhod_vtorovo_metalla_posle_raskisleniya_line_edit_2">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>770</x>
-        <y>110</y>
-        <width>91</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QComboBox" name="tip_ferrosplava_combo_box_2">
+     <widget class="QComboBox" name="FeroType">
       <property name="geometry">
        <rect>
         <x>110</x>
@@ -3014,85 +2769,6 @@
       </property>
       <property name="editable">
        <bool>false</bool>
-      </property>
-     </widget>
-     <widget class="QTableWidget" name="himicheskii_sostav_poluchennoi_stali_table_widget_2">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>430</y>
-        <width>511</width>
-        <height>61</height>
-       </rect>
-      </property>
-      <row>
-       <property name="text">
-        <string/>
-       </property>
-      </row>
-      <column>
-       <property name="text">
-        <string>C</string>
-       </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>Si</string>
-       </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>Mn</string>
-       </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>S</string>
-       </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>P</string>
-       </property>
-      </column>
-     </widget>
-     <widget class="QLabel" name="himicheskii_sostav_poluchennoi_stali_label_2">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>400</y>
-        <width>221</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="font">
-       <font>
-        <weight>50</weight>
-        <bold>false</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Химический состав полученной стали</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="dobavit_ferrosplav_push_button_2">
-      <property name="geometry">
-       <rect>
-        <x>280</x>
-        <y>10</y>
-        <width>41</width>
-        <height>23</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-      <property name="icon">
-       <iconset>
-        <normaloff>:/icons/icons/add.ico</normaloff>:/icons/icons/add.ico</iconset>
       </property>
      </widget>
      <widget class="QLabel" name="label_52">
@@ -3108,7 +2784,7 @@
        <string>Расход ферросплава [кг]:</string>
       </property>
      </widget>
-     <widget class="QTableWidget" name="himicheskii_sostav_vybrannyh_raskislitelei_table_widget_2">
+     <widget class="QTableWidget" name="ChemEmission">
       <property name="enabled">
        <bool>true</bool>
       </property>
@@ -3157,7 +2833,7 @@
        </property>
       </column>
      </widget>
-     <widget class="QTableWidget" name="balans_pri_raskislenii_stali_line_edit_2">
+     <widget class="QTableWidget" name="DeoxidationBalance">
       <property name="enabled">
        <bool>true</bool>
       </property>
@@ -3165,8 +2841,8 @@
        <rect>
         <x>10</x>
         <y>180</y>
-        <width>1001</width>
-        <height>211</height>
+        <width>931</width>
+        <height>221</height>
        </rect>
       </property>
       <property name="editTriggers">
@@ -3202,7 +2878,7 @@
       </row>
       <row>
        <property name="text">
-        <string>Состав стали после раск. 1-ым ферросплавом, %</string>
+        <string>Состав стали после раскисления, %</string>
        </property>
       </row>
       <column>
@@ -3256,19 +2932,6 @@
        </property>
       </column>
      </widget>
-     <widget class="QLineEdit" name="rashod_vtorovo_ferrosplava_line_edit_2">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>630</x>
-        <y>110</y>
-        <width>91</width>
-        <height>20</height>
-       </rect>
-      </property>
-     </widget>
      <widget class="QLineEdit" name="rashod_pervovo_ferrosplava_line_edit_2">
       <property name="enabled">
        <bool>false</bool>
@@ -3282,13 +2945,13 @@
        </rect>
       </property>
      </widget>
-     <widget class="QPushButton" name="udalit_ferrosplav_push_button_2">
+     <widget class="QPushButton" name="RemoveFero">
       <property name="geometry">
        <rect>
-        <x>330</x>
+        <x>320</x>
         <y>10</y>
-        <width>41</width>
-        <height>23</height>
+        <width>31</width>
+        <height>21</height>
        </rect>
       </property>
       <property name="text">
@@ -3296,29 +2959,281 @@
       </property>
       <property name="icon">
        <iconset>
-        <normaloff>:/icons/icons/remove.ico</normaloff>:/icons/icons/remove.ico</iconset>
+        <normaloff>../Pictures/remove.ico</normaloff>../Pictures/remove.ico</iconset>
       </property>
      </widget>
-     <widget class="QLabel" name="NextRes">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
+     <widget class="QPushButton" name="AddFero">
       <property name="geometry">
        <rect>
-        <x>950</x>
-        <y>540</y>
-        <width>61</width>
-        <height>61</height>
+        <x>280</x>
+        <y>10</y>
+        <width>31</width>
+        <height>21</height>
        </rect>
       </property>
       <property name="text">
        <string/>
       </property>
-      <property name="pixmap">
-       <pixmap>:/icons/icons/arrow_right.ico</pixmap>
+      <property name="icon">
+       <iconset>
+        <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
       </property>
-      <property name="scaledContents">
-       <bool>true</bool>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_12">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>420</y>
+        <width>591</width>
+        <height>171</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Результат плавки</string>
+      </property>
+      <widget class="QTableWidget" name="SteelChemResult">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>511</width>
+         <height>61</height>
+        </rect>
+       </property>
+       <row>
+        <property name="text">
+         <string/>
+        </property>
+       </row>
+       <column>
+        <property name="text">
+         <string>C</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Si</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Mn</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>S</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>P</string>
+        </property>
+       </column>
+      </widget>
+      <widget class="QLabel" name="himicheskii_sostav_poluchennoi_stali_label_2">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>80</y>
+         <width>221</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Химический состав полученной стали:</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="CO2ThrowRes">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>190</x>
+         <y>20</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="SlagWeightRes">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>190</x>
+         <y>60</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_43">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>20</y>
+         <width>181</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Выбросы CO2 [м^3]:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_44">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>40</y>
+         <width>171</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Масса стали [Т]:</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="SteelWeightRes">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>190</x>
+         <y>40</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_45">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>60</y>
+         <width>171</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Масса шлака [Т]:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_46">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>40</y>
+         <width>161</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Потеря массы футеровки [кг]:</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="LiningWeightLoss">
+       <property name="geometry">
+        <rect>
+         <x>490</x>
+         <y>40</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_47">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>20</y>
+         <width>171</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Температура выхода стали [°C]:</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="resultSteelTemperature">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>490</x>
+         <y>20</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="SteelDeoxidationCalc">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>530</x>
+         <y>100</y>
+         <width>51</width>
+         <height>61</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="icon">
+        <iconset>
+         <normaloff>../Pictures/calculate.ico</normaloff>../Pictures/calculate.ico</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>48</width>
+         <height>48</height>
+        </size>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QTextEdit" name="RecomendationsLineEdit">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>680</x>
+        <y>440</y>
+        <width>281</width>
+        <height>151</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_48">
+      <property name="geometry">
+       <rect>
+        <x>680</x>
+        <y>420</y>
+        <width>81</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Рекомендации:</string>
       </property>
      </widget>
     </widget>
@@ -3405,6 +3320,7 @@
  <resources>
   <include location="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation2/smelting_calculation/res.qrc"/>
   <include location="res.qrc"/>
+  <include location="../../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation код/smelting_calculation/res.qrc"/>
  </resources>
  <connections/>
 </ui>

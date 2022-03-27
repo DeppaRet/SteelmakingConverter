@@ -69,6 +69,90 @@ class Ui_Form(object):
             #msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 
+    def getAllSteel(self):
+        try:
+            query = "select steelname from steeldata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeSteelName.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def getAllScrap(self):
+        try:
+            query = "select idScrapData from scrapdata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeScrap.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def getAllCast(self):
+        try:
+            query = "select idcaststeeldata from caststeeldata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeCastSteel.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
     def getFluxes(self):
         try:
             query = "select FluxeName from fluxedata;"
@@ -137,18 +221,25 @@ class Ui_Form(object):
             mycursor.execute(query, value)
             DB.commit()                # Обязательно для записи
             mycursor.close()
-            DB.close()
+
             tmp = "CastSteelCarbon = " + castCarbon + " AND CastSteelSerum = " + castSerum + " AND CastSteelPhosphor = " + castPhosphor + " AND CastSteelSilicon = " + castSilicon + " AND CastSteelManganese = " + castMang
             query = "select idCastSteelComposition from caststeelcomposition where (" + tmp + ") ORDER BY CastSteelCarbon ASC LIMIT 1;"
             mycursor = DB.cursor()
             mycursor.execute(query)
             result = mycursor.fetchone()[0]
             mycursor.close()
-            DB.close()
+
+
+            query = "insert into caststeeldata (CastSteelWeight, CastSteelTemperature, CastSteelComposition_idCastSteelComposition) values (%s, %s, %s);"
+            value = (self.castWeight.text(), self.castTemperature.text(), result)
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
             msg = QMessageBox()
+            self.getAllCast()
             msg.setWindowTitle("Успех")
             msg.setText("Выполнено")
-            msg.setInformativeText("Учетная запись создана успешно")
+            msg.setInformativeText("Запись успешно добавлена!")
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -156,6 +247,112 @@ class Ui_Form(object):
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
+
+    def addScrap(self):
+        try:
+            query = "insert into scrapcomposition (ScrapCarbon, ScrapSerum, ScrapPhosphor, ScrapSilicon, ScrapManganese) values (%s, %s, %s, %s, %s)"
+            scrapCarbon = self.scrapCarbon.text()
+            scrapSerum = self.scrapSerum.text()
+            scrapPhosphor = self.scrapPhosphor.text()
+            scrapSilicon = self.scrapSilicon.text()
+            scrapMang = self.scrapManganese.text()
+            value = (scrapCarbon, scrapSerum, scrapPhosphor, scrapSilicon, scrapMang)
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()                # Обязательно для записи
+            mycursor.close()
+
+            tmp = "ScrapCarbon = " + scrapCarbon + " AND ScrapSerum = " + scrapSerum + " AND ScrapPhosphor = " + scrapPhosphor + " AND ScrapSilicon = " + scrapSilicon + " AND ScrapManganese = " + scrapMang
+            query = "select idScrapComposition from scrapcomposition where (" + tmp + ") ORDER BY ScrapCarbon ASC LIMIT 1;"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into scrapdata (ScrapWeight, ScrapComposition_idScrapComposition) values(%s, %s)"
+            value = (self.scrapWeight.text(), result)
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
+            DB.close()
+
+            self.getAllScrap()
+            msg = QMessageBox()
+            msg.setWindowTitle("Успех")
+            msg.setText("Выполнено")
+            msg.setInformativeText("Запись успешно добавлена!")
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+
+    def addMode(self):
+        try:
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            query = "select idsteeldata from steeldata where steelname = '" + self.modeSteelName.currentText() + "'"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            idSteel = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into mode (ModeName, SteelData_idSteelData, ScrapData_idScrapData, CastSteelData_idCastSteelData, MathSettings_idMathSettings) values(%s, %s, %s, %s, 1)"
+
+            values = (self.modeName.text(), idSteel, self.modeScrap.currentText(), self.modeCastSteel.currentText())
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, values)
+            DB.commit()  # Обязательно для записи
+            mycursor.close()
+
+            if(self.FluxeTable.rowCount() != 0):
+                query = "select idMode from mode where ModeName = '" + self.modeName.text() + "'"
+                mycursor = DB.cursor()
+                mycursor.execute(query)
+                idMode = mycursor.fetchone()[0]
+                mycursor.close()
+                fluxesRowCount = self.FluxeTable.rowCount()
+                for row in range(fluxesRowCount):
+                    name = self.FluxeTable.item(row, 0).text()
+                    query = "select idFluxeData from FluxeData where FluxeName = '" + name + "'"
+                    mycursor = DB.cursor()
+                    mycursor.execute(query)
+                    idFluxe = mycursor.fetchone()[0]
+                    mycursor.close()
+
+                    query = "insert into fluxedata_has_mode (FluxeData_idFluxeData, Mode_idMode) values (%s, %s)"
+                    values = (idFluxe, idMode)
+                    mycursor = DB.cursor()
+                    mycursor.execute(query, values)
+                    DB.commit()  # Обязательно для записи
+                    mycursor.close()
+
+
+            DB.close()
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
 
     def setupUi(self, Form):
         Form.setObjectName("Form")
@@ -199,6 +396,7 @@ class Ui_Form(object):
         self.addModeButton = QtWidgets.QPushButton(self.groupBox)
         self.addModeButton.setGeometry(QtCore.QRect(380, 80, 81, 23))
         self.addModeButton.setObjectName("addModeButton")
+        self.addModeButton.clicked.connect(self.addMode)
         self.modeCastSteel = QtWidgets.QComboBox(self.groupBox)
         self.modeCastSteel.setGeometry(QtCore.QRect(90, 50, 131, 22))
         self.modeCastSteel.setObjectName("modeCastSteel")
@@ -242,6 +440,7 @@ class Ui_Form(object):
         self.addScrapDataButton = QtWidgets.QPushButton(self.groupBox_2)
         self.addScrapDataButton.setGeometry(QtCore.QRect(210, 20, 81, 23))
         self.addScrapDataButton.setObjectName("addScrapDataButton")
+        self.addScrapDataButton.clicked.connect(self.addScrap)
         self.label_11 = QtWidgets.QLabel(self.groupBox_2)
         self.label_11.setGeometry(QtCore.QRect(10, 20, 101, 16))
         self.label_11.setObjectName("label_11")
@@ -427,6 +626,9 @@ class Ui_Form(object):
         item.setText(_translate("Form", "Тип флюса"))
         self.tip_flyusa_label.setText(_translate("Form", "Тип флюса:"))
         self.getFluxes()
+        self.getAllScrap()
+        self.getAllSteel()
+        self.getAllCast()
 
 
 if __name__ == "__main__":
