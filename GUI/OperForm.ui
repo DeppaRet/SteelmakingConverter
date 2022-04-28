@@ -921,7 +921,7 @@
        </rect>
       </property>
       <property name="title">
-       <string>Выбрать режим и параметры из базы данных</string>
+       <string>Выбрать параметры из базы данных</string>
       </property>
       <widget class="QComboBox" name="ModeComboBox">
        <property name="geometry">
@@ -2720,7 +2720,7 @@
       <property name="geometry">
        <rect>
         <x>770</x>
-        <y>80</y>
+        <y>60</y>
         <width>91</width>
         <height>20</height>
        </rect>
@@ -2730,7 +2730,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>160</y>
+        <y>130</y>
         <width>251</width>
         <height>16</height>
        </rect>
@@ -2749,7 +2749,7 @@
       <property name="geometry">
        <rect>
         <x>770</x>
-        <y>60</y>
+        <y>40</y>
         <width>211</width>
         <height>16</height>
        </rect>
@@ -2775,7 +2775,7 @@
       <property name="geometry">
        <rect>
         <x>630</x>
-        <y>60</y>
+        <y>40</y>
         <width>141</width>
         <height>16</height>
        </rect>
@@ -2791,7 +2791,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>60</y>
+        <y>40</y>
         <width>611</width>
         <height>91</height>
        </rect>
@@ -2840,7 +2840,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>180</y>
+        <y>150</y>
         <width>931</width>
         <height>221</height>
        </rect>
@@ -2939,7 +2939,7 @@
       <property name="geometry">
        <rect>
         <x>630</x>
-        <y>80</y>
+        <y>60</y>
         <width>91</width>
         <height>20</height>
        </rect>
@@ -2982,10 +2982,10 @@
      <widget class="QGroupBox" name="groupBox_12">
       <property name="geometry">
        <rect>
-        <x>20</x>
-        <y>420</y>
-        <width>591</width>
-        <height>171</height>
+        <x>10</x>
+        <y>380</y>
+        <width>931</width>
+        <height>201</height>
        </rect>
       </property>
       <property name="title">
@@ -2997,8 +2997,8 @@
        </property>
        <property name="geometry">
         <rect>
-         <x>10</x>
-         <y>100</y>
+         <x>310</x>
+         <y>30</y>
          <width>511</width>
          <height>61</height>
         </rect>
@@ -3037,8 +3037,8 @@
       <widget class="QLabel" name="himicheskii_sostav_poluchennoi_stali_label_2">
        <property name="geometry">
         <rect>
-         <x>10</x>
-         <y>80</y>
+         <x>310</x>
+         <y>10</y>
          <width>221</width>
          <height>16</height>
         </rect>
@@ -3073,7 +3073,7 @@
        <property name="geometry">
         <rect>
          <x>190</x>
-         <y>60</y>
+         <y>80</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3096,13 +3096,13 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>40</y>
+         <y>50</y>
          <width>171</width>
          <height>16</height>
         </rect>
        </property>
        <property name="text">
-        <string>Масса стали [Т]:</string>
+        <string>Масса стали [кг]:</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="SteelWeightRes">
@@ -3112,7 +3112,7 @@
        <property name="geometry">
         <rect>
          <x>190</x>
-         <y>40</y>
+         <y>50</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3122,7 +3122,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>60</y>
+         <y>80</y>
          <width>171</width>
          <height>16</height>
         </rect>
@@ -3134,8 +3134,8 @@
       <widget class="QLabel" name="label_46">
        <property name="geometry">
         <rect>
-         <x>310</x>
-         <y>40</y>
+         <x>10</x>
+         <y>140</y>
          <width>161</width>
          <height>16</height>
         </rect>
@@ -3147,8 +3147,8 @@
       <widget class="QLineEdit" name="LiningWeightLoss">
        <property name="geometry">
         <rect>
-         <x>490</x>
-         <y>40</y>
+         <x>190</x>
+         <y>140</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3160,8 +3160,8 @@
       <widget class="QLabel" name="label_47">
        <property name="geometry">
         <rect>
-         <x>310</x>
-         <y>20</y>
+         <x>10</x>
+         <y>110</y>
          <width>171</width>
          <height>16</height>
         </rect>
@@ -3176,8 +3176,8 @@
        </property>
        <property name="geometry">
         <rect>
-         <x>490</x>
-         <y>20</y>
+         <x>190</x>
+         <y>110</y>
          <width>91</width>
          <height>20</height>
         </rect>
@@ -3189,8 +3189,8 @@
        </property>
        <property name="geometry">
         <rect>
-         <x>530</x>
-         <y>100</y>
+         <x>870</x>
+         <y>40</y>
          <width>51</width>
          <height>61</height>
         </rect>
@@ -3209,32 +3209,68 @@
         </size>
        </property>
       </widget>
-     </widget>
-     <widget class="QTextEdit" name="RecomendationsLineEdit">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>680</x>
-        <y>440</y>
-        <width>281</width>
-        <height>151</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_48">
-      <property name="geometry">
-       <rect>
-        <x>680</x>
-        <y>420</y>
-        <width>81</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Рекомендации:</string>
-      </property>
+      <widget class="QTableWidget" name="SlagChemResult">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>120</y>
+         <width>511</width>
+         <height>61</height>
+        </rect>
+       </property>
+       <row>
+        <property name="text">
+         <string/>
+        </property>
+       </row>
+       <column>
+        <property name="text">
+         <string>C</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Si</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>Mn</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>S</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>P</string>
+        </property>
+       </column>
+      </widget>
+      <widget class="QLabel" name="himicheskii_sostav_poluchennoi_stali_label_3">
+       <property name="geometry">
+        <rect>
+         <x>310</x>
+         <y>100</y>
+         <width>221</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="font">
+        <font>
+         <weight>50</weight>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Химический состав шлака:</string>
+       </property>
+      </widget>
      </widget>
     </widget>
    </widget>

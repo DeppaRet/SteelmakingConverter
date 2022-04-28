@@ -1,9 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 import mysql.connector as mc
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QAction
 from PyQt5.QtWidgets import QTableWidgetItem
 
 import OperForm
+import AboutForm
 
 
 class Ui_AdminFom(object):
@@ -44,8 +45,9 @@ class Ui_AdminFom(object):
                     self.tableWidgetUsers.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
             usersCount = self.tableWidgetUsers.rowCount()
-            for row in range(usersCount):
-                self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
+            if choosenTable == "Пользователи":
+                for row in range(usersCount):
+                    self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -62,9 +64,9 @@ class Ui_AdminFom(object):
             query = "SELECT * FROM "
             if (chTable == "Режимы"):
                 query += "Mode;"
-                self.tableWidgetFactory.setColumnCount(6)
+                self.tableWidgetFactory.setColumnCount(5)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(
-                    ["Номер", "Название", "Номер стали", "Номер лома", "Номер чугуна", "Мат параметры"])
+                    ["Номер", "Название", "Номер стали", "Номер лома", "Номер чугуна"])
             elif (chTable == "Сталь"):
                 query += "SteelData;"
                 self.tableWidgetFactory.setColumnCount(3)
@@ -188,6 +190,12 @@ class Ui_AdminFom(object):
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
+
+    def openAbout(self):
+        self.window = QtWidgets.QDialog()
+        self.ui = AboutForm.Ui_Dialog()
+        self.ui.setupUi(self.window)
+        self.window.show()
 
     def setupUi(self, AdminFom):
         AdminFom.setObjectName("AdminFom")
@@ -529,10 +537,18 @@ class Ui_AdminFom(object):
         self.exit.setObjectName("exit")
         self.about = QtWidgets.QAction(AdminFom)
         self.about.setObjectName("about")
+
+        self.exit.setShortcut('Ctrl+Q')
+        self.exit.triggered.connect(lambda: self.app.Quit)
+
+        self.about.triggered.connect(self.openAbout)
+
         self.menu.addAction(self.exit)
         self.menu_2.addAction(self.about)
         self.menubar.addAction(self.menu.menuAction())
         self.menubar.addAction(self.menu_2.menuAction())
+
+
 
         self.retranslateUi(AdminFom)
         self.Factory.setCurrentIndex(0)
