@@ -31,19 +31,13 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>981</width>
+      <width>991</width>
       <height>731</height>
      </rect>
     </property>
     <property name="minimumSize">
      <size>
-      <width>981</width>
-      <height>731</height>
-     </size>
-    </property>
-    <property name="maximumSize">
-     <size>
-      <width>981</width>
+      <width>991</width>
       <height>731</height>
      </size>
     </property>
@@ -58,9 +52,9 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>100</y>
+        <y>70</y>
         <width>301</width>
-        <height>111</height>
+        <height>141</height>
        </rect>
       </property>
       <property name="title">
@@ -72,11 +66,11 @@
          <x>10</x>
          <y>20</y>
          <width>281</width>
-         <height>81</height>
+         <height>111</height>
         </rect>
        </property>
        <property name="title">
-        <string>Химический состав</string>
+        <string>Химический состав, %масс</string>
        </property>
        <widget class="QLabel" name="label">
         <property name="geometry">
@@ -170,6 +164,35 @@
          </rect>
         </property>
        </widget>
+       <widget class="QLabel" name="label_26">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>80</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Марганец (Mn):</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="steelManganese">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>80</y>
+          <width>51</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
       </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_2">
@@ -207,7 +230,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>Температура (℃):</string>
+        <string>Температура [℃]:</string>
        </property>
       </widget>
       <widget class="QLabel" name="label_6">
@@ -220,7 +243,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>Масса (Т):</string>
+        <string>Масса [т]:</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="castWeight">
@@ -240,13 +263,13 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>70</y>
+         <y>80</y>
          <width>281</width>
          <height>111</height>
         </rect>
        </property>
        <property name="title">
-        <string>Химический состав</string>
+        <string>Химический состав, %масс</string>
        </property>
        <widget class="QLabel" name="label_7">
         <property name="geometry">
@@ -376,12 +399,12 @@
        <rect>
         <x>20</x>
         <y>220</y>
-        <width>301</width>
+        <width>171</width>
         <height>80</height>
        </rect>
       </property>
       <property name="title">
-       <string>Металлошихта</string>
+       <string>Металлошихта, т</string>
       </property>
       <widget class="QLineEdit" name="MetalCharge">
        <property name="enabled">
@@ -389,8 +412,8 @@
        </property>
        <property name="geometry">
         <rect>
-         <x>60</x>
-         <y>30</y>
+         <x>10</x>
+         <y>40</y>
          <width>51</width>
          <height>20</height>
         </rect>
@@ -399,9 +422,9 @@
       <widget class="QLabel" name="label_16">
        <property name="geometry">
         <rect>
-         <x>20</x>
-         <y>30</y>
-         <width>71</width>
+         <x>10</x>
+         <y>20</y>
+         <width>41</width>
          <height>16</height>
         </rect>
        </property>
@@ -415,7 +438,7 @@
        </property>
        <property name="geometry">
         <rect>
-         <x>240</x>
+         <x>110</x>
          <y>10</y>
          <width>51</width>
          <height>61</height>
@@ -458,7 +481,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>Масса (Т):</string>
+        <string>Масса [т]:</string>
        </property>
       </widget>
       <widget class="QLineEdit" name="scrapWeight">
@@ -478,13 +501,13 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>70</y>
+         <y>80</y>
          <width>281</width>
          <height>111</height>
         </rect>
        </property>
        <property name="title">
-        <string>Химический состав</string>
+        <string>Химический состав, %масс</string>
        </property>
        <widget class="QLabel" name="label_12">
         <property name="geometry">
@@ -612,14 +635,14 @@
      <widget class="QGroupBox" name="groupBox_8">
       <property name="geometry">
        <rect>
-        <x>330</x>
+        <x>200</x>
         <y>220</y>
-        <width>471</width>
+        <width>431</width>
         <height>80</height>
        </rect>
       </property>
       <property name="title">
-       <string>Химический состав</string>
+       <string>Химический состав шихты, %масс</string>
       </property>
       <widget class="QLabel" name="label_17">
        <property name="geometry">
@@ -917,7 +940,7 @@
         <x>20</x>
         <y>10</y>
         <width>301</width>
-        <height>80</height>
+        <height>51</height>
        </rect>
       </property>
       <property name="title">
@@ -927,7 +950,7 @@
        <property name="geometry">
         <rect>
          <x>70</x>
-         <y>30</y>
+         <y>20</y>
          <width>141</width>
          <height>22</height>
         </rect>
@@ -937,7 +960,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>30</y>
+         <y>20</y>
          <width>61</width>
          <height>16</height>
         </rect>
@@ -958,7 +981,7 @@
        <property name="geometry">
         <rect>
          <x>260</x>
-         <y>50</y>
+         <y>20</y>
          <width>31</width>
          <height>21</height>
         </rect>

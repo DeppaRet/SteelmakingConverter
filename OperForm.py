@@ -1,4 +1,3 @@
-# import sklearn
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView
 import mysql.connector as mc
@@ -129,6 +128,7 @@ class Ui_OperatorForm(object):
             self.steelSerum.setText(str(steelComposition[0][2]))
             self.steelPhosphor.setText(str(steelComposition[0][3]))
             self.steelSilicon.setText(str(steelComposition[0][4]))
+            self.steelManganese.setText(str(steelComposition[0][5]))
             mycursor.close()
 
             query = "select * from caststeelcomposition where idCastSteelComposition = (select CastSteelComposition_idCastSteelComposition from caststeeldata where idCastSteelData = "+ str(castId) + ");"
@@ -202,12 +202,12 @@ class Ui_OperatorForm(object):
             chemSilicon = (castSteelSiliconValue * castSteelWeightValue + scrapSiliconValue * scrapWeightValue)/totalWeightValue
             chemManganese = (castSteelManganeseValue * castSteelWeightValue + scrapManganeseValue * scrapWeightValue)/totalWeightValue
 
-            self.MetalCharge.setText(str(round(totalWeightValue, 2)))
-            self.ChemCarbon.setText(str(round(carbonChem, 2)))
-            self.ChemSerum.setText(str(round(chemSerum,2)))
-            self.ChemPhosphor.setText(str(round(chemPhosphor,2)))
-            self.ChemManganese.setText(str(round(chemManganese,2)))
-            self.ChemSilicon.setText(str(round(chemSilicon,2)))
+            self.MetalCharge.setText(str(round(totalWeightValue, 3)))
+            self.ChemCarbon.setText(str(round(carbonChem, 3)))
+            self.ChemSerum.setText(str(round(chemSerum,3)))
+            self.ChemPhosphor.setText(str(round(chemPhosphor,3)))
+            self.ChemManganese.setText(str(round(chemManganese,3)))
+            self.ChemSilicon.setText(str(round(chemSilicon,3)))
             global metalChargeCalcked
             metalChargeCalcked = True
 
@@ -233,20 +233,20 @@ class Ui_OperatorForm(object):
             chemManganesevalue = float(self.ChemManganese.text())
             chemSiliconValue = float(self.ChemSilicon.text())
 
-            self.OxidationTable.setItem(0, 0, QTableWidgetItem(str(round(chemCarbonValue, 2))))
+            self.OxidationTable.setItem(0, 0, QTableWidgetItem(str(round(chemCarbonValue, 3))))
             self.OxidationTable.setItem(0, 1, QTableWidgetItem("-"))
             self.OxidationTable.setItem(0, 2, QTableWidgetItem("-"))
-            self.OxidationTable.setItem(0, 3, QTableWidgetItem(str(round(chemSiliconValue, 2)))) # silicon value
-            self.OxidationTable.setItem(0, 4, QTableWidgetItem(str(round(chemManganesevalue, 2)))) # manganese
-            self.OxidationTable.setItem(0, 5, QTableWidgetItem(str(round(chemPhosphorValue, 2)))) # Phosphor
-            self.OxidationTable.setItem(0, 6, QTableWidgetItem(str(round(chemSerumValue, 2)))) # serum
+            self.OxidationTable.setItem(0, 3, QTableWidgetItem(str(round(chemSiliconValue, 3)))) # silicon value
+            self.OxidationTable.setItem(0, 4, QTableWidgetItem(str(round(chemManganesevalue, 3)))) # manganese
+            self.OxidationTable.setItem(0, 5, QTableWidgetItem(str(round(chemPhosphorValue, 3)))) # Phosphor
+            self.OxidationTable.setItem(0, 6, QTableWidgetItem(str(round(chemSerumValue, 3)))) # serum
             self.OxidationTable.setItem(0, 7, QTableWidgetItem("-"))  # serum
 
             steelCarbonValue = float(self.steelCarbon.text())
             steelSerumValue = float(self.steelSerum.text())
             steelSiliconValue = float(self.steelSilicon.text())
             steelPhosphorValue = float(self.steelPhosphor.text())
-            steelManganeseValue = 0.5 # добавить поле ввода для марганца float(self.steel.text())
+            steelManganeseValue = float(self.steelManganese.text()) # добавить поле ввода для марганца float(self.steel.text())
 
             if(steelCarbonValue <= 0.1):
                 Mn = 85.0
@@ -266,13 +266,13 @@ class Ui_OperatorForm(object):
             serumAfter = chemSerumValue * (100.0 - S) * 0.01
             siliconAfter = 0
 
-            self.OxidationTable.setItem(1, 0, QTableWidgetItem(str(round(steelCarbonValue, 2))))
+            self.OxidationTable.setItem(1, 0, QTableWidgetItem(str(round(steelCarbonValue, 3))))
             self.OxidationTable.setItem(1, 1, QTableWidgetItem("-"))
             self.OxidationTable.setItem(1, 2, QTableWidgetItem("-"))
-            self.OxidationTable.setItem(1, 3, QTableWidgetItem(str(round(siliconAfter, 2))))  # silicon value
-            self.OxidationTable.setItem(1, 4, QTableWidgetItem(str(round(manganeseAfter, 2))))  # manganese
-            self.OxidationTable.setItem(1, 5, QTableWidgetItem(str(round(phosphorAfter, 2))))  # Phosphor
-            self.OxidationTable.setItem(1, 6, QTableWidgetItem(str(round(serumAfter, 2))))  # serum
+            self.OxidationTable.setItem(1, 3, QTableWidgetItem(str(round(siliconAfter, 3))))  # silicon value
+            self.OxidationTable.setItem(1, 4, QTableWidgetItem(str(round(manganeseAfter, 3))))  # manganese
+            self.OxidationTable.setItem(1, 5, QTableWidgetItem(str(round(phosphorAfter, 3))))  # Phosphor
+            self.OxidationTable.setItem(1, 6, QTableWidgetItem(str(round(serumAfter, 3))))  # serum
             self.OxidationTable.setItem(1, 7, QTableWidgetItem("-"))  # serum
 
             carbonRemove = chemCarbonValue - steelCarbonValue
@@ -284,14 +284,14 @@ class Ui_OperatorForm(object):
             serumRemove = -(chemSerumValue - steelSerumValue)
             summRemove = carbonToCO + carbonToCO2 + siliconRemove +manganeseRemove + phosphorRemove + serumRemove
 
-            self.OxidationTable.setItem(2, 0, QTableWidgetItem(str(round(carbonRemove, 2))))
-            self.OxidationTable.setItem(2, 1, QTableWidgetItem(str(round(carbonToCO, 2))))
-            self.OxidationTable.setItem(2, 2, QTableWidgetItem(str(round(carbonToCO2, 2))))
-            self.OxidationTable.setItem(2, 3, QTableWidgetItem(str(round(siliconRemove, 2))))  # silicon value
-            self.OxidationTable.setItem(2, 4, QTableWidgetItem(str(round(manganeseRemove, 2))))  # manganese
-            self.OxidationTable.setItem(2, 5, QTableWidgetItem(str(round(phosphorRemove, 2))))  # Phosphor
-            self.OxidationTable.setItem(2, 6, QTableWidgetItem(str(round(serumRemove, 2))))  # serum
-            self.OxidationTable.setItem(2, 7, QTableWidgetItem(str(round(summRemove, 2))))  # summ
+            self.OxidationTable.setItem(2, 0, QTableWidgetItem(str(round(carbonRemove, 3))))
+            self.OxidationTable.setItem(2, 1, QTableWidgetItem(str(round(carbonToCO, 3))))
+            self.OxidationTable.setItem(2, 2, QTableWidgetItem(str(round(carbonToCO2, 3))))
+            self.OxidationTable.setItem(2, 3, QTableWidgetItem(str(round(siliconRemove, 3))))  # silicon value
+            self.OxidationTable.setItem(2, 4, QTableWidgetItem(str(round(manganeseRemove, 3))))  # manganese
+            self.OxidationTable.setItem(2, 5, QTableWidgetItem(str(round(phosphorRemove, 3))))  # Phosphor
+            self.OxidationTable.setItem(2, 6, QTableWidgetItem(str(round(serumRemove, 3))))  # serum
+            self.OxidationTable.setItem(2, 7, QTableWidgetItem(str(round(summRemove, 3))))  # summ
 
             carbonToCOOxygen = carbonToCO * 16/12
             carbonToCO2Oxygen = carbonToCO2 * 32/12
@@ -301,13 +301,13 @@ class Ui_OperatorForm(object):
             summOxygen = carbonToCOOxygen + carbonToCO2Oxygen + siliconOxygen + manganesOxygen +phosphorOxygen
 
             self.OxidationTable.setItem(3, 0, QTableWidgetItem("-"))
-            self.OxidationTable.setItem(3, 1, QTableWidgetItem(str(round(carbonToCOOxygen, 2))))
-            self.OxidationTable.setItem(3, 2, QTableWidgetItem(str(round(carbonToCO2Oxygen, 2))))
-            self.OxidationTable.setItem(3, 3, QTableWidgetItem(str(round(siliconOxygen, 2))))  # silicon value
-            self.OxidationTable.setItem(3, 4, QTableWidgetItem(str(round(manganesOxygen, 2))))  # manganese
-            self.OxidationTable.setItem(3, 5, QTableWidgetItem(str(round(phosphorOxygen, 2))))  # Phosphor
+            self.OxidationTable.setItem(3, 1, QTableWidgetItem(str(round(carbonToCOOxygen, 3))))
+            self.OxidationTable.setItem(3, 2, QTableWidgetItem(str(round(carbonToCO2Oxygen, 3))))
+            self.OxidationTable.setItem(3, 3, QTableWidgetItem(str(round(siliconOxygen, 3))))  # silicon value
+            self.OxidationTable.setItem(3, 4, QTableWidgetItem(str(round(manganesOxygen, 3))))  # manganese
+            self.OxidationTable.setItem(3, 5, QTableWidgetItem(str(round(phosphorOxygen, 3))))  # Phosphor
             self.OxidationTable.setItem(3, 6, QTableWidgetItem("-"))  # serum
-            self.OxidationTable.setItem(3, 7, QTableWidgetItem(str(round(summOxygen, 2))))  # summ
+            self.OxidationTable.setItem(3, 7, QTableWidgetItem(str(round(summOxygen, 3))))  # summ
 
             carbonToCOOxygenM3 = carbonToCOOxygen * 22.4 / 32
             carbonToCO2OxygenM3 = carbonToCO2Oxygen * 22.4 / 32
@@ -317,13 +317,13 @@ class Ui_OperatorForm(object):
             summOxygenM3 = carbonToCOOxygenM3 + carbonToCO2OxygenM3 + siliconOxygenM3 + manganesOxygenM3 + phosphorOxygenM3
 
             self.OxidationTable.setItem(4, 0, QTableWidgetItem("-"))
-            self.OxidationTable.setItem(4, 1, QTableWidgetItem(str(round(carbonToCOOxygenM3, 2))))
-            self.OxidationTable.setItem(4, 2, QTableWidgetItem(str(round(carbonToCO2OxygenM3, 2))))
-            self.OxidationTable.setItem(4, 3, QTableWidgetItem(str(round(siliconOxygenM3, 2))))  # silicon value
-            self.OxidationTable.setItem(4, 4, QTableWidgetItem(str(round(manganesOxygenM3, 2))))  # manganese
-            self.OxidationTable.setItem(4, 5, QTableWidgetItem(str(round(phosphorOxygenM3, 2))))  # Phosphor
+            self.OxidationTable.setItem(4, 1, QTableWidgetItem(str(round(carbonToCOOxygenM3, 3))))
+            self.OxidationTable.setItem(4, 2, QTableWidgetItem(str(round(carbonToCO2OxygenM3, 3))))
+            self.OxidationTable.setItem(4, 3, QTableWidgetItem(str(round(siliconOxygenM3, 3))))  # silicon value
+            self.OxidationTable.setItem(4, 4, QTableWidgetItem(str(round(manganesOxygenM3, 3))))  # manganese
+            self.OxidationTable.setItem(4, 5, QTableWidgetItem(str(round(phosphorOxygenM3, 3))))  # Phosphor
             self.OxidationTable.setItem(4, 6, QTableWidgetItem("-"))  # serum
-            self.OxidationTable.setItem(4, 7, QTableWidgetItem(str(round(summOxygenM3, 2))))  # summ
+            self.OxidationTable.setItem(4, 7, QTableWidgetItem(str(round(summOxygenM3, 3))))  # summ
 
             oxidesToCO = carbonToCO + carbonToCOOxygen
             oxidesToCO2 = carbonToCO2 + carbonToCO2Oxygen
@@ -334,13 +334,13 @@ class Ui_OperatorForm(object):
             oxidesSumm = oxidesToCO + oxidesToCO2 + oxidesSilicon + oxidesManganes + oxidesPhosphor
 
             self.OxidationTable.setItem(5, 0, QTableWidgetItem("-"))
-            self.OxidationTable.setItem(5, 1, QTableWidgetItem(str(round(oxidesToCO, 2))))
-            self.OxidationTable.setItem(5, 2, QTableWidgetItem(str(round(oxidesToCO2, 2))))
-            self.OxidationTable.setItem(5, 3, QTableWidgetItem(str(round(oxidesSilicon, 2))))  # silicon value
-            self.OxidationTable.setItem(5, 4, QTableWidgetItem(str(round(oxidesManganes, 2))))  # manganese
-            self.OxidationTable.setItem(5, 5, QTableWidgetItem(str(round(oxidesPhosphor, 2))))  # Phosphor
-            self.OxidationTable.setItem(5, 6, QTableWidgetItem(str(round(oxidesSerum, 2))))  # serum
-            self.OxidationTable.setItem(5, 7, QTableWidgetItem(str(round(oxidesSumm, 2))))  # summ
+            self.OxidationTable.setItem(5, 1, QTableWidgetItem(str(round(oxidesToCO, 3))))
+            self.OxidationTable.setItem(5, 2, QTableWidgetItem(str(round(oxidesToCO2, 3))))
+            self.OxidationTable.setItem(5, 3, QTableWidgetItem(str(round(oxidesSilicon, 3))))  # silicon value
+            self.OxidationTable.setItem(5, 4, QTableWidgetItem(str(round(oxidesManganes, 3))))  # manganese
+            self.OxidationTable.setItem(5, 5, QTableWidgetItem(str(round(oxidesPhosphor, 3))))  # Phosphor
+            self.OxidationTable.setItem(5, 6, QTableWidgetItem(str(round(oxidesSerum, 3))))  # serum
+            self.OxidationTable.setItem(5, 7, QTableWidgetItem(str(round(oxidesSumm, 3))))  # summ
             global tableCalcked
             tableCalcked = True
         except Exception as err:  # mc.Error
@@ -505,21 +505,21 @@ class Ui_OperatorForm(object):
             slagFeO = FeO / 100 * slagWeight
             slagFe2O3 = Fe2O3 / 100 * slagWeight
 
-            self.SlagWeight.setText(str(round(slagWeight, 2)))
-            self.SlagSiO2.setText(str(round(slagSiO2, 2)))
-            self.SlagSiO2Perc.setText(str(round(slagSiO2/slagWeight * 100, 2)))
-            self.SlagAl2O3.setText(str(round(slagAl2O3, 2)))
-            self.SlagAl2O3Perc.setText(str(round(slagAl2O3/slagWeight*100, 2)))
-            self.SlagCaO.setText(str(round(slagCaO, 2)))
-            self.SlagCaOPerc.setText(str(round(slagCaO/slagWeight*100, 2)))
-            self.SlagFeO.setText(str(round(slagFeO, 2)))
-            self.SlagFeOPerc.setText(str(round(slagFeO/slagWeight*100, 2)))
-            self.SlagMgO.setText(str(round(slagMgO, 2)))
-            self.SlagMgOPerc.setText(str(round(slagMgO/slagWeight*100, 2)))
+            self.SlagWeight.setText(str(round(slagWeight, 3)))
+            self.SlagSiO2.setText(str(round(slagSiO2, 3)))
+            self.SlagSiO2Perc.setText(str(round(slagSiO2/slagWeight * 100, 3)))
+            self.SlagAl2O3.setText(str(round(slagAl2O3, 3)))
+            self.SlagAl2O3Perc.setText(str(round(slagAl2O3/slagWeight*100, 3)))
+            self.SlagCaO.setText(str(round(slagCaO, 3)))
+            self.SlagCaOPerc.setText(str(round(slagCaO/slagWeight*100, 3)))
+            self.SlagFeO.setText(str(round(slagFeO, 3)))
+            self.SlagFeOPerc.setText(str(round(slagFeO/slagWeight*100, 3)))
+            self.SlagMgO.setText(str(round(slagMgO, 3)))
+            self.SlagMgOPerc.setText(str(round(slagMgO/slagWeight*100, 3)))
             self.SlagFe2O3.setText(str(round(slagFe2O3)))
             self.SlagFe2O3Perc.setText(str(round(slagFe2O3/slagWeight*100)))
-            self.SlagOthers.setText(str(round(slagOthers, 2)))
-            self.SlagOthersPerc.setText(str(round(slagOthers/slagWeight*100,2)))
+            self.SlagOthers.setText(str(round(slagOthers, 3)))
+            self.SlagOthersPerc.setText(str(round(slagOthers/slagWeight*100, 3)))
             global slagCalcked
             slagCalcked = True
         except Exception as err:
@@ -557,10 +557,10 @@ class Ui_OperatorForm(object):
             totalBlastConsumptionM3 = totalBlastConsumptionKg * 22.4/32
             excessBlast = totalBlastConsumptionKg * 0.08
 
-            self.TotalOxygenDemandBlast.setText(str(round(summaryOxygenRequired, 2)))
-            self.TotalConsumptionOfBlastKg.setText(str(round(totalBlastConsumptionKg, 2)))
-            self.TotalConsumptionOfBlastM3.setText(str(round(totalBlastConsumptionM3, 2)))
-            self.ExcessBlast.setText(str(round(excessBlast, 2)))
+            self.TotalOxygenDemandBlast.setText(str(round(summaryOxygenRequired, 3)))
+            self.TotalConsumptionOfBlastKg.setText(str(round(totalBlastConsumptionKg, 3)))
+            self.TotalConsumptionOfBlastM3.setText(str(round(totalBlastConsumptionM3, 3)))
+            self.ExcessBlast.setText(str(round(excessBlast, 3)))
             global blastCalcked
             blastCalcked = True
         except Exception as err:
@@ -592,46 +592,46 @@ class Ui_OperatorForm(object):
                 totalMgCO3 += currentFluxeWeight * listOfNamesForClass[row].fluxeMgCO3 / 100
 
             amountOfReclaimedIron = totalFeO + totalFe2O3 - totalFeO * 16/72 - totalFe2O3 * 48/160
-            self.ReclaimedIronWeight.setText(str(round(amountOfReclaimedIron, 2)))
+            self.ReclaimedIronWeight.setText(str(round(amountOfReclaimedIron, 3)))
 
             weightOfOxedizedImpurities = float(self.OxidationTable.item(2,7).text())/100 * float(self.MetalCharge.text())
-            self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 2)))
+            self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 3)))
 
             weightOfIronOxides = float(self.SlagFeO.text()) + float(self.SlagFe2O3.text()) - totalOxygenRequired
-            self.MassOfOxidesPassingIntoSlag.setText(str(round(weightOfIronOxides, 2)))
-            self.LossWithCarryOver.setText(str(round(0.02 * float(self.MetalCharge.text()))))
+            self.MassOfOxidesPassingIntoSlag.setText(str(round(weightOfIronOxides, 3)))
+            self.LossWithCarryOver.setText(str(round(0.02 * float(self.MetalCharge.text()), 3)))
 
             oxidesToCO = float(self.OxidationTable.item(5, 1).text())
             oxidesToCO2 = float(self.OxidationTable.item(5, 2).text())
             metalChargeWeight = float(self.MetalCharge.text())
-            self.OutputDataTable.setItem(0, 0, QTableWidgetItem(str(round(oxidesToCO * metalChargeWeight / 100, 2))))
-            self.OutputDataTable.setItem(0, 1, QTableWidgetItem(str(round(oxidesToCO2 * metalChargeWeight / 100, 2))))
-            self.OutputDataTable.setItem(0, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(0,1).text()), 2))))
+            self.OutputDataTable.setItem(0, 0, QTableWidgetItem(str(round(oxidesToCO * metalChargeWeight / 100, 3))))
+            self.OutputDataTable.setItem(0, 1, QTableWidgetItem(str(round(oxidesToCO2 * metalChargeWeight / 100, 3))))
+            self.OutputDataTable.setItem(0, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(0,1).text()), 3))))
             self.OutputDataTable.setItem(1, 0, QTableWidgetItem(str("-")))
-            self.OutputDataTable.setItem(1, 1, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 2))))
-            self.OutputDataTable.setItem(1, 2, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 2))))
-            self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-0.1 * float(self.OutputDataTable.item(0, 0).text()),2))))
-            self.OutputDataTable.setItem(2, 1, QTableWidgetItem(str(round(0.1 * float(self.OutputDataTable.item(0, 0).text()) * 44 / 28, 2))))
-            self.OutputDataTable.setItem(2, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(2, 0).text()) + float(self.OutputDataTable.item(2, 1).text()), 2))))
+            self.OutputDataTable.setItem(1, 1, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 3))))
+            self.OutputDataTable.setItem(1, 2, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 3))))
+            self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-0.1 * float(self.OutputDataTable.item(0, 0).text()), 3))))
+            self.OutputDataTable.setItem(2, 1, QTableWidgetItem(str(round(0.1 * float(self.OutputDataTable.item(0, 0).text()) * 44 / 28, 3))))
+            self.OutputDataTable.setItem(2, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(2, 0).text()) + float(self.OutputDataTable.item(2, 1).text()), 3))))
             self.OutputDataTable.setItem(3, 0, QTableWidgetItem(str("-")))
-            self.OutputDataTable.setItem(3, 1, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 2))))
-            self.OutputDataTable.setItem(3, 2, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 2))))
+            self.OutputDataTable.setItem(3, 1, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 3))))
+            self.OutputDataTable.setItem(3, 2, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 3))))
             tmp = float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(2, 0).text());
-            self.OutputDataTable.setItem(4, 0, QTableWidgetItem(str(round(tmp, 2))))
+            self.OutputDataTable.setItem(4, 0, QTableWidgetItem(str(round(tmp, 3))))
             tmp = float(self.OutputDataTable.item(0, 1).text()) + float(self.OutputDataTable.item(1, 1).text()) + float(self.OutputDataTable.item(2, 1).text()) + float(self.OutputDataTable.item(3, 1).text())
-            self.OutputDataTable.setItem(4, 1, QTableWidgetItem(str(round(tmp, 2))))
+            self.OutputDataTable.setItem(4, 1, QTableWidgetItem(str(round(tmp, 3))))
             tmp = float(self.OutputDataTable.item(0, 2).text()) + float(self.OutputDataTable.item(1, 2).text()) + float(self.OutputDataTable.item(2, 2).text()) + float(self.OutputDataTable.item(3, 2).text())
-            self.OutputDataTable.setItem(4, 2, QTableWidgetItem(str(round(tmp, 2))))
-            self.OutputDataTable.setItem(5, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4, 0).text()) * 22.4 / 28, 2))))
+            self.OutputDataTable.setItem(4, 2, QTableWidgetItem(str(round(tmp, 3))))
+            self.OutputDataTable.setItem(5, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4, 0).text()) * 22.4 / 28, 3))))
             tmp = float(self.OutputDataTable.item(4, 1).text()) * 22.4 / 44
-            self.OutputDataTable.setItem(5, 1, QTableWidgetItem(str(round(tmp, 2))))
-            self.OutputDataTable.setItem(5, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(5, 0).text()) + float(self.OutputDataTable.item(5, 1).text()), 2))))
-            self.OutputDataTable.setItem(6, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,0).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 2))))
-            self.OutputDataTable.setItem(6, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,1).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 2))))
+            self.OutputDataTable.setItem(5, 1, QTableWidgetItem(str(round(tmp, 3))))
+            self.OutputDataTable.setItem(5, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(5, 0).text()) + float(self.OutputDataTable.item(5, 1).text()), 3))))
+            self.OutputDataTable.setItem(6, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,0).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 3))))
+            self.OutputDataTable.setItem(6, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,1).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 3))))
             self.OutputDataTable.setItem(6, 2, QTableWidgetItem(str(100)))
 
             tmp = 0.00001 * 200 * 70 * float(self.OutputDataTable.item(5,2).text())
-            self.DustLoss.setText(str(round(tmp, 2)))
+            self.DustLoss.setText(str(round(tmp, 3)))
 
             oxidesPassingIntoSlag = float(self.MassOfOxidesPassingIntoSlag.text())
             oxidizedImpurities = float(self.MassOfOxidizedImpurities.text())
@@ -640,7 +640,7 @@ class Ui_OperatorForm(object):
             reclaimedIronWeight = float(self.ReclaimedIronWeight.text())
             liquidIron = metalChargeWeight + reclaimedIronWeight - (oxidizedImpurities + oxidesPassingIntoSlag +
                                                                     lossWithCarryOver + dustLoss)
-            self.LiquidIronYield.setText(str(round(liquidIron, 2)))
+            self.LiquidIronYield.setText(str(round(liquidIron, 3)))
 
             incomingDataRowCount = self.IncomingData.rowCount()
 
@@ -657,12 +657,12 @@ class Ui_OperatorForm(object):
 
             self.IncomingData.insertRow(incomingDataRowCount)
             self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Чугун жидкий"))
-            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.castWeight.text())*1000))))
+            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.castWeight.text())*1000, 3))))
 
             incomingDataRowCount += 1
             self.IncomingData.insertRow(incomingDataRowCount)
             self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Лом"))
-            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.scrapWeight.text()) * 1000))))
+            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.scrapWeight.text()) * 1000, 3))))
 
             incomingDataRowCount += 1
             for row in range(fluxesRowCount):
@@ -675,7 +675,7 @@ class Ui_OperatorForm(object):
             self.IncomingData.insertRow(incomingDataRowCount)
             self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Дутьё"))
             self.IncomingData.setItem(incomingDataRowCount, 1,
-                                      QTableWidgetItem(str(round(float(self.TotalConsumptionOfBlastKg.text()) * 1000))))
+                                      QTableWidgetItem(str(round(float(self.TotalConsumptionOfBlastKg.text()) * 1000, 3))))
             incomingDataRowCount += 1
 
             summary = 0
@@ -694,32 +694,32 @@ class Ui_OperatorForm(object):
 
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Металл жидкий"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(liquidIron * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(liquidIron * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Шлак"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.SlagWeight.text()) * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.SlagWeight.text()) * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Газ"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,2).text()) * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,2).text()) * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Избыток дутья"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.ExcessBlast.text()) * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.ExcessBlast.text()) * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Выносы и выбросы"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.LossWithCarryOver.text()) * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.LossWithCarryOver.text()) * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Потери с пылью"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.DustLoss.text()) * 1000, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.DustLoss.text()) * 1000, 3))))
 
             outRowCount += 1
             summary = 0
@@ -728,7 +728,7 @@ class Ui_OperatorForm(object):
 
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Итого"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(summary, 2))))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(summary, 3))))
             self.IncomingData.resizeColumnsToContents()
             self.OutputData.resizeColumnsToContents()
             global materialBalanceCalcked
@@ -751,7 +751,7 @@ class Ui_OperatorForm(object):
                 materialBalanceCalcked = True
             #Физическое тепло жидкого чугуна
             PhysCastHeat = float(self.castWeight.text()) * 1000.0 * (61.9 + 0.88 * float(self.castTemperature.text()))
-            self.CastPhysHeat.setText(str(round(PhysCastHeat, 2)))
+            self.CastPhysHeat.setText(str(round(PhysCastHeat, 3)))
             self.IncomingHeatTable.setItem(0, 0, QTableWidgetItem(str(PhysCastHeat)))
 
             #Тепло от реакции окисления
@@ -760,29 +760,29 @@ class Ui_OperatorForm(object):
             TotalRemovedMagn = float(self.OxidationTable.item(2, 4).text())
             TotalRemovedPhosph = float(self.OxidationTable.item(2, 5).text())
             HeatReactOfOxidation = (14770.0 * TotalRemovedCarbon + 26970.0 * TotalRemovedSilicon + 7000.0 * TotalRemovedMagn + 21730.0 * TotalRemovedPhosph) * float(self.MetalCharge.text()) * 10.0
-            self.ThermalReactEffect.setText(str(round(HeatReactOfOxidation, 2)))
+            self.ThermalReactEffect.setText(str(round(HeatReactOfOxidation, 3)))
             self.IncomingHeatTable.setItem(1, 0, QTableWidgetItem(str(HeatReactOfOxidation)))
 
             #Химическое тепло от образования оксидов
             ChemHeatOxidAppear =  3707.0 * float(self.SlagFeO.text()) * 1000.0 + 5278.0 * float(self.SlagFe2O3.text()) * 1000.0
-            self.ChemHeatOxyd.setText(str(round(ChemHeatOxidAppear, 2)))
-            self.IncomingHeatTable.setItem(2, 0, QTableWidgetItem(str(round(ChemHeatOxidAppear, 2))))
+            self.ChemHeatOxyd.setText(str(round(ChemHeatOxidAppear, 3)))
+            self.IncomingHeatTable.setItem(2, 0, QTableWidgetItem(str(round(ChemHeatOxidAppear, 3))))
 
             #Тепловой эффект реакции шлакообразования
             ChemSlagHeat =  628.0 * float(self.SlagCaO.text()) * 1000.0 + 1464.0 * float(self.SlagSiO2.text()) * 1000.0
-            self.ChemHeatSlag.setText(str(round(ChemSlagHeat, 2)))
-            self.IncomingHeatTable.setItem(3, 0, QTableWidgetItem(str(round(ChemSlagHeat, 2))))
+            self.ChemHeatSlag.setText(str(round(ChemSlagHeat, 3)))
+            self.IncomingHeatTable.setItem(3, 0, QTableWidgetItem(str(round(ChemSlagHeat, 3))))
             
             #Тепло от дожигания CO
             BurningCO = float(self.OutputDataTable.item(2, 0).text())
             HeatOfBurningCO = 101.0 * 100.0 * abs(BurningCO) * 1000.0 * 0.2
-            self.HeatCO.setText(str(round(HeatOfBurningCO, 2)))
-            self.IncomingHeatTable.setItem(4, 0, QTableWidgetItem(str(round(HeatOfBurningCO, 2))))
+            self.HeatCO.setText(str(round(HeatOfBurningCO, 3)))
+            self.IncomingHeatTable.setItem(4, 0, QTableWidgetItem(str(round(HeatOfBurningCO, 3))))
 
             #Общий приход тепла
             TotalHeatInc = PhysCastHeat + HeatReactOfOxidation + ChemHeatOxidAppear + ChemSlagHeat + HeatOfBurningCO
             self.TotalHeatInc.setText(str(TotalHeatInc))
-            self.IncomingHeatTable.setItem(5, 0, QTableWidgetItem(str(round(TotalHeatInc, 2))))
+            self.IncomingHeatTable.setItem(5, 0, QTableWidgetItem(str(round(TotalHeatInc, 3))))
 
             #Расходные статьи
             #
@@ -790,8 +790,8 @@ class Ui_OperatorForm(object):
             COKilo = float(self.OutputDataTable.item(4, 0).text())
             CO2Kilo = float(self.OutputDataTable.item(4, 1).text())
             PhysGasHeat =  (1.32 * 2000.0 - 220.0) * (COKilo + CO2Kilo)
-            self.PhysHeatOutGas.setText(str(round(PhysGasHeat, 2)))
-            self.OutputHeatTable.setItem(3, 0, QTableWidgetItem(str(round(PhysGasHeat, 2))))
+            self.PhysHeatOutGas.setText(str(round(PhysGasHeat, 3)))
+            self.OutputHeatTable.setItem(3, 0, QTableWidgetItem(str(round(PhysGasHeat, 3))))
             
             #Затраты тепла на разложение оксидов железа
             rows = self.FluxeTable.rowCount()
@@ -802,32 +802,32 @@ class Ui_OperatorForm(object):
                 totalFeO += currentFluxeWeight * 1000 * listOfNamesForClass[row].fluxeFeO / 100
                 totalFe2O3 += currentFluxeWeight * 1000 * listOfNamesForClass[row].fluxeFe2O3 / 100
             FeOxydesHeatLoses = 3707.0 * totalFeO + 5278.0 * totalFe2O3
-            self.HeatConsDecompos.setText(str(round(FeOxydesHeatLoses, 2)))
-            self.OutputHeatTable.setItem(2, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 2))))
+            self.HeatConsDecompos.setText(str(round(FeOxydesHeatLoses, 3)))
+            self.OutputHeatTable.setItem(2, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 3))))
 
             #Потери тепла с выносами и выбросами
             emissions = float(self.OutputData.item(4, 1).text())
             emissionsHeatLoses =  (54.8 + 0.84 * 1550.0) * emissions
-            self.HeatLosesRemove.setText(str(round(emissionsHeatLoses, 2)))
-            self.OutputHeatTable.setItem(4, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 2))))
+            self.HeatLosesRemove.setText(str(round(emissionsHeatLoses, 3)))
+            self.OutputHeatTable.setItem(4, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 3))))
 
             #Затраты тепла на пылеобразование
             dustFeLoses = float(self.OutputData.item(5, 1).text())
             heatDustLoses = (54.8 + 0.84 * 2000.0) * dustFeLoses
-            self.HeatDustForm.setText(str(round(heatDustLoses, 2)))
-            self.OutputHeatTable.setItem(5, 0, QTableWidgetItem(str(round(heatDustLoses, 2))))
+            self.HeatDustForm.setText(str(round(heatDustLoses, 3)))
+            self.OutputHeatTable.setItem(5, 0, QTableWidgetItem(str(round(heatDustLoses, 3))))
 
             #Тепло на разложение карбонатов
             totalCaCO3Decom = float(self.OutputDataTable.item(1, 2).text())
             totalMgCO3Decom = float(self.OutputDataTable.item(3, 2).text())
             heatCarbonDecom =  4038.0 * (totalCaCO3Decom * 1000.0 + totalMgCO3Decom * 1000.0)
-            self.HeatCarbonDecom.setText(str(round(heatCarbonDecom, 2)))
-            self.OutputHeatTable.setItem(6, 0, QTableWidgetItem(str(round(heatCarbonDecom, 2))))
+            self.HeatCarbonDecom.setText(str(round(heatCarbonDecom, 3)))
+            self.OutputHeatTable.setItem(6, 0, QTableWidgetItem(str(round(heatCarbonDecom, 3))))
 
             #Тепловые потери
             heatLoses = TotalHeatInc * 0.03 #можно брать из базы как настраиваемый параметр
-            self.HeatLoses.setText(str(round(heatLoses, 2)))
-            self.OutputHeatTable.setItem(7, 0, QTableWidgetItem(str(round(heatLoses, 2))))
+            self.HeatLoses.setText(str(round(heatLoses, 3)))
+            self.OutputHeatTable.setItem(7, 0, QTableWidgetItem(str(round(heatLoses, 3))))
 
             #Температура жидкого металла в конце продувки
             SteelTemperature = (TotalHeatInc - PhysGasHeat - FeOxydesHeatLoses - emissionsHeatLoses - heatDustLoses -
@@ -837,31 +837,31 @@ class Ui_OperatorForm(object):
 
             #Физическое тепло жидкого металла
             PhysSteelHeat = (54.8 + 0.84 * SteelTemperature) * float(self.LiquidIronYield.text()) * 1000
-            self.PhysHeatLiquidSteel.setText(str(round(PhysSteelHeat, 2)))
-            self.OutputHeatTable.setItem(0, 0, QTableWidgetItem(str(round(PhysSteelHeat, 2))))
+            self.PhysHeatLiquidSteel.setText(str(round(PhysSteelHeat, 3)))
+            self.OutputHeatTable.setItem(0, 0, QTableWidgetItem(str(round(PhysSteelHeat, 3))))
 
             #Физическое тепло шлака
             PhysSlagHeat = (2.09 * SteelTemperature - 1379.0) * float(self.SlagWeight.text()) * 1000
-            self.PhysHeatSlag.setText(str(round(PhysSlagHeat, 2)))
-            self.OutputHeatTable.setItem(1, 0, QTableWidgetItem(str(round(PhysSteelHeat, 2))))
+            self.PhysHeatSlag.setText(str(round(PhysSlagHeat, 3)))
+            self.OutputHeatTable.setItem(1, 0, QTableWidgetItem(str(round(PhysSteelHeat, 3))))
 
             #Общий расход тепла
             TotalHeatOut = PhysSteelHeat + PhysSlagHeat + PhysGasHeat + FeOxydesHeatLoses + heatLoses + heatCarbonDecom + heatDustLoses + emissionsHeatLoses
-            self.TotalHeatCons.setText(str(round(TotalHeatOut, 2)))
-            self.OutputHeatTable.setItem(8, 0, QTableWidgetItem(str(round(TotalHeatOut, 2))))
+            self.TotalHeatCons.setText(str(round(TotalHeatOut, 3)))
+            self.OutputHeatTable.setItem(8, 0, QTableWidgetItem(str(round(TotalHeatOut, 3))))
 
             #Температура жидкого металла в конце продувки
-            self.LiquidSteelTemp.setText(str(round(SteelTemperature, 2)))
+            self.LiquidSteelTemp.setText(str(round(SteelTemperature, 3)))
 
             #Температура перегрева
             # МОЖНО ДОБАВИТЬ ПРОВЕРКУ НА ТО, ЕСЛИ ТЕМПРЕАТУРА ПЕРЕГРЕВА ОТРИЦАТЕЛЬНАЯ ТО БАН
             meltTemperature = 1539.0 - 80.0 * float(self.steelCarbon.text())
             overheatTemperature = SteelTemperature - meltTemperature
-            self.OverheatTemp.setText(str(round(overheatTemperature, 2)))
+            self.OverheatTemp.setText(str(round(overheatTemperature, 3)))
 
             #Выводим кол-во процентов в таблицы
 
-            #либо можео убрать проценты из таблицы вообще
+
             global heatBalanceCalcked
             heatBalanceCalcked = True
         except Exception as err:
@@ -904,7 +904,7 @@ class Ui_OperatorForm(object):
 
             #Потери массы футеровки
             liningWeightLoss = 4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text()) * (limitSolubilityMgO - slagMgO)
-            self.LiningWeightLoss.setText(str(round(liningWeightLoss,2)))
+            self.LiningWeightLoss.setText(str(round(liningWeightLoss, 3)))
 
             self.resultSteelTemperature.setText(self.LiquidSteelTemp.text())
             self.SlagWeightRes.setText(self.SlagWeight.text())
@@ -919,13 +919,20 @@ class Ui_OperatorForm(object):
                 umn = 17.5
 
             #расход феросплава
+            steelManganese = float(self.steelManganese.text())
+            firstFero = 100 * float(self.LiquidIronYield.text()) * 1000 * (steelManganese - float(self.OxidationTable.item(1,4).text()))/(float(self.ChemEmission.item(0,3).text())*(100-umn))
+            self.rashod_pervovo_ferrosplava_line_edit_2.setText(str(round(firstFero, 3)))
+
             # заместо 0.5 должен быть концентрация марганца но ее нет на интерфейсе поэтому пока так
-            firstFero = 100 * float(self.LiquidIronYield.text()) * 1000 * (0.5 - float(self.OxidationTable.item(1,4).text()))/(float(self.ChemEmission.item(0,3).text())*(100-umn))
-            self.rashod_pervovo_ferrosplava_line_edit_2.setText(str(round(firstFero,2)))
+            #firstFero = 100 * float(self.LiquidIronYield.text()) * 1000 * (
+                        #0.5 - float(self.OxidationTable.item(1, 4).text())) / (
+                                    #float(self.ChemEmission.item(0, 3).text()) * (100 - umn))
+            #self.rashod_pervovo_ferrosplava_line_edit_2.setText(str(round(firstFero, 3)))
+
 
             #Выход металла после раскисления
             vyhod_pervovo_metalla_posle_raskisleniya = firstFero + float(self.LiquidIronYield.text())*1000
-            self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setText(str(round(vyhod_pervovo_metalla_posle_raskisleniya,2)))
+            self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setText(str(round(vyhod_pervovo_metalla_posle_raskisleniya, 3)))
 
             #Баланс элементов после раскисления стали
             _0_0 = float(self.OxidationTable.item(1,0).text())
@@ -994,78 +1001,78 @@ class Ui_OperatorForm(object):
             _5_8 = _3_8 / _3_9 * 100.0
             _5_9 = 100.0
 
-            self.DeoxidationBalance.setItem(0, 0, QTableWidgetItem(str(round(_0_0, 2))))
+            self.DeoxidationBalance.setItem(0, 0, QTableWidgetItem(str(round(_0_0, 3))))
             self.DeoxidationBalance.setItem(0, 1, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(0, 2, QTableWidgetItem(str(round(_0_2, 2))))
+            self.DeoxidationBalance.setItem(0, 2, QTableWidgetItem(str(round(_0_2, 3))))
             self.DeoxidationBalance.setItem(0, 3, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(0, 4, QTableWidgetItem(str(round(_0_4, 2))))
+            self.DeoxidationBalance.setItem(0, 4, QTableWidgetItem(str(round(_0_4, 3))))
             self.DeoxidationBalance.setItem(0, 5, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(0, 6, QTableWidgetItem(str(round(_0_6, 2))))
-            self.DeoxidationBalance.setItem(0, 7, QTableWidgetItem(str(round(_0_7, 2))))
-            self.DeoxidationBalance.setItem(0, 8, QTableWidgetItem(str(round(_0_8, 2))))
-            self.DeoxidationBalance.setItem(0, 9, QTableWidgetItem(str(round(_0_9, 2))))
+            self.DeoxidationBalance.setItem(0, 6, QTableWidgetItem(str(round(_0_6, 3))))
+            self.DeoxidationBalance.setItem(0, 7, QTableWidgetItem(str(round(_0_7, 3))))
+            self.DeoxidationBalance.setItem(0, 8, QTableWidgetItem(str(round(_0_8, 3))))
+            self.DeoxidationBalance.setItem(0, 9, QTableWidgetItem(str(round(_0_9, 3))))
 
-            self.DeoxidationBalance.setItem(1, 0, QTableWidgetItem(str(round(_1_0, 2))))
+            self.DeoxidationBalance.setItem(1, 0, QTableWidgetItem(str(round(_1_0, 3))))
             self.DeoxidationBalance.setItem(1, 1, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(1, 2, QTableWidgetItem(str(round(_1_2, 2))))
+            self.DeoxidationBalance.setItem(1, 2, QTableWidgetItem(str(round(_1_2, 3))))
             self.DeoxidationBalance.setItem(1, 3, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(1, 4, QTableWidgetItem(str(round(_1_4, 2))))
+            self.DeoxidationBalance.setItem(1, 4, QTableWidgetItem(str(round(_1_4, 3))))
             self.DeoxidationBalance.setItem(1, 5, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(1, 6, QTableWidgetItem(str(round(_1_6, 2))))
-            self.DeoxidationBalance.setItem(1, 7, QTableWidgetItem(str(round(_1_7, 2))))
-            self.DeoxidationBalance.setItem(1, 8, QTableWidgetItem(str(round(_1_0, 2))))
-            self.DeoxidationBalance.setItem(1, 8, QTableWidgetItem(str(round(_1_9, 2))))
+            self.DeoxidationBalance.setItem(1, 6, QTableWidgetItem(str(round(_1_6, 3))))
+            self.DeoxidationBalance.setItem(1, 7, QTableWidgetItem(str(round(_1_7, 3))))
+            self.DeoxidationBalance.setItem(1, 8, QTableWidgetItem(str(round(_1_0, 3))))
+            self.DeoxidationBalance.setItem(1, 8, QTableWidgetItem(str(round(_1_9, 3))))
 
-            self.DeoxidationBalance.setItem(2, 0, QTableWidgetItem(str(round(_2_0, 2))))
-            self.DeoxidationBalance.setItem(2, 1, QTableWidgetItem(str(round(_2_1, 2))))
-            self.DeoxidationBalance.setItem(2, 2, QTableWidgetItem(str(round(_2_2, 2))))
-            self.DeoxidationBalance.setItem(2, 3, QTableWidgetItem(str(round(_2_3, 2))))
-            self.DeoxidationBalance.setItem(2, 4, QTableWidgetItem(str(round(_2_4, 2))))
-            self.DeoxidationBalance.setItem(2, 5, QTableWidgetItem(str(round(_2_5, 2))))
-            self.DeoxidationBalance.setItem(2, 6, QTableWidgetItem(str(round(_2_6, 2))))
-            self.DeoxidationBalance.setItem(2, 7, QTableWidgetItem(str(round(_2_7, 2))))
-            self.DeoxidationBalance.setItem(2, 8, QTableWidgetItem(str(round(_2_8, 2))))
-            self.DeoxidationBalance.setItem(2, 9, QTableWidgetItem(str(round(_2_9, 2))))
+            self.DeoxidationBalance.setItem(2, 0, QTableWidgetItem(str(round(_2_0, 3))))
+            self.DeoxidationBalance.setItem(2, 1, QTableWidgetItem(str(round(_2_1, 3))))
+            self.DeoxidationBalance.setItem(2, 2, QTableWidgetItem(str(round(_2_2, 3))))
+            self.DeoxidationBalance.setItem(2, 3, QTableWidgetItem(str(round(_2_3, 3))))
+            self.DeoxidationBalance.setItem(2, 4, QTableWidgetItem(str(round(_2_4, 3))))
+            self.DeoxidationBalance.setItem(2, 5, QTableWidgetItem(str(round(_2_5, 3))))
+            self.DeoxidationBalance.setItem(2, 6, QTableWidgetItem(str(round(_2_6, 3))))
+            self.DeoxidationBalance.setItem(2, 7, QTableWidgetItem(str(round(_2_7, 3))))
+            self.DeoxidationBalance.setItem(2, 8, QTableWidgetItem(str(round(_2_8, 3))))
+            self.DeoxidationBalance.setItem(2, 9, QTableWidgetItem(str(round(_2_9, 3))))
 
-            self.DeoxidationBalance.setItem(3, 0, QTableWidgetItem(str(round(_3_0, 2))))
+            self.DeoxidationBalance.setItem(3, 0, QTableWidgetItem(str(round(_3_0, 3))))
             self.DeoxidationBalance.setItem(3, 1, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(3, 2, QTableWidgetItem(str(round(_3_2, 2))))
+            self.DeoxidationBalance.setItem(3, 2, QTableWidgetItem(str(round(_3_2, 3))))
             self.DeoxidationBalance.setItem(3, 3, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(3, 4, QTableWidgetItem(str(round(_3_4, 2))))
+            self.DeoxidationBalance.setItem(3, 4, QTableWidgetItem(str(round(_3_4, 3))))
             self.DeoxidationBalance.setItem(3, 5, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(3, 6, QTableWidgetItem(str(round(_3_6, 2))))
-            self.DeoxidationBalance.setItem(3, 7, QTableWidgetItem(str(round(_3_7, 2))))
-            self.DeoxidationBalance.setItem(3, 8, QTableWidgetItem(str(round(_3_8, 2))))
-            self.DeoxidationBalance.setItem(3, 9, QTableWidgetItem(str(round(_3_9, 2))))
+            self.DeoxidationBalance.setItem(3, 6, QTableWidgetItem(str(round(_3_6, 3))))
+            self.DeoxidationBalance.setItem(3, 7, QTableWidgetItem(str(round(_3_7, 3))))
+            self.DeoxidationBalance.setItem(3, 8, QTableWidgetItem(str(round(_3_8, 3))))
+            self.DeoxidationBalance.setItem(3, 9, QTableWidgetItem(str(round(_3_9, 3))))
 
             self.DeoxidationBalance.setItem(4, 0, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(4, 1, QTableWidgetItem(str(round(_4_1, 2))))
+            self.DeoxidationBalance.setItem(4, 1, QTableWidgetItem(str(round(_4_1, 3))))
             self.DeoxidationBalance.setItem(4, 2, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(4, 3, QTableWidgetItem(str(round(_4_3, 2))))
+            self.DeoxidationBalance.setItem(4, 3, QTableWidgetItem(str(round(_4_3, 3))))
             self.DeoxidationBalance.setItem(4, 4, QTableWidgetItem("-"))
-            self.DeoxidationBalance.setItem(4, 5, QTableWidgetItem(str(round(_4_5, 2))))
+            self.DeoxidationBalance.setItem(4, 5, QTableWidgetItem(str(round(_4_5, 3))))
             self.DeoxidationBalance.setItem(4, 6, QTableWidgetItem("-"))
             self.DeoxidationBalance.setItem(4, 7, QTableWidgetItem("-"))
             self.DeoxidationBalance.setItem(4, 8, QTableWidgetItem("-"))
             self.DeoxidationBalance.setItem(4, 9, QTableWidgetItem("-"))
 
-            self.DeoxidationBalance.setItem(5, 0, QTableWidgetItem(str(round(_5_0, 2))))
-            self.DeoxidationBalance.setItem(5, 1, QTableWidgetItem(str(round(_5_1, 2))))
-            self.DeoxidationBalance.setItem(5, 2, QTableWidgetItem(str(round(_5_2, 2))))
-            self.DeoxidationBalance.setItem(5, 3, QTableWidgetItem(str(round(_5_3, 2))))
-            self.DeoxidationBalance.setItem(5, 4, QTableWidgetItem(str(round(_5_4, 2))))
-            self.DeoxidationBalance.setItem(5, 5, QTableWidgetItem(str(round(_5_5, 2))))
-            self.DeoxidationBalance.setItem(5, 6, QTableWidgetItem(str(round(_5_6, 2))))
-            self.DeoxidationBalance.setItem(5, 7, QTableWidgetItem(str(round(_5_7, 2))))
-            self.DeoxidationBalance.setItem(5, 8, QTableWidgetItem(str(round(_5_8, 2))))
-            self.DeoxidationBalance.setItem(5, 9, QTableWidgetItem(str(round(_5_9, 2))))
+            self.DeoxidationBalance.setItem(5, 0, QTableWidgetItem(str(round(_5_0, 3))))
+            self.DeoxidationBalance.setItem(5, 1, QTableWidgetItem(str(round(_5_1, 3))))
+            self.DeoxidationBalance.setItem(5, 2, QTableWidgetItem(str(round(_5_2, 3))))
+            self.DeoxidationBalance.setItem(5, 3, QTableWidgetItem(str(round(_5_3, 3))))
+            self.DeoxidationBalance.setItem(5, 4, QTableWidgetItem(str(round(_5_4, 3))))
+            self.DeoxidationBalance.setItem(5, 5, QTableWidgetItem(str(round(_5_5, 3))))
+            self.DeoxidationBalance.setItem(5, 6, QTableWidgetItem(str(round(_5_6, 3))))
+            self.DeoxidationBalance.setItem(5, 7, QTableWidgetItem(str(round(_5_7, 3))))
+            self.DeoxidationBalance.setItem(5, 8, QTableWidgetItem(str(round(_5_8, 3))))
+            self.DeoxidationBalance.setItem(5, 9, QTableWidgetItem(str(round(_5_9, 3))))
 
             #Состав стали
-            self.SteelChemResult.setItem(0, 0, QTableWidgetItem(str(round(_5_0,2))))
-            self.SteelChemResult.setItem(0, 1, QTableWidgetItem(str(round(_5_2, 2))))
-            self.SteelChemResult.setItem(0, 2, QTableWidgetItem(str(round(_5_4, 2))))
-            self.SteelChemResult.setItem(0, 3, QTableWidgetItem(str(round(_5_7, 2))))
-            self.SteelChemResult.setItem(0, 4, QTableWidgetItem(str(round(_5_6, 2))))
+            self.SteelChemResult.setItem(0, 0, QTableWidgetItem(str(round(_5_0, 3))))
+            self.SteelChemResult.setItem(0, 1, QTableWidgetItem(str(round(_5_2, 3))))
+            self.SteelChemResult.setItem(0, 2, QTableWidgetItem(str(round(_5_4, 3))))
+            self.SteelChemResult.setItem(0, 3, QTableWidgetItem(str(round(_5_7, 3))))
+            self.SteelChemResult.setItem(0, 4, QTableWidgetItem(str(round(_5_6, 3))))
 
             self.SlagChemResult.setItem(0, 0, QTableWidgetItem(str(self.SlagSiO2Perc.text())))
             self.SlagChemResult.setItem(0, 1, QTableWidgetItem(str(self.SlagAl2O3Perc.text())))
@@ -1094,20 +1101,23 @@ class Ui_OperatorForm(object):
 
     def setupUi(self, OperatorForm):
         OperatorForm.setObjectName("OperatorForm")
-        OperatorForm.setMaximumSize(993, 670)
-        OperatorForm.setMinimumSize(993, 670)
+        OperatorForm.resize(993, 670)
+        OperatorForm.setMinimumSize(QtCore.QSize(993, 670))
+        OperatorForm.setMaximumSize(QtCore.QSize(993, 670))
         self.centralwidget = QtWidgets.QWidget(OperatorForm)
         self.centralwidget.setObjectName("centralwidget")
         self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
-        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 981, 731))
+        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 991, 731))
+        self.tabWidget.setMinimumSize(QtCore.QSize(981, 731))
+        self.tabWidget.setMaximumSize(QtCore.QSize(981, 731))
         self.tabWidget.setObjectName("tabWidget")
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
         self.groupBox = QtWidgets.QGroupBox(self.tab)
-        self.groupBox.setGeometry(QtCore.QRect(20, 100, 301, 111))
+        self.groupBox.setGeometry(QtCore.QRect(20, 70, 301, 141))
         self.groupBox.setObjectName("groupBox")
         self.groupBox_4 = QtWidgets.QGroupBox(self.groupBox)
-        self.groupBox_4.setGeometry(QtCore.QRect(10, 20, 281, 81))
+        self.groupBox_4.setGeometry(QtCore.QRect(10, 20, 281, 111))
         self.groupBox_4.setObjectName("groupBox_4")
         self.label = QtWidgets.QLabel(self.groupBox_4)
         self.label.setGeometry(QtCore.QRect(10, 20, 71, 16))
@@ -1133,6 +1143,14 @@ class Ui_OperatorForm(object):
         self.steelPhosphor = QtWidgets.QLineEdit(self.groupBox_4)
         self.steelPhosphor.setGeometry(QtCore.QRect(220, 50, 51, 20))
         self.steelPhosphor.setObjectName("steelPhosphor")
+        self.label_26 = QtWidgets.QLabel(self.groupBox_4)
+        self.label_26.setGeometry(QtCore.QRect(60, 80, 81, 16))
+        self.label_26.setObjectName("label_26")
+        self.steelManganese = QtWidgets.QLineEdit(self.groupBox_4)
+        self.steelManganese.setEnabled(True)
+        self.steelManganese.setGeometry(QtCore.QRect(150, 80, 51, 20))
+        self.steelManganese.setText("")
+        self.steelManganese.setObjectName("steelManganese")
         self.groupBox_2 = QtWidgets.QGroupBox(self.tab)
         self.groupBox_2.setGeometry(QtCore.QRect(330, 10, 301, 201))
         self.groupBox_2.setObjectName("groupBox_2")
@@ -1151,7 +1169,7 @@ class Ui_OperatorForm(object):
         self.castWeight.setText("")
         self.castWeight.setObjectName("castWeight")
         self.groupBox_6 = QtWidgets.QGroupBox(self.groupBox_2)
-        self.groupBox_6.setGeometry(QtCore.QRect(10, 70, 281, 111))
+        self.groupBox_6.setGeometry(QtCore.QRect(10, 80, 281, 111))
         self.groupBox_6.setObjectName("groupBox_6")
         self.label_7 = QtWidgets.QLabel(self.groupBox_6)
         self.label_7.setGeometry(QtCore.QRect(10, 20, 71, 16))
@@ -1186,18 +1204,18 @@ class Ui_OperatorForm(object):
         self.label_24.setGeometry(QtCore.QRect(130, 80, 81, 16))
         self.label_24.setObjectName("label_24")
         self.groupBox_5 = QtWidgets.QGroupBox(self.tab)
-        self.groupBox_5.setGeometry(QtCore.QRect(20, 220, 301, 80))
+        self.groupBox_5.setGeometry(QtCore.QRect(20, 220, 171, 80))
         self.groupBox_5.setObjectName("groupBox_5")
         self.MetalCharge = QtWidgets.QLineEdit(self.groupBox_5)
         self.MetalCharge.setEnabled(False)
-        self.MetalCharge.setGeometry(QtCore.QRect(60, 30, 51, 20))
+        self.MetalCharge.setGeometry(QtCore.QRect(10, 40, 51, 20))
         self.MetalCharge.setObjectName("MetalCharge")
         self.label_16 = QtWidgets.QLabel(self.groupBox_5)
-        self.label_16.setGeometry(QtCore.QRect(20, 30, 71, 16))
+        self.label_16.setGeometry(QtCore.QRect(10, 20, 41, 16))
         self.label_16.setObjectName("label_16")
         self.calcMetalCharge = QtWidgets.QPushButton(self.groupBox_5)
         self.calcMetalCharge.setEnabled(True)
-        self.calcMetalCharge.setGeometry(QtCore.QRect(240, 10, 51, 61))
+        self.calcMetalCharge.setGeometry(QtCore.QRect(110, 10, 51, 61))
         self.calcMetalCharge.setText("")
         self.calcMetalCharge.clicked.connect(self.calcMetalChargeClicked)
         icon = QtGui.QIcon()
@@ -1216,7 +1234,7 @@ class Ui_OperatorForm(object):
         self.scrapWeight.setText("")
         self.scrapWeight.setObjectName("scrapWeight")
         self.groupBox_7 = QtWidgets.QGroupBox(self.groupBox_3)
-        self.groupBox_7.setGeometry(QtCore.QRect(10, 70, 281, 111))
+        self.groupBox_7.setGeometry(QtCore.QRect(10, 80, 281, 111))
         self.groupBox_7.setObjectName("groupBox_7")
         self.label_12 = QtWidgets.QLabel(self.groupBox_7)
         self.label_12.setGeometry(QtCore.QRect(10, 20, 71, 16))
@@ -1251,7 +1269,7 @@ class Ui_OperatorForm(object):
         self.scrapManganese.setText("")
         self.scrapManganese.setObjectName("scrapManganese")
         self.groupBox_8 = QtWidgets.QGroupBox(self.tab)
-        self.groupBox_8.setGeometry(QtCore.QRect(330, 220, 471, 80))
+        self.groupBox_8.setGeometry(QtCore.QRect(200, 220, 431, 80))
         self.groupBox_8.setObjectName("groupBox_8")
         self.label_17 = QtWidgets.QLabel(self.groupBox_8)
         self.label_17.setGeometry(QtCore.QRect(10, 20, 71, 16))
@@ -2177,6 +2195,7 @@ class Ui_OperatorForm(object):
         self.steelSerum.setText("0.04")
         self.steelSilicon.setText("0.2")
         self.steelPhosphor.setText("0.035")
+        self.steelManganese.setText("0.5")
 
         self.castTemperature.setText("1400")
         self.castWeight.setText("290")
@@ -2194,31 +2213,32 @@ class Ui_OperatorForm(object):
         self.scrapPhosphor.setText("0.4")
 
         self.groupBox.setTitle(_translate("OperatorForm", "Сталь"))
-        self.groupBox_4.setTitle(_translate("OperatorForm", "Химический состав"))
+        self.groupBox_4.setTitle(_translate("OperatorForm", "Химический состав, %масс"))
         self.label.setText(_translate("OperatorForm", "Углерод (C):"))
         self.label_2.setText(_translate("OperatorForm", "Кремний (Si):"))
         self.label_3.setText(_translate("OperatorForm", "Сера (S):"))
         self.label_4.setText(_translate("OperatorForm", "Фосфор (P):"))
+        self.label_26.setText(_translate("OperatorForm", "Марганец (Mn):"))
         self.groupBox_2.setTitle(_translate("OperatorForm", "Чугун"))
-        self.label_5.setText(_translate("OperatorForm", "Температура (℃):"))
-        self.label_6.setText(_translate("OperatorForm", "Масса (Т):"))
-        self.groupBox_6.setTitle(_translate("OperatorForm", "Химический состав"))
+        self.label_5.setText(_translate("OperatorForm", "Температура [℃]:"))
+        self.label_6.setText(_translate("OperatorForm", "Масса [т]:"))
+        self.groupBox_6.setTitle(_translate("OperatorForm", "Химический состав, %масс"))
         self.label_7.setText(_translate("OperatorForm", "Углерод (C):"))
         self.label_8.setText(_translate("OperatorForm", "Кремний (Si):"))
         self.label_9.setText(_translate("OperatorForm", "Сера (S):"))
         self.label_10.setText(_translate("OperatorForm", "Фосфор (P):"))
         self.label_24.setText(_translate("OperatorForm", "Марганец (Mn):"))
-        self.groupBox_5.setTitle(_translate("OperatorForm", "Металлошихта"))
+        self.groupBox_5.setTitle(_translate("OperatorForm", "Металлошихта, т"))
         self.label_16.setText(_translate("OperatorForm", "Масса:"))
         self.groupBox_3.setTitle(_translate("OperatorForm", "Лом"))
-        self.label_11.setText(_translate("OperatorForm", "Масса (Т):"))
-        self.groupBox_7.setTitle(_translate("OperatorForm", "Химический состав"))
+        self.label_11.setText(_translate("OperatorForm", "Масса [т]:"))
+        self.groupBox_7.setTitle(_translate("OperatorForm", "Химический состав, %масс"))
         self.label_12.setText(_translate("OperatorForm", "Углерод (C):"))
         self.label_13.setText(_translate("OperatorForm", "Кремний (Si):"))
         self.label_14.setText(_translate("OperatorForm", "Сера (S):"))
         self.label_15.setText(_translate("OperatorForm", "Фосфор (P):"))
         self.label_25.setText(_translate("OperatorForm", "Марганец (Mn):"))
-        self.groupBox_8.setTitle(_translate("OperatorForm", "Химический состав"))
+        self.groupBox_8.setTitle(_translate("OperatorForm", "Химический состав шихты, %масс"))
         self.label_17.setText(_translate("OperatorForm", "Углерод (C):"))
         self.label_18.setText(_translate("OperatorForm", "Сера (S):"))
         self.label_19.setText(_translate("OperatorForm", "Кремний (Si):"))
