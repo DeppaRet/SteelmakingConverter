@@ -158,31 +158,179 @@ class Ui_AdminFom(object):
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
 
-    def insertDataIntoFactory(self):
+
+
+    def getAllSteel(self):
         try:
-            query = "INSERT INTO users (Login, Password, Roles_idRoles) values (%s, %s, %s)"
-            login = self.LoginCreate.text()
-            password = self.PasswordCreate.text()
-            if self.UserRoleCreate.currentText() == "Оператор":
-                role = 2
-            elif self.UserRoleCreate.currentText() == "Администратор":
-                role = 1
-            elif self.UserRoleCreate.currentText() == "Разработчик модели":
-                role = 3
-            value = (login, password, role)
-            usersDB = mc.connect(
+            query = "select steelname from steeldata;"
+            DB = mc.connect(
                 host="localhost",
                 user="root",
                 password="root",
-                database="mydb"
+                database="regimdata"
             )
-            mycursor = usersDB.cursor()
-            mycursor.execute(query, value)
-            usersDB.commit()  # Обязательно для записи
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeSteelName.addItem((str(data)))
+        except Exception as err:
             msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def getAllScrap(self):
+        try:
+            query = "select idScrapData from scrapdata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeScrap.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def getAllCast(self):
+        try:
+            query = "select idcaststeeldata from caststeeldata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeCastSteel.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def getFluxes(self):
+        try:
+            query = "select FluxeName from fluxedata;"
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.FluxeType.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def AddFluxeButtonClicked(self):
+        try:
+            rows = self.FluxeTable.rowCount()
+            text = self.FluxeType.currentText()
+            self.FluxeTable.insertRow(rows)
+            self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+    def removeFluxeButtonClicked(self):
+        rows = self.FluxeTable.rowCount()
+        self.FluxeTable.setRowCount(0)
+
+    def addCastData(self):
+        try:
+            query = "INSERT INTO CastSteelComposition (CastSteelCarbon, CastSteelSerum, CastSteelPhosphor, CastSteelSilicon, CastSteelManganese) values (%s, %s, %s, %s, %s)"
+            castCarbon = self.castCarbon.text()
+            castSerum = self.castSerum.text()
+            castPhosphor = self.castPhosphor.text()
+            castSilicon = self.castSilicon.text()
+            castMang = self.castManganese.text()
+            value = (castCarbon, castSerum, castPhosphor, castSilicon, castMang)
+
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()                # Обязательно для записи
+            mycursor.close()
+
+            tmp = "CastSteelCarbon = " + castCarbon + " AND CastSteelSerum = " + castSerum + " AND CastSteelPhosphor = " + castPhosphor + " AND CastSteelSilicon = " + castSilicon + " AND CastSteelManganese = " + castMang
+            query = "select idCastSteelComposition from caststeelcomposition where (" + tmp + ") ORDER BY CastSteelCarbon ASC LIMIT 1;"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchone()[0]
+            mycursor.close()
+
+
+            query = "insert into caststeeldata (CastSteelWeight, CastSteelTemperature, CastSteelComposition_idCastSteelComposition) values (%s, %s, %s);"
+            value = (self.castWeight.text(), self.castTemperature.text(), result)
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
+            msg = QMessageBox()
+            self.getAllCast()
             msg.setWindowTitle("Успех")
             msg.setText("Выполнено")
-            msg.setInformativeText("Учетная запись создана успешно")
+            msg.setInformativeText("Запись успешно добавлена!")
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -190,6 +338,161 @@ class Ui_AdminFom(object):
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
+
+    def addScrap(self):
+        try:
+            query = "insert into scrapcomposition (ScrapCarbon, ScrapSerum, ScrapPhosphor, ScrapSilicon, ScrapManganese) values (%s, %s, %s, %s, %s)"
+            scrapCarbon = self.scrapCarbon.text()
+            scrapSerum = self.scrapSerum.text()
+            scrapPhosphor = self.scrapPhosphor.text()
+            scrapSilicon = self.scrapSilicon.text()
+            scrapMang = self.scrapManganese.text()
+            value = (scrapCarbon, scrapSerum, scrapPhosphor, scrapSilicon, scrapMang)
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()                # Обязательно для записи
+            mycursor.close()
+
+            tmp = "ScrapCarbon = " + scrapCarbon + " AND ScrapSerum = " + scrapSerum + " AND ScrapPhosphor = " + scrapPhosphor + " AND ScrapSilicon = " + scrapSilicon + " AND ScrapManganese = " + scrapMang
+            query = "select idScrapComposition from scrapcomposition where (" + tmp + ") ORDER BY ScrapCarbon ASC LIMIT 1;"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into scrapdata (ScrapWeight, ScrapComposition_idScrapComposition) values(%s, %s)"
+            value = (self.scrapWeight.text(), result)
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
+            DB.close()
+
+            self.getAllScrap()
+            msg = QMessageBox()
+            msg.setWindowTitle("Успех")
+            msg.setText("Выполнено")
+            msg.setInformativeText("Запись успешно добавлена!")
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+
+    def addMode(self):
+        try:
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+            query = "select idsteeldata from steeldata where steelname = '" + self.modeSteelName.currentText() + "'"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            idSteel = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into mode (ModeName, SteelData_idSteelData, ScrapData_idScrapData, CastSteelData_idCastSteelData, MathSettings_idMathSettings) values(%s, %s, %s, %s, 1)"
+
+            values = (self.modeName.text(), idSteel, self.modeScrap.currentText(), self.modeCastSteel.currentText())
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, values)
+            DB.commit()  # Обязательно для записи
+            mycursor.close()
+
+            if(self.FluxeTable.rowCount() != 0):
+                query = "select idMode from mode where ModeName = '" + self.modeName.text() + "'"
+                mycursor = DB.cursor()
+                mycursor.execute(query)
+                idMode = mycursor.fetchone()[0]
+                mycursor.close()
+                fluxesRowCount = self.FluxeTable.rowCount()
+                for row in range(fluxesRowCount):
+                    name = self.FluxeTable.item(row, 0).text()
+                    query = "select idFluxeData from FluxeData where FluxeName = '" + name + "'"
+                    mycursor = DB.cursor()
+                    mycursor.execute(query)
+                    idFluxe = mycursor.fetchone()[0]
+                    mycursor.close()
+
+                    query = "insert into fluxedata_has_mode (FluxeData_idFluxeData, Mode_idMode) values (%s, %s)"
+                    values = (idFluxe, idMode)
+                    mycursor = DB.cursor()
+                    mycursor.execute(query, values)
+                    DB.commit()  # Обязательно для записи
+                    mycursor.close()
+            DB.close()
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+
+    def addFluxeDataButtonClicked(self):
+        try:
+            query = "insert into fluxecomposition (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            CaO = float(self.fluxeCaO.text())
+            SiO2 = float(self.fluxeSiO2.text())
+            MgO = float(self.fluxeMgO.text())
+            Fe2O3 = float(self.fluxeFe2O3.text())
+            FeO = float(self.fluxeFeO.text())
+            MnO = float(self.fluxeMnO.text())
+            Al2O3 = float(self.fluxeAl2O3.text())
+            CaCO3 = float(self.fluxeCaCO3.text())
+            MgCO3 = float(self.fluxeMgCO3.text())
+            value = (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3)
+            DB = mc.connect(
+                host="localhost",
+                user="root",
+                password="root",
+                database="regimdata"
+            )
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()  # Обязательно для записи
+            mycursor.close()
+
+            tmp = "CaO = " + str(CaO) + " AND SiO2 = " + str(SiO2) + " AND MgO = " + str(MgO) + " AND Fe2O3 = " + str(Fe2O3) + " AND FeO = " + str(FeO) + " AND MnO = " + str(MnO) + " AND Al2O3 = " + str(Al2O3) + " AND CaCO3 = " + str(CaCO3) + " AND MgCO3 = " + str(MgCO3)
+            query = "select idFluxeComposition from fluxecomposition where (" + tmp + ") ORDER BY CaO ASC LIMIT 1;"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into fluxedata (FluxeName, FluxeComposition_idFluxeComposition) values(%s, %s)"
+            value = (self.fluxeName.text(), result)
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
+            DB.close()
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+        # finally:
+        #     mycursor.close()
+        #     DB.close()
+
 
     def openAbout(self):
         self.window = QtWidgets.QDialog()
@@ -200,6 +503,9 @@ class Ui_AdminFom(object):
     def setupUi(self, AdminFom):
         AdminFom.setObjectName("AdminFom")
         AdminFom.resize(798, 620)
+        winIcon = QtGui.QIcon()
+        winIcon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        AdminFom.setWindowIcon(winIcon)
         self.centralwidget = QtWidgets.QWidget(AdminFom)
         self.centralwidget.setObjectName("centralwidget")
         self.Factory = QtWidgets.QTabWidget(self.centralwidget)
@@ -217,6 +523,7 @@ class Ui_AdminFom(object):
         self.addScrapDataButton = QtWidgets.QPushButton(self.groupBox_3)
         self.addScrapDataButton.setGeometry(QtCore.QRect(210, 20, 81, 23))
         self.addScrapDataButton.setObjectName("addScrapDataButton")
+        self.addScrapDataButton.clicked.connect(self.addScrap)
         self.label_11 = QtWidgets.QLabel(self.groupBox_3)
         self.label_11.setGeometry(QtCore.QRect(10, 20, 101, 16))
         self.label_11.setObjectName("label_11")
@@ -314,6 +621,7 @@ class Ui_AdminFom(object):
         self.addCastButton = QtWidgets.QPushButton(self.groupBox_4)
         self.addCastButton.setGeometry(QtCore.QRect(200, 30, 81, 23))
         self.addCastButton.setObjectName("addCastButton")
+        self.addCastButton.clicked.connect(self.addCastData)
         self.groupBox_5 = QtWidgets.QGroupBox(self.groupBox)
         self.groupBox_5.setGeometry(QtCore.QRect(10, 20, 301, 151))
         self.groupBox_5.setObjectName("groupBox_5")
@@ -366,7 +674,7 @@ class Ui_AdminFom(object):
         self.showTableForFactory.setObjectName("showTableForFactory")
         self.showTableForFactory.clicked.connect(self.showTableForFactoryClick)
         self.tableWidgetFactory = QtWidgets.QTableWidget(self.tab_3)
-        self.tableWidgetFactory.setGeometry(QtCore.QRect(10, 60, 431, 331))
+        self.tableWidgetFactory.setGeometry(QtCore.QRect(10, 60, 431, 211))
         self.tableWidgetFactory.setObjectName("tableWidgetFactory")
         self.tableWidgetFactory.setColumnCount(0)
         self.tableWidgetFactory.setRowCount(0)
@@ -382,7 +690,7 @@ class Ui_AdminFom(object):
         self.choosenTableForFactory.addItem("")
         self.choosenTableForFactory.addItem("")
         self.groupBox_9 = QtWidgets.QGroupBox(self.tab_3)
-        self.groupBox_9.setGeometry(QtCore.QRect(10, 400, 431, 141))
+        self.groupBox_9.setGeometry(QtCore.QRect(10, 430, 431, 121))
         self.groupBox_9.setObjectName("groupBox_9")
         self.label_8 = QtWidgets.QLabel(self.groupBox_9)
         self.label_8.setGeometry(QtCore.QRect(20, 50, 31, 16))
@@ -393,9 +701,9 @@ class Ui_AdminFom(object):
         self.label_22 = QtWidgets.QLabel(self.groupBox_9)
         self.label_22.setGeometry(QtCore.QRect(120, 50, 31, 16))
         self.label_22.setObjectName("label_22")
-        self.fluxeFe2O3 = QtWidgets.QLabel(self.groupBox_9)
-        self.fluxeFe2O3.setGeometry(QtCore.QRect(120, 70, 61, 16))
-        self.fluxeFe2O3.setObjectName("fluxeFe2O3")
+        self.fluxeFe2O3label = QtWidgets.QLabel(self.groupBox_9)
+        self.fluxeFe2O3label.setGeometry(QtCore.QRect(120, 70, 61, 16))
+        self.fluxeFe2O3label.setObjectName("fluxeFe2O3label")
         self.fluxeCaO = QtWidgets.QLineEdit(self.groupBox_9)
         self.fluxeCaO.setGeometry(QtCore.QRect(50, 50, 51, 20))
         self.fluxeCaO.setObjectName("fluxeCaO")
@@ -405,9 +713,9 @@ class Ui_AdminFom(object):
         self.fluxeMgO = QtWidgets.QLineEdit(self.groupBox_9)
         self.fluxeMgO.setGeometry(QtCore.QRect(160, 50, 51, 20))
         self.fluxeMgO.setObjectName("fluxeMgO")
-        self.steelPhosphor_2 = QtWidgets.QLineEdit(self.groupBox_9)
-        self.steelPhosphor_2.setGeometry(QtCore.QRect(160, 70, 51, 20))
-        self.steelPhosphor_2.setObjectName("steelPhosphor_2")
+        self.fluxeFe2O3 = QtWidgets.QLineEdit(self.groupBox_9)
+        self.fluxeFe2O3.setGeometry(QtCore.QRect(160, 70, 51, 20))
+        self.fluxeFe2O3.setObjectName("fluxeFe2O3")
         self.label_30 = QtWidgets.QLabel(self.groupBox_9)
         self.label_30.setGeometry(QtCore.QRect(10, 20, 71, 16))
         self.label_30.setObjectName("label_30")
@@ -444,9 +752,93 @@ class Ui_AdminFom(object):
         self.fluxeMgCO3 = QtWidgets.QLineEdit(self.groupBox_9)
         self.fluxeMgCO3.setGeometry(QtCore.QRect(370, 90, 51, 20))
         self.fluxeMgCO3.setObjectName("fluxeMgCO3")
-        self.addFluxeButton = QtWidgets.QPushButton(self.groupBox_9)
-        self.addFluxeButton.setGeometry(QtCore.QRect(340, 10, 81, 23))
-        self.addFluxeButton.setObjectName("addFluxeButton")
+        self.addFluxeDataButton = QtWidgets.QPushButton(self.groupBox_9)
+        self.addFluxeDataButton.setGeometry(QtCore.QRect(340, 10, 81, 23))
+        self.addFluxeDataButton.setObjectName("addFluxeDataButton")
+        self.addFluxeDataButton.clicked.connect(self.addFluxeDataButtonClicked)
+        self.groupBox_10 = QtWidgets.QGroupBox(self.tab_3)
+        self.groupBox_10.setGeometry(QtCore.QRect(10, 280, 261, 141))
+        self.groupBox_10.setObjectName("groupBox_10")
+        self.label_23 = QtWidgets.QLabel(self.groupBox_10)
+        self.label_23.setGeometry(QtCore.QRect(140, 20, 41, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_23.setFont(font)
+        self.label_23.setObjectName("label_23")
+        self.modeSteelName = QtWidgets.QComboBox(self.groupBox_10)
+        self.modeSteelName.setGeometry(QtCore.QRect(180, 20, 61, 22))
+        self.modeSteelName.setObjectName("modeSteelName")
+        self.addModeButton = QtWidgets.QPushButton(self.groupBox_10)
+        self.addModeButton.setGeometry(QtCore.QRect(170, 110, 71, 23))
+        self.addModeButton.setObjectName("addModeButton")
+        self.addModeButton.clicked.connect(self.addMode)
+        self.modeCastSteel = QtWidgets.QComboBox(self.groupBox_10)
+        self.modeCastSteel.setGeometry(QtCore.QRect(70, 50, 61, 22))
+        self.modeCastSteel.setObjectName("modeCastSteel")
+        self.label_26 = QtWidgets.QLabel(self.groupBox_10)
+        self.label_26.setGeometry(QtCore.QRect(10, 50, 51, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_26.setFont(font)
+        self.label_26.setObjectName("label_26")
+        self.modeScrap = QtWidgets.QComboBox(self.groupBox_10)
+        self.modeScrap.setGeometry(QtCore.QRect(180, 50, 61, 22))
+        self.modeScrap.setObjectName("modeScrap")
+        self.label_27 = QtWidgets.QLabel(self.groupBox_10)
+        self.label_27.setGeometry(QtCore.QRect(150, 50, 31, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_27.setFont(font)
+        self.label_27.setObjectName("label_27")
+        self.modeName = QtWidgets.QLineEdit(self.groupBox_10)
+        self.modeName.setGeometry(QtCore.QRect(70, 20, 61, 20))
+        self.modeName.setObjectName("modeName")
+        self.label_28 = QtWidgets.QLabel(self.groupBox_10)
+        self.label_28.setGeometry(QtCore.QRect(10, 20, 52, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_28.setFont(font)
+        self.label_28.setObjectName("label_28")
+        self.groupBox_11 = QtWidgets.QGroupBox(self.tab_3)
+        self.groupBox_11.setGeometry(QtCore.QRect(280, 280, 161, 141))
+        font = QtGui.QFont()
+        font.setBold(False)
+        font.setWeight(50)
+        self.groupBox_11.setFont(font)
+        self.groupBox_11.setFlat(False)
+        self.groupBox_11.setCheckable(False)
+        self.groupBox_11.setObjectName("groupBox_11")
+        self.FluxeTable = QtWidgets.QTableWidget(self.groupBox_11)
+        self.FluxeTable.setGeometry(QtCore.QRect(10, 70, 101, 61))
+        self.FluxeTable.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.FluxeTable.setObjectName("FluxeTable")
+        self.FluxeTable.setColumnCount(1)
+        self.FluxeTable.setRowCount(0)
+        item = QtWidgets.QTableWidgetItem()
+        self.FluxeTable.setHorizontalHeaderItem(0, item)
+        self.AddFluxeButton = QtWidgets.QPushButton(self.groupBox_11)
+        self.AddFluxeButton.setGeometry(QtCore.QRect(120, 70, 31, 21))
+        self.AddFluxeButton.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.AddFluxeButton.setIcon(icon)
+        self.AddFluxeButton.setObjectName("AddFluxeButton")
+        self.AddFluxeButton.clicked.connect(self.AddFluxeButtonClicked)
+        self.FluxeType = QtWidgets.QComboBox(self.groupBox_11)
+        self.FluxeType.setGeometry(QtCore.QRect(10, 40, 141, 22))
+        self.FluxeType.setEditable(False)
+        self.FluxeType.setObjectName("FluxeType")
+        self.RemoveFluxeButton = QtWidgets.QPushButton(self.groupBox_11)
+        self.RemoveFluxeButton.setGeometry(QtCore.QRect(120, 110, 31, 21))
+        self.RemoveFluxeButton.setText("")
+        self.RemoveFluxeButton.clicked.connect(self.removeFluxeButtonClicked)
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.RemoveFluxeButton.setIcon(icon1)
+        self.RemoveFluxeButton.setObjectName("RemoveFluxeButton")
+        self.tip_flyusa_label = QtWidgets.QLabel(self.groupBox_11)
+        self.tip_flyusa_label.setGeometry(QtCore.QRect(10, 20, 71, 16))
+        self.tip_flyusa_label.setObjectName("tip_flyusa_label")
         self.Factory.addTab(self.tab_3, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
@@ -599,14 +991,24 @@ class Ui_AdminFom(object):
         self.label_8.setText(_translate("AdminFom", "CaO:"))
         self.label_9.setText(_translate("AdminFom", "SiO2:"))
         self.label_22.setText(_translate("AdminFom", "MgO:"))
-        self.fluxeFe2O3.setText(_translate("AdminFom", "Fe2O3:"))
+        self.fluxeFe2O3label.setText(_translate("AdminFom", "Fe2O3:"))
         self.label_30.setText(_translate("AdminFom", "Название:"))
         self.label_31.setText(_translate("AdminFom", "FeO:"))
         self.label_32.setText(_translate("AdminFom", "MnO:"))
         self.label_33.setText(_translate("AdminFom", "Al2O3:"))
         self.label_34.setText(_translate("AdminFom", "CaCO3:"))
         self.label_35.setText(_translate("AdminFom", "MgCO3:"))
-        self.addFluxeButton.setText(_translate("AdminFom", "Добавить"))
+        self.addFluxeDataButton.setText(_translate("AdminFom", "Добавить"))
+        self.groupBox_10.setTitle(_translate("AdminFom", "Добавление режима"))
+        self.label_23.setText(_translate("AdminFom", "Сталь:"))
+        self.addModeButton.setText(_translate("AdminFom", "Добавить"))
+        self.label_26.setText(_translate("AdminFom", "Чугун:"))
+        self.label_27.setText(_translate("AdminFom", "Лом:"))
+        self.label_28.setText(_translate("AdminFom", "Название:"))
+        self.groupBox_11.setTitle(_translate("AdminFom", "Флюсы в режиме"))
+        item = self.FluxeTable.horizontalHeaderItem(0)
+        item.setText(_translate("AdminFom", "Тип флюса"))
+        self.tip_flyusa_label.setText(_translate("AdminFom", "Тип флюса:"))
         self.Factory.setTabText(self.Factory.indexOf(self.tab_3), _translate("AdminFom", "Промышленные данные"))
         self.groupBox_2.setTitle(_translate("AdminFom", "Добавление учетных записей"))
         self.AddUserButton.setText(_translate("AdminFom", "Добавить"))
@@ -626,6 +1028,10 @@ class Ui_AdminFom(object):
         self.menu_2.setTitle(_translate("AdminFom", "Справка"))
         self.exit.setText(_translate("AdminFom", "Выход"))
         self.about.setText(_translate("AdminFom", "О программе"))
+        self.getFluxes()
+        self.getAllScrap()
+        self.getAllSteel()
+        self.getAllCast()
 
 
 if __name__ == "__main__":

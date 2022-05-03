@@ -75,11 +75,14 @@ class Ui_LoginForm(object):
         LoginForm.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         LoginForm.setDocumentMode(False)
         LoginForm.setTabShape(QtWidgets.QTabWidget.Triangular)
+        winIcon = QtGui.QIcon()
+        winIcon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        LoginForm.setWindowIcon(winIcon)
         self.centralwidget = QtWidgets.QWidget(LoginForm)
         self.centralwidget.setObjectName("centralwidget")
         self.loginButton = QtWidgets.QPushButton(self.centralwidget)
 
-        self.loginButton.clicked.connect(self.LoginButtonClick)  # КЛИК КНОПКИ ----------------------------------------
+        self.loginButton.clicked.connect(self.LoginButtonClick)
 
         self.loginButton.setGeometry(QtCore.QRect(340, 130, 111, 41))
         self.loginButton.setObjectName("loginButton")
@@ -144,6 +147,8 @@ class Ui_LoginForm(object):
         self.loginButton.setText(_translate("LoginForm", "Войти"))
         self.loginLabel.setText(_translate("LoginForm", "Логин:"))
         self.passwordLabel.setText(_translate("LoginForm", "Пароль:"))
+
+
 
 
 if __name__ == "__main__":
