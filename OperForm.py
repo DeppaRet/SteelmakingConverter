@@ -192,7 +192,7 @@ class Ui_OperatorForm(object):
             scrapSiliconValue = float(self.scrapSilicon.text())
             scrapPhosphorValue = float(self.scrapPhosphor.text())
             scrapWeightValue = float(self.scrapWeight.text())
-            scrapManganeseValue = float(self.scrapPhosphor.text())
+            scrapManganeseValue = float(self.scrapManganese.text())
 
             totalWeightValue = castSteelWeightValue + scrapWeightValue
 
@@ -252,7 +252,7 @@ class Ui_OperatorForm(object):
                 Mn = 85.0
                 P = 93.0
                 S = 37.0
-            elif((steelCarbonValue > 0.1) & (steelCarbonValue <= 0.25)):
+            elif((steelCarbonValue > 0.1) and (steelCarbonValue <= 0.25)):
                 Mn = 77.0
                 P = 87.0
                 S = 43.0
@@ -770,19 +770,19 @@ class Ui_OperatorForm(object):
 
             #Тепловой эффект реакции шлакообразования
             ChemSlagHeat =  628.0 * float(self.SlagCaO.text()) * 1000.0 + 1464.0 * float(self.SlagSiO2.text()) * 1000.0
-            self.ChemHeatSlag.setText(str(round(ChemSlagHeat, 3)))
+            self.ChemHeatSlag.setText(str(round(ChemSlagHeat, 2)))
             self.IncomingHeatTable.setItem(3, 0, QTableWidgetItem(str(round(ChemSlagHeat, 3))))
             
             #Тепло от дожигания CO
             BurningCO = float(self.OutputDataTable.item(2, 0).text())
             HeatOfBurningCO = 101.0 * 100.0 * abs(BurningCO) * 1000.0 * 0.2
-            self.HeatCO.setText(str(round(HeatOfBurningCO, 3)))
+            self.HeatCO.setText(str(round(HeatOfBurningCO, 2)))
             self.IncomingHeatTable.setItem(4, 0, QTableWidgetItem(str(round(HeatOfBurningCO, 3))))
 
             #Общий приход тепла
             TotalHeatInc = PhysCastHeat + HeatReactOfOxidation + ChemHeatOxidAppear + ChemSlagHeat + HeatOfBurningCO
             self.TotalHeatInc.setText(str(TotalHeatInc))
-            self.IncomingHeatTable.setItem(5, 0, QTableWidgetItem(str(round(TotalHeatInc, 3))))
+            self.IncomingHeatTable.setItem(5, 0, QTableWidgetItem(str(round(TotalHeatInc, 2))))
 
             #Расходные статьи
             #
@@ -913,7 +913,7 @@ class Ui_OperatorForm(object):
             umn = 0
             if(carbonRemaining < 0.10):
                 umn = 27.5
-            elif(carbonRemaining >= 0.10 & carbonRemaining <= 0.25):
+            elif(carbonRemaining >= 0.10 and carbonRemaining <= 0.25):
                 umn = 25.0
             elif(carbonRemaining > 0.25):
                 umn = 17.5
