@@ -202,6 +202,12 @@ class Ui_OperatorForm(object):
             chemSilicon = (castSteelSiliconValue * castSteelWeightValue + scrapSiliconValue * scrapWeightValue)/totalWeightValue
             chemManganese = (castSteelManganeseValue * castSteelWeightValue + scrapManganeseValue * scrapWeightValue)/totalWeightValue
 
+            # carbonChem = (castSteelCarbonValue * castSteelWeightValue + scrapCarbonValue * scrapWeightValue) / totalWeightValue
+            # chemSerum = (castSteelSerumValue * castSteelWeightValue + scrapSerumValue * scrapWeightValue) / totalWeightValue
+            # chemPhosphor = (castSteelPhosphorValue * castSteelWeightValue + scrapPhosphorValue * scrapWeightValue) / totalWeightValue
+            # chemSilicon = (castSteelSiliconValue * castSteelWeightValue + scrapSiliconValue * scrapWeightValue) / totalWeightValue
+            # chemManganese = (castSteelManganeseValue * castSteelWeightValue + scrapManganeseValue * scrapWeightValue) / totalWeightValue
+
             self.MetalCharge.setText(str(round(totalWeightValue, 3)))
             self.ChemCarbon.setText(str(round(carbonChem, 3)))
             self.ChemSerum.setText(str(round(chemSerum,3)))
@@ -264,7 +270,7 @@ class Ui_OperatorForm(object):
             manganeseAfter = chemManganesevalue * (100.0 - Mn) * 0.01
             phosphorAfter = chemPhosphorValue * (100.0 - P) * 0.01
             serumAfter = chemSerumValue * (100.0 - S) * 0.01
-            siliconAfter = 0
+            siliconAfter = 0 #Кремний при выплавке стали в конвертере с основной футеровкой окисляется практически полностью, поэтому
 
             self.OxidationTable.setItem(1, 0, QTableWidgetItem(str(round(steelCarbonValue, 3))))
             self.OxidationTable.setItem(1, 1, QTableWidgetItem("-"))
@@ -278,10 +284,10 @@ class Ui_OperatorForm(object):
             carbonRemove = chemCarbonValue - steelCarbonValue
             carbonToCO = carbonRemove * 0.9
             carbonToCO2 = carbonRemove * 0.1
-            siliconRemove = chemSiliconValue - steelSiliconValue
-            manganeseRemove = chemManganesevalue - steelManganeseValue
-            phosphorRemove = chemPhosphorValue - steelPhosphorValue
-            serumRemove = -(chemSerumValue - steelSerumValue)
+            siliconRemove = chemSiliconValue - siliconAfter
+            manganeseRemove = chemManganesevalue - manganeseAfter
+            phosphorRemove = chemPhosphorValue - phosphorAfter
+            serumRemove = (chemSerumValue - serumAfter)
             summRemove = carbonToCO + carbonToCO2 + siliconRemove +manganeseRemove + phosphorRemove + serumRemove
 
             self.OxidationTable.setItem(2, 0, QTableWidgetItem(str(round(carbonRemove, 3))))
@@ -538,6 +544,7 @@ class Ui_OperatorForm(object):
                 self.slagCalcClicked()
                 slagCalcked = True
             metalChargeWeight = float(self.MetalCharge.text())
+            tmp = self.OxidationTable.item(3,7).text()
             totalOxygenRequired = float(self.OxidationTable.item(3,7).text())/100 * metalChargeWeight
 
             FeO = 0.0
@@ -669,7 +676,7 @@ class Ui_OperatorForm(object):
                 self.IncomingData.insertRow(incomingDataRowCount)
                 self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(str(listOfNamesForClass[row].name)))
                 self.IncomingData.setItem(incomingDataRowCount, 1,
-                                          QTableWidgetItem(str(listOfNamesForClass[row].fluxeWeight * 1000)))
+                                          QTableWidgetItem(str(round(listOfNamesForClass[row].fluxeWeight * 1000, 2))))
                 incomingDataRowCount += 1
 
             self.IncomingData.insertRow(incomingDataRowCount)
@@ -787,9 +794,9 @@ class Ui_OperatorForm(object):
             #Расходные статьи
             #
             # Физическое тепло отходящих газов
-            COKilo = float(self.OutputDataTable.item(4, 0).text())
-            CO2Kilo = float(self.OutputDataTable.item(4, 1).text())
-            PhysGasHeat =  (1.32 * 2000.0 - 220.0) * (COKilo + CO2Kilo)
+            COKilo = float(self.OutputDataTable.item(4, 0).text()) * 1000
+            CO2Kilo = float(self.OutputDataTable.item(4, 1).text()) * 1000
+            PhysGasHeat = (1.32 * 2000.0 - 220.0) * (COKilo + CO2Kilo)
             self.PhysHeatOutGas.setText(str(round(PhysGasHeat, 3)))
             self.OutputHeatTable.setItem(3, 0, QTableWidgetItem(str(round(PhysGasHeat, 3))))
             
@@ -901,7 +908,7 @@ class Ui_OperatorForm(object):
 
             # Рассчет растворимости MgO
             limitSolubilityMgO = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875
-
+            limitSolubilityMgO = abs(limitSolubilityMgO)
             #Потери массы футеровки
             liningWeightLoss = 4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text()) * (limitSolubilityMgO - slagMgO)
             self.LiningWeightLoss.setText(str(round(liningWeightLoss, 3)))
@@ -920,7 +927,16 @@ class Ui_OperatorForm(object):
 
             #расход феросплава
             steelManganese = float(self.steelManganese.text())
-            firstFero = 100 * float(self.LiquidIronYield.text()) * 1000 * (steelManganese - float(self.OxidationTable.item(1,4).text()))/(float(self.ChemEmission.item(0,3).text())*(100-umn))
+            tmp1 = float(self.LiquidIronYield.text())
+            tmp2 = float(self.OxidationTable.item(1,4).text())
+            tmp3 = float(self.ChemEmission.item(0,3).text())
+
+            firstFero = 100 * float(self.LiquidIronYield.text()) * 1000 * (
+                    steelManganese - float(self.OxidationTable.item(1,4).text()))/(
+                    float(self.ChemEmission.item(0,3).text())*(100-umn))
+
+            firstFero = abs(firstFero)
+
             self.rashod_pervovo_ferrosplava_line_edit_2.setText(str(round(firstFero, 3)))
 
             # заместо 0.5 должен быть концентрация марганца но ее нет на интерфейсе поэтому пока так
@@ -2468,7 +2484,7 @@ class Ui_OperatorForm(object):
         item = self.SteelChemResult.horizontalHeaderItem(4)
         item.setText(_translate("OperatorForm", "P"))
         self.himicheskii_sostav_poluchennoi_stali_label_2.setText(_translate("OperatorForm", "Химический состав полученной стали:"))
-        self.label_43.setText(_translate("OperatorForm", "Выбросы CO2 [м^3]:"))
+        self.label_43.setText(_translate("OperatorForm", "Выбросы CO2 [кг]:"))
         self.label_44.setText(_translate("OperatorForm", "Масса стали [кг]:"))
         self.label_45.setText(_translate("OperatorForm", "Масса шлака [т]:"))
         self.label_46.setText(_translate("OperatorForm", "Потеря массы футеровки [кг]:"))

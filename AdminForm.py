@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QTableWidgetItem
 
 import OperForm
 import AboutForm
+from SteelmakingConverter import hashAuth
 
 
 class Ui_AdminFom(object):
@@ -31,7 +32,7 @@ class Ui_AdminFom(object):
                 host="localhost",
                 user="root",
                 password="root",
-                database="mydb"
+                database="users_db"
             )
             result = ""
             mycursor = usersDB.cursor()
@@ -45,9 +46,9 @@ class Ui_AdminFom(object):
                     self.tableWidgetUsers.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
             usersCount = self.tableWidgetUsers.rowCount()
-            if choosenTable == "Пользователи":
-                for row in range(usersCount):
-                    self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
+            # if choosenTable == "Пользователи":
+            #     for row in range(usersCount):
+            #         self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -130,6 +131,7 @@ class Ui_AdminFom(object):
             query = "INSERT INTO users (Login, Password, Roles_idRoles) values (%s, %s, %s)"
             login = self.LoginCreate.text()
             password = self.PasswordCreate.text()
+            password = hashAuth.Hash.getHash(password)
             if self.UserRoleCreate.currentText() == "Оператор":
                 role = 2
             elif self.UserRoleCreate.currentText() == "Администратор":
@@ -141,7 +143,7 @@ class Ui_AdminFom(object):
                 host="localhost",
                 user="root",
                 password="root",
-                database="mydb"
+                database="users_db"
             )
             mycursor = usersDB.cursor()
             mycursor.execute(query, value)

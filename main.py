@@ -5,6 +5,8 @@ import OperForm
 import DeveloperForm
 import mysql.connector as mc
 
+from SteelmakingConverter import hashAuth
+
 
 class Ui_LoginForm(object):
     def LoginButtonClick(self):
@@ -15,12 +17,12 @@ class Ui_LoginForm(object):
             msg = QMessageBox()
             login = self.LoginLine.text()
             password = self.PasswordLine.text()
-
+            password = hashAuth.Hash.getHash(password)
             usersDB = mc.connect(
                 host="localhost",
                 user="root",
                 password="root",
-                database="mydb"
+                database="users_db"
             )
             result = ""
             mycursor = usersDB.cursor()
