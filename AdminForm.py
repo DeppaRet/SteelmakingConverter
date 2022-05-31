@@ -149,9 +149,11 @@ class Ui_AdminFom(object):
             mycursor.execute(query, value)
             usersDB.commit()                # Обязательно для записи
             msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
             msg.setWindowTitle("Успех")
-            msg.setText("Выполнено")
-            msg.setInformativeText("Учетная запись создана успешно")
+            msg.setText("Внимание")
+            msg.setInformativeText("Учетная запись успешно добавлена!")
+            msg.exec_()
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -328,11 +330,13 @@ class Ui_AdminFom(object):
             mycursor = DB.cursor()
             mycursor.execute(query, value)
             DB.commit()
-            msg = QMessageBox()
             self.getAllCast()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
             msg.setWindowTitle("Успех")
-            msg.setText("Выполнено")
+            msg.setText("Внимание")
             msg.setInformativeText("Запись успешно добавлена!")
+            msg.exec_()
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -377,9 +381,11 @@ class Ui_AdminFom(object):
 
             self.getAllScrap()
             msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
             msg.setWindowTitle("Успех")
-            msg.setText("Выполнено")
+            msg.setText("Внимание")
             msg.setInformativeText("Запись успешно добавлена!")
+            msg.exec_()
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -402,7 +408,7 @@ class Ui_AdminFom(object):
             idSteel = mycursor.fetchone()[0]
             mycursor.close()
 
-            query = "insert into mode (ModeName, SteelData_idSteelData, ScrapData_idScrapData, CastSteelData_idCastSteelData, MathSettings_idMathSettings) values(%s, %s, %s, %s, 1)"
+            query = "insert into mode (ModeName, SteelData_idSteelData, ScrapData_idScrapData, CastSteelData_idCastSteelData) values(%s, %s, %s, %s)"
 
             values = (self.modeName.text(), idSteel, self.modeScrap.currentText(), self.modeCastSteel.currentText())
 
@@ -433,6 +439,12 @@ class Ui_AdminFom(object):
                     DB.commit()  # Обязательно для записи
                     mycursor.close()
             DB.close()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Успех")
+            msg.setText("Внимание")
+            msg.setInformativeText("Режим успешно добавлен!")
+            msg.exec_()
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -483,6 +495,12 @@ class Ui_AdminFom(object):
             mycursor.execute(query, value)
             DB.commit()
             DB.close()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Успех")
+            msg.setText("Внимание")
+            msg.setInformativeText("Запись успешно добавлена!")
+            msg.exec_()
 
         except Exception as err:
             msg = QMessageBox()

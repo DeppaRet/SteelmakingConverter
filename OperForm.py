@@ -1,8 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView
+from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView, QFileDialog
 import mysql.connector as mc
 from PyQt5.QtWidgets import QMessageBox
 import AboutForm
+from tkinter import *
+from tkinter import filedialog
 # import numpy as np
 # import tensorflow as tf
 # from keras import models
@@ -161,7 +163,8 @@ class Ui_OperatorForm(object):
             scrapWeight = mycursor.fetchall()
             self.scrapWeight.setText(str(scrapWeight[0][0]))
             mycursor.close()
-            i= 0
+            DB.close()
+            self.getFluxeInMode(modeId)
 
         except Exception as err:
             msg = QMessageBox()
@@ -176,6 +179,29 @@ class Ui_OperatorForm(object):
             mycursor.close()
             DB.close()
 
+    def getFluxeInMode(self, modeId):
+        self.FluxeTable.setRowCount(0)
+        DB = mc.connect(
+            host="localhost",
+            user="root",
+            password="root",
+            database="regimdata"
+        )
+        query = "select FluxeData_idFluxeData from fluxedata_has_mode where Mode_idMode = " + str(modeId) + ";"
+        mycursor = DB.cursor()
+        mycursor.execute(query)
+        fluxes = mycursor.fetchall()
+        if len(fluxes) != 0:
+            for i in range(len(fluxes)):
+                query = "select FluxeName from fluxedata where idFluxeData = " + str(fluxes[i][0]) +";"
+                mycursor.execute(query)
+                currentFluxe = mycursor.fetchone()
+                rows = self.FluxeTable.rowCount()
+                text = currentFluxe[0]
+                self.FluxeTable.insertRow(rows)
+                self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
+                k = 0
+        DB.close()
 
     def calcMetalChargeClicked(self):
         try:
@@ -1114,6 +1140,40 @@ class Ui_OperatorForm(object):
         self.ui = AboutForm.Ui_Dialog()
         self.ui.setupUi(self.window)
         self.window.show()
+
+    def saveResult(self):
+        file = filedialog.asksaveasfile(defaultextension='.txt',
+                                        filetypes=[
+                                            ("Text file", ".txt"),
+                                            ("HTML file", ".html"),
+                                            ("All files", ".*"),
+                                        ])
+        if file is None:
+            return
+        try:
+            tmpFluxes = ""
+            fluxesRowCount = self.FluxeTable.rowCount()
+            for row in range(fluxesRowCount):
+                name = str(self.FluxeTable.item(row, 0).text())
+                weight = str(self.FluxeTable.item(row, 1).text())
+                tmpFluxes += name + " массой " + weight + " Т., "
+            filetext = "Результат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
+                       ", Масса [Т] " + str(self.castWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
+                       "Углерод: " + str(self.castCarbon.text()) + ", Сера:" + str(self.castSerum.text()) + \
+                       ", Кремний: " + str(self.castSilicon.text()) + ", Фосфор: " + str(self.castPhosphor.text()) +\
+                       ", Марганец: " + str(self.castManganese.text()) +"\nЛом: " +\
+                       "Масса [Т] " + str(self.scrapWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
+                       "Углерод: " + str(self.scrapCarbon.text()) + ", Сера:" + str(self.scrapSerum.text()) + \
+                       ", Кремний: " + str(self.scrapSilicon.text()) + ", Фосфор: " + str(self.scrapPhosphor.text()) +\
+                       ", Марганец: " + str(self.scrapManganese.text()) + "\nс использованием флюсов: " + tmpFluxes + \
+                       "\nБыла получена сталь массой " + self.SteelWeightRes.text() + " кг, Температурой " + self.resultSteelTemperature.text() + \
+                       "C, со следующим содержанием веществ [%масс]:\n" + "Углерод: " + str(self.SteelChemResult.item(0,0).text()) + \
+                       ", Кремний: " + str(self.SteelChemResult.item(0,1).text()) + ", Марганец: " + str(self.SteelChemResult.item(0,2).text()) + \
+                       ", Сера: " + str(self.SteelChemResult.item(0,3).text()) + ", Фосфор: " + str(self.SteelChemResult.item(0,4).text())
+            file.write(filetext)
+            file.close()
+        except Exception as err:
+            s = 0
 
     def setupUi(self, OperatorForm):
         OperatorForm.setObjectName("OperatorForm")
@@ -2173,8 +2233,9 @@ class Ui_OperatorForm(object):
         OperatorForm.setStatusBar(self.statusbar)
         self.about = QtWidgets.QAction(OperatorForm)
         self.about.setObjectName("about")
-        self.OpenFile = QtWidgets.QAction(OperatorForm)
-        self.OpenFile.setObjectName("OpenFile")
+        self.SaveFile = QtWidgets.QAction(OperatorForm)
+        self.SaveFile.setObjectName("SaveFile")
+        self.SaveFile.setStatusTip('Save file')
         self.Exit = QtWidgets.QAction(OperatorForm)
         self.Exit.setObjectName("Exit")
         self.addUser = QtWidgets.QAction(OperatorForm)
@@ -2186,7 +2247,8 @@ class Ui_OperatorForm(object):
         self.AddDbData = QtWidgets.QAction(OperatorForm)
         self.AddDbData.setEnabled(False)
         self.AddDbData.setObjectName("AddDbData")
-        self.Menu.addAction(self.OpenFile)
+
+        self.Menu.addAction(self.SaveFile)
         self.Menu.addSeparator()
         self.Menu.addAction(self.Exit)
         self.Help.addAction(self.about)
@@ -2196,10 +2258,12 @@ class Ui_OperatorForm(object):
         self.menubar.addAction(self.Administrate.menuAction())
         self.menubar.addAction(self.Help.menuAction())
 
+
         self.Exit.setShortcut('Ctrl+Q')
         self.Exit.triggered.connect(lambda: self.app.Quit)
 
         self.about.triggered.connect(self.openAbout)
+        self.SaveFile.triggered.connect(self.saveResult)
 
         self.retranslateUi(OperatorForm)
         self.tabWidget.setCurrentIndex(0)
@@ -2505,7 +2569,7 @@ class Ui_OperatorForm(object):
         self.Help.setTitle(_translate("OperatorForm", "Справка"))
         self.Administrate.setTitle(_translate("OperatorForm", "Администрирование"))
         self.about.setText(_translate("OperatorForm", "О программе"))
-        self.OpenFile.setText(_translate("OperatorForm", "Открыть"))
+        self.SaveFile.setText(_translate("OperatorForm", "Сохранить результат"))
         self.Exit.setText(_translate("OperatorForm", "Выйти"))
         self.addUser.setText(_translate("OperatorForm", "Добавить пользователя"))
         self.AddUser.setText(_translate("OperatorForm", "Добавить пользователя"))
