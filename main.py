@@ -4,24 +4,49 @@ import AdminForm
 import OperForm
 import DeveloperForm
 import mysql.connector as mc
+from SteelmakingConverter import hashAuth, connSettings
+from configparser import ConfigParser
 
-from SteelmakingConverter import hashAuth
+DBhost = "localhost"
+DBlogin = "root"
+DBpass = "root"
+parser = ConfigParser()
 
+# config = ConfigParser()
+#
+# config['DBsettings'] = {
+#     'DBhost': 'localhost',
+#     'login': 'root',
+#     'password': 'root'
+# }
+# with open('./dev.ini', 'w') as f:
+#     config.write(f)
 
 class Ui_LoginForm(object):
+
+    def getSettings(self):
+        parser.read('dev.ini')
+        global DBhost
+        DBhost = (str(parser.get('DBsettings', 'DBhost')))
+        global DBlogin
+        DBlogin = (str(parser.get('DBsettings', 'login')))
+        global DBpass
+        DBpass = (str(parser.get('DBsettings', 'password')))
+
     def LoginButtonClick(self):
         self.loginFunc()
 
     def loginFunc(self):
         try:
+            self.getSettings()
             msg = QMessageBox()
             login = self.LoginLine.text()
             password = self.PasswordLine.text()
             password = hashAuth.Hash.getHash(password)
             usersDB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host= DBhost, #192.168.51.179
+                user= DBlogin, #user="root",
+                password= DBpass, #password="root",
                 database="users_db"
             )
             result = ""
@@ -69,6 +94,13 @@ class Ui_LoginForm(object):
             msg.setInformativeText("Проверьте введенные данные!")
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
+
+    def openSettings(self):
+        self.window = QtWidgets.QDialog()
+        # self.window.setWindowModality(QtCore.Qt.WindowModal)
+        self.ui = connSettings.Ui_ConnectionSettings()
+        self.ui.setupUi(self.window)
+        self.window.exec_()
 
     # ---------------------------- Interface ----------------------------
     def setupUi(self, LoginForm):
@@ -138,6 +170,14 @@ class Ui_LoginForm(object):
         self.PasswordLine.setEchoMode(QLineEdit.Password)
         self.horizontalLayout_2.addWidget(self.PasswordLine)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
+        self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
+        self.SettingsButton.setGeometry(QtCore.QRect(430, 10, 21, 20))
+        self.SettingsButton.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"))
+        self.SettingsButton.setIcon(icon)
+        self.SettingsButton.setObjectName("SettingsButton")
+        self.SettingsButton.clicked.connect(self.openSettings)
         LoginForm.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(LoginForm)
@@ -149,7 +189,7 @@ class Ui_LoginForm(object):
         self.loginButton.setText(_translate("LoginForm", "Войти"))
         self.loginLabel.setText(_translate("LoginForm", "Логин:"))
         self.passwordLabel.setText(_translate("LoginForm", "Пароль:"))
-
+        self.getSettings()
 
 
 

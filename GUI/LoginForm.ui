@@ -61,7 +61,7 @@
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>150</x>
@@ -132,6 +132,23 @@
       </layout>
      </item>
     </layout>
+   </widget>
+   <widget class="QPushButton" name="SetingsButton">
+    <property name="geometry">
+     <rect>
+      <x>430</x>
+      <y>10</y>
+      <width>21</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normaloff>../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png</normaloff>../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png</iconset>
+    </property>
    </widget>
   </widget>
  </widget>

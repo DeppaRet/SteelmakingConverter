@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QMessageBox
 import AboutForm
 from tkinter import *
 from tkinter import filedialog
+from configparser import ConfigParser
 # import numpy as np
 # import tensorflow as tf
 # from keras import models
@@ -20,6 +21,11 @@ slagCalcked = False
 blastCalcked = False
 materialBalanceCalcked = False
 heatBalanceCalcked = False
+DBhost = "localhost"
+DBlogin = "root"
+DBpass = "root"
+parser = ConfigParser()
+parser.read('dev.ini')
 
 class FluxeComposition(object):
     name = "Флюс"
@@ -37,14 +43,21 @@ listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6
                                'fluxe9', 'fluxe10','fluxe11','fluxe12','fluxe13','fluxe14','fluxe15', 'fluxe16']
 class Ui_OperatorForm(object):
 
+    def getSettings(self):
+        global DBhost
+        DBhost = (str(parser.get('DBsettings', 'DBhost')))
+        global DBlogin
+        DBlogin = (str(parser.get('DBsettings', 'login')))
+        global DBpass
+        DBpass = (str(parser.get('DBsettings', 'password')))
 
     def getModes(self):
         try:
             query = "select ModeName from mode;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host = DBhost, # host="192.168.51.179" user="root", password="root",
+                user = DBlogin,
+                password = DBpass,
                 database="regimdata"
             )
             result = ""
@@ -57,9 +70,9 @@ class Ui_OperatorForm(object):
 
             query = "select Name from ferroalloy;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="FerroalloyDB"
             )
             result = ""
@@ -90,9 +103,9 @@ class Ui_OperatorForm(object):
             currentMode = self.ModeComboBox.currentText()
             query = "select SteelData_idSteelData from mode where ModeName = '" + currentMode + "';"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             steelId = ""
@@ -182,9 +195,9 @@ class Ui_OperatorForm(object):
     def getFluxeInMode(self, modeId):
         self.FluxeTable.setRowCount(0)
         DB = mc.connect(
-            host="localhost",
-            user="root",
-            password="root",
+            host=DBhost,  # host="192.168.51.179" user="root", password="root",
+            user=DBlogin,
+            password=DBpass,
             database="regimdata"
         )
         query = "select FluxeData_idFluxeData from fluxedata_has_mode where Mode_idMode = " + str(modeId) + ";"
@@ -389,9 +402,9 @@ class Ui_OperatorForm(object):
         try:
             query = "select FluxeName from fluxedata;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -439,9 +452,9 @@ class Ui_OperatorForm(object):
             text = self.FeroType.currentText()
             query = "select * from ferroalloy where Name = '"+ text + "';"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="FerroalloyDB"
             )
             result = ""
@@ -498,9 +511,9 @@ class Ui_OperatorForm(object):
                 name = listOfNamesForClass[row].name
                 query = "select * from fluxecomposition where idFluxeComposition in (select (FluxeComposition_idFluxeComposition) from fluxedata where FluxeName = '" + name + "');"
                 usersDB = mc.connect(
-                    host="localhost",
-                    user="root",
-                    password="root",
+                    host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                    user=DBlogin,
+                    password=DBpass,
                     database="regimdata"
                 )
                 result = ""
@@ -2574,6 +2587,7 @@ class Ui_OperatorForm(object):
         self.addUser.setText(_translate("OperatorForm", "Добавить пользователя"))
         self.AddUser.setText(_translate("OperatorForm", "Добавить пользователя"))
         self.AddDbData.setText(_translate("OperatorForm", "Добавить данные в бд"))
+        self.getSettings()
         self.getFluxes()
         self.getModes()
         self.AddNewMode.setEnabled(1)

@@ -2,13 +2,26 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import mysql.connector as mc
 from PyQt5.QtWidgets import QMessageBox, QAction
 from PyQt5.QtWidgets import QTableWidgetItem
-
 import OperForm
 import AboutForm
 from SteelmakingConverter import hashAuth
+from configparser import ConfigParser
 
+DBhost = "localhost"
+DBlogin = "root"
+DBpass = "root"
+parser = ConfigParser()
+parser.read('dev.ini')
 
 class Ui_AdminFom(object):
+
+    def getSettings(self):
+        global DBhost
+        DBhost = (str(parser.get('DBsettings', 'DBhost')))
+        global DBlogin
+        DBlogin = (str(parser.get('DBsettings', 'login')))
+        global DBpass
+        DBpass = (str(parser.get('DBsettings', 'password')))
 
     def openOperForm(self):
         self.window = QtWidgets.QMainWindow()
@@ -29,9 +42,9 @@ class Ui_AdminFom(object):
             self.tableWidgetUsers.setHorizontalHeaderLabels(["Номер", "Роль"])
         try:
             usersDB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="users_db"
             )
             result = ""
@@ -101,9 +114,9 @@ class Ui_AdminFom(object):
                 # self.tableWidget.setHorizontalHeaderLabels(["Номер", "CaO", "SiO2", "MgO", "Fe2O3", "FeO", "MnO", "Al2O3", "CaCO3", "MgCO3"])
 
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -140,9 +153,9 @@ class Ui_AdminFom(object):
                 role = 3
             value = (login, password, role)
             usersDB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="users_db"
             )
             mycursor = usersDB.cursor()
@@ -168,9 +181,9 @@ class Ui_AdminFom(object):
         try:
             query = "select steelname from steeldata;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -196,9 +209,9 @@ class Ui_AdminFom(object):
         try:
             query = "select idScrapData from scrapdata;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -224,9 +237,9 @@ class Ui_AdminFom(object):
         try:
             query = "select idcaststeeldata from caststeeldata;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -252,9 +265,9 @@ class Ui_AdminFom(object):
         try:
             query = "select FluxeName from fluxedata;"
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             result = ""
@@ -306,9 +319,9 @@ class Ui_AdminFom(object):
             value = (castCarbon, castSerum, castPhosphor, castSilicon, castMang)
 
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
 
@@ -355,9 +368,9 @@ class Ui_AdminFom(object):
             scrapMang = self.scrapManganese.text()
             value = (scrapCarbon, scrapSerum, scrapPhosphor, scrapSilicon, scrapMang)
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             mycursor = DB.cursor()
@@ -397,9 +410,9 @@ class Ui_AdminFom(object):
     def addMode(self):
         try:
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
             query = "select idsteeldata from steeldata where steelname = '" + self.modeSteelName.currentText() + "'"
@@ -471,9 +484,9 @@ class Ui_AdminFom(object):
             MgCO3 = float(self.fluxeMgCO3.text())
             value = (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3)
             DB = mc.connect(
-                host="localhost",
-                user="root",
-                password="root",
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
                 database="regimdata"
             )
 
