@@ -469,7 +469,6 @@ class Ui_AdminFom(object):
             mycursor.close()
             DB.close()
 
-
     def addFluxeDataButtonClicked(self):
         try:
             query = "insert into fluxecomposition (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
@@ -526,6 +525,105 @@ class Ui_AdminFom(object):
         #     mycursor.close()
         #     DB.close()
 
+    def getAllUsersId(self):
+        query = "select idusers from users"
+        usersDB = mc.connect(
+            host=DBhost,  # host="192.168.51.179" user="root", password="root",
+            user=DBlogin,
+            password=DBpass,
+            database="users_db"
+        )
+        mycursor = usersDB.cursor()
+        mycursor.execute(query)
+        users = mycursor.fetchall()
+        for row_number, row_data in enumerate(users):
+            for column_number, data in enumerate(row_data):
+                self.UserIdUpdate.addItem((str(data)))
+
+        o = 0
+
+    def UpdateUser(self):
+        try:
+            if self.UserRoleUpdate.currentText() == "Оператор":
+                role = 2
+            elif self.UserRoleUpdate.currentText() == "Администратор":
+                role = 1
+            elif self.UserRoleUpdate.currentText() == "Разработчик модели":
+                role = 3
+            login = str(self.LoginUpdate.text())
+            query = "update users set login = '" + login + "', Roles_idRoles = " + str(role) + " where idusers = " + str(self.UserIdUpdate.currentText())
+            usersDB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="users_db"
+            )
+            mycursor = usersDB.cursor()
+            mycursor.execute(query)
+            usersDB.commit()  # Обязательно для записи
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Успех")
+            msg.setText("Внимание")
+            msg.setInformativeText("Запись изменена")
+            msg.exec_()
+
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+
+
+    def executeSqlQuery(self):
+        try:
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            query = self.SQLQuery.text()
+            lowQuery = query.lower()
+            if "drop" in lowQuery:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("В доступе отказано")
+                msg.setText("Внимание")
+                msg.setInformativeText("Вы не можете удалить таблицу.")
+                msg.exec_()
+                DB.close()
+                return
+            elif "delete" in lowQuery:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("В доступе отказано")
+                msg.setText("Внимание")
+                msg.setInformativeText("Вы не можете удалить запись.")
+                msg.exec_()
+                DB.close()
+                return
+            else:
+                mycursor = DB.cursor()
+                mycursor.execute(query)
+                DB.commit()
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Успех")
+                msg.setText("Внимание")
+                msg.setInformativeText("Запрос выполнен.")
+                msg.exec_()
+                DB.close()
+                return
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
 
     def openAbout(self):
         self.window = QtWidgets.QDialog()
@@ -945,6 +1043,63 @@ class Ui_AdminFom(object):
         self.tableWidgetUsers.setObjectName("tableWidgetUsers")
         self.tableWidgetUsers.setColumnCount(0)
         self.tableWidgetUsers.setRowCount(0)
+        self.groupBox_12 = QtWidgets.QGroupBox(self.tab_4)
+        self.groupBox_12.setGeometry(QtCore.QRect(540, 210, 231, 141))
+        self.groupBox_12.setObjectName("groupBox_12")
+        self.UpdateUserButton = QtWidgets.QPushButton(self.groupBox_12)
+        self.UpdateUserButton.setGeometry(QtCore.QRect(140, 110, 75, 23))
+        self.UpdateUserButton.setObjectName("UpdateUserButton")
+        self.UpdateUserButton.clicked.connect(self.UpdateUser)
+        self.label_29 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_29.setGeometry(QtCore.QRect(20, 33, 51, 16))
+        font = QtGui.QFont()
+        font.setFamily("Times New Roman")
+        font.setPointSize(12)
+        self.label_29.setFont(font)
+        self.label_29.setObjectName("label_29")
+        self.label_36 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_36.setGeometry(QtCore.QRect(20, 57, 61, 16))
+        font = QtGui.QFont()
+        font.setFamily("Times New Roman")
+        font.setPointSize(12)
+        self.label_36.setFont(font)
+        self.label_36.setObjectName("label_36")
+        self.label_37 = QtWidgets.QLabel(self.groupBox_12)
+        self.label_37.setGeometry(QtCore.QRect(20, 87, 61, 20))
+        font = QtGui.QFont()
+        font.setFamily("Times New Roman")
+        font.setPointSize(12)
+        self.label_37.setFont(font)
+        self.label_37.setObjectName("label_37")
+        self.layoutWidget_2 = QtWidgets.QWidget(self.groupBox_12)
+        self.layoutWidget_2.setGeometry(QtCore.QRect(80, 30, 137, 76))
+        self.layoutWidget_2.setObjectName("layoutWidget_2")
+        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.layoutWidget_2)
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.verticalLayout_4 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_4.setObjectName("verticalLayout_4")
+        self.UserIdUpdate = QtWidgets.QComboBox(self.layoutWidget_2)
+        self.UserIdUpdate.setCurrentText("")
+        self.UserIdUpdate.setObjectName("UserIdUpdate")
+        self.verticalLayout_4.addWidget(self.UserIdUpdate)
+        self.LoginUpdate = QtWidgets.QLineEdit(self.layoutWidget_2)
+        self.LoginUpdate.setObjectName("LoginUpdate")
+        self.verticalLayout_4.addWidget(self.LoginUpdate)
+        self.verticalLayout_3.addLayout(self.verticalLayout_4)
+        self.UserRoleUpdate = QtWidgets.QComboBox(self.layoutWidget_2)
+        self.UserRoleUpdate.setObjectName("UserRoleUpdate")
+        self.UserRoleUpdate.addItem("")
+        self.UserRoleUpdate.addItem("")
+        self.UserRoleUpdate.addItem("")
+        self.verticalLayout_3.addWidget(self.UserRoleUpdate)
+        self.SQLQuery = QtWidgets.QLineEdit(self.tab_4)
+        self.SQLQuery.setGeometry(QtCore.QRect(540, 520, 161, 21))
+        self.SQLQuery.setObjectName("SQLQuery")
+        self.executeSqlbutton = QtWidgets.QPushButton(self.tab_4)
+        self.executeSqlbutton.setGeometry(QtCore.QRect(710, 520, 71, 23))
+        self.executeSqlbutton.setObjectName("executeSqlbutton")
+        self.executeSqlbutton.clicked.connect(self.executeSqlQuery)
         self.Factory.addTab(self.tab_4, "")
         AdminFom.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(AdminFom)
@@ -1056,15 +1211,28 @@ class Ui_AdminFom(object):
         self.choosenTableForUsers.setItemText(1, _translate("AdminFom", "Роли"))
         self.tabelLabel_4.setText(_translate("AdminFom", "Таблица:"))
         self.showTableForUsers.setText(_translate("AdminFom", "Отобразить"))
+        self.groupBox_12.setTitle(_translate("AdminFom", "Изменение учетных записей"))
+        self.UpdateUserButton.setText(_translate("AdminFom", "Изменить"))
+        self.label_29.setText(_translate("AdminFom", "Номер"))
+        self.label_36.setText(_translate("AdminFom", "Логин"))
+        self.label_37.setText(_translate("AdminFom", "Роль:"))
+        self.UserRoleUpdate.setCurrentText(_translate("AdminFom", "Оператор"))
+        self.UserRoleUpdate.setItemText(0, _translate("AdminFom", "Оператор"))
+        self.UserRoleUpdate.setItemText(1, _translate("AdminFom", "Администратор"))
+        self.UserRoleUpdate.setItemText(2, _translate("AdminFom", "Разработчик модели"))
+        self.SQLQuery.setPlaceholderText(_translate("AdminFom", "Поле для ввода SQL запроса"))
+        self.executeSqlbutton.setText(_translate("AdminFom", "Выполнить"))
         self.Factory.setTabText(self.Factory.indexOf(self.tab_4), _translate("AdminFom", "Пользователи"))
         self.menu.setTitle(_translate("AdminFom", "Файл"))
         self.menu_2.setTitle(_translate("AdminFom", "Справка"))
         self.exit.setText(_translate("AdminFom", "Выход"))
         self.about.setText(_translate("AdminFom", "О программе"))
+        self.getSettings()
         self.getFluxes()
         self.getAllScrap()
         self.getAllSteel()
         self.getAllCast()
+        self.getAllUsersId()
 
 
 if __name__ == "__main__":

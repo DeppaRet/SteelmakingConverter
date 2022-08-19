@@ -25,7 +25,7 @@ DBhost = "localhost"
 DBlogin = "root"
 DBpass = "root"
 parser = ConfigParser()
-parser.read('dev.ini')
+
 
 class FluxeComposition(object):
     name = "Флюс"
@@ -44,6 +44,7 @@ listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6
 class Ui_OperatorForm(object):
 
     def getSettings(self):
+        parser.read('dev.ini')
         global DBhost
         DBhost = (str(parser.get('DBsettings', 'DBhost')))
         global DBlogin
@@ -213,6 +214,15 @@ class Ui_OperatorForm(object):
                 text = currentFluxe[0]
                 self.FluxeTable.insertRow(rows)
                 self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
+                query = "select fluxeweight from fluxedata_has_mode where FluxeData_idFluxeData = " + str(fluxes[i][0]) + " AND Mode_idMode = " + str(modeId) + ";"
+                mycursor.execute(query)
+                weights = mycursor.fetchone()
+                isempty = not all(weights)
+                if isempty:
+                    continue
+
+                text = str(weights[0])
+                self.FluxeTable.setItem(rows, 1, QTableWidgetItem(text))
                 k = 0
         DB.close()
 
