@@ -61,78 +61,6 @@
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QWidget" name="layoutWidget">
-    <property name="geometry">
-     <rect>
-      <x>150</x>
-      <y>50</y>
-      <width>304</width>
-      <height>66</height>
-     </rect>
-    </property>
-    <layout class="QVBoxLayout" name="verticalLayout">
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout">
-       <item>
-        <widget class="QLabel" name="loginLabel">
-         <property name="font">
-          <font>
-           <family>Times New Roman</family>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Логин:</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="LoginLine">
-         <property name="font">
-          <font>
-           <family>Times New Roman</family>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="placeholderText">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
-       <item>
-        <widget class="QLabel" name="passwordLabel">
-         <property name="font">
-          <font>
-           <family>Times New Roman</family>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Пароль:</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="PasswordLine">
-         <property name="font">
-          <font>
-           <family>Times New Roman</family>
-           <pointsize>14</pointsize>
-          </font>
-         </property>
-         <property name="placeholderText">
-          <string/>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-    </layout>
-   </widget>
    <widget class="QPushButton" name="SetingsButton">
     <property name="geometry">
      <rect>
@@ -148,6 +76,88 @@
     <property name="icon">
      <iconset>
       <normaloff>../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png</normaloff>../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png</iconset>
+    </property>
+   </widget>
+   <widget class="QLabel" name="loginLabel">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>50</y>
+      <width>61</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Логин:</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="LoginLine">
+    <property name="geometry">
+     <rect>
+      <x>230</x>
+      <y>50</y>
+      <width>221</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="placeholderText">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QLabel" name="passwordLabel">
+    <property name="geometry">
+     <rect>
+      <x>150</x>
+      <y>90</y>
+      <width>63</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Пароль:</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="PasswordLine">
+    <property name="geometry">
+     <rect>
+      <x>229</x>
+      <y>90</y>
+      <width>221</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="placeholderText">
+     <string/>
     </property>
    </widget>
   </widget>

@@ -12,6 +12,10 @@ DBlogin = "root"
 DBpass = "root"
 parser = ConfigParser()
 
+
+#кафедральный ip 192.168.51.179
+
+
 # config = ConfigParser()
 #
 # config['DBsettings'] = {
@@ -44,9 +48,9 @@ class Ui_LoginForm(object):
             password = self.PasswordLine.text()
             password = hashAuth.Hash.getHash(password)
             usersDB = mc.connect(
-                host= DBhost, #192.168.51.179
-                user= DBlogin, #user="root",
-                password= DBpass, #password="root",
+                host=DBhost,                                        #192.168.51.179
+                user=DBlogin,                                       #user="root",
+                password=DBpass,                                    #password="root",
                 database="users_db"
             )
             result = ""
@@ -127,40 +131,42 @@ class Ui_LoginForm(object):
         self.label.setPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/emergency-exit.png"))
         self.label.setScaledContents(True)
         self.label.setObjectName("label")
-        self.widget = QtWidgets.QWidget(self.centralwidget)
-        self.widget.setGeometry(QtCore.QRect(150, 50, 304, 66))
-        self.widget.setObjectName("widget")
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.widget)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.loginLabel = QtWidgets.QLabel(self.widget)
+        self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
+        self.SettingsButton.setGeometry(QtCore.QRect(430, 10, 21, 20))
+        self.SettingsButton.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.SettingsButton.setIcon(icon)
+        self.SettingsButton.setObjectName("SetingsButton")
+        self.loginLabel = QtWidgets.QLabel(self.centralwidget)
+        self.loginLabel.setGeometry(QtCore.QRect(150, 50, 61, 27))
         font = QtGui.QFont()
         font.setFamily("Times New Roman")
         font.setPointSize(14)
         self.loginLabel.setFont(font)
         self.loginLabel.setObjectName("loginLabel")
-        self.horizontalLayout.addWidget(self.loginLabel)
-        self.LoginLine = QtWidgets.QLineEdit(self.widget)
+        self.LoginLine = QtWidgets.QLineEdit(self.centralwidget)
+        self.LoginLine.setGeometry(QtCore.QRect(230, 50, 221, 27))
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.LoginLine.sizePolicy().hasHeightForWidth())
+        self.LoginLine.setSizePolicy(sizePolicy)
         font = QtGui.QFont()
         font.setFamily("Times New Roman")
         font.setPointSize(14)
         self.LoginLine.setFont(font)
         self.LoginLine.setPlaceholderText("")
         self.LoginLine.setObjectName("LoginLine")
-        self.horizontalLayout.addWidget(self.LoginLine)
-        self.verticalLayout.addLayout(self.horizontalLayout)
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.passwordLabel = QtWidgets.QLabel(self.widget)
+        self.passwordLabel = QtWidgets.QLabel(self.centralwidget)
+        self.passwordLabel.setGeometry(QtCore.QRect(150, 90, 63, 27))
         font = QtGui.QFont()
         font.setFamily("Times New Roman")
         font.setPointSize(14)
         self.passwordLabel.setFont(font)
         self.passwordLabel.setObjectName("passwordLabel")
-        self.horizontalLayout_2.addWidget(self.passwordLabel)
-        self.PasswordLine = QtWidgets.QLineEdit(self.widget)
+        self.PasswordLine = QtWidgets.QLineEdit(self.centralwidget)
+        self.PasswordLine.setGeometry(QtCore.QRect(229, 90, 221, 27))
         font = QtGui.QFont()
         font.setFamily("Times New Roman")
         font.setPointSize(14)
@@ -168,15 +174,6 @@ class Ui_LoginForm(object):
         self.PasswordLine.setPlaceholderText("")
         self.PasswordLine.setObjectName("PasswordLine")
         self.PasswordLine.setEchoMode(QLineEdit.Password)
-        self.horizontalLayout_2.addWidget(self.PasswordLine)
-        self.verticalLayout.addLayout(self.horizontalLayout_2)
-        self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
-        self.SettingsButton.setGeometry(QtCore.QRect(430, 10, 21, 20))
-        self.SettingsButton.setText("")
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"))
-        self.SettingsButton.setIcon(icon)
-        self.SettingsButton.setObjectName("SettingsButton")
         self.SettingsButton.clicked.connect(self.openSettings)
         LoginForm.setCentralWidget(self.centralwidget)
 

@@ -6,6 +6,7 @@ import OperForm
 import AboutForm
 from SteelmakingConverter import hashAuth
 from configparser import ConfigParser
+import pandas as pd
 
 DBhost = "localhost"
 DBlogin = "root"
@@ -14,6 +15,35 @@ parser = ConfigParser()
 parser.read('dev.ini')
 
 class Ui_AdminFom(object):
+
+    # def updateValue(self):
+    #
+
+    def exportData(self):
+        try:
+            columnHeader = []
+
+            for j in range(self.tableWidgetFactory.model().columnCount()):
+                columnHeader.append(self.tableWidgetFactory.horizontalHeaderItem(j).text())
+
+            df = pd.DataFrame(columns = columnHeader)
+
+            for row in range(self.tableWidgetFactory.rowCount()):
+                for col in range(self.tableWidgetFactory.columnCount()):
+                    df.at[row, columnHeader[col]] = self.tableWidgetFactory.item(row,col).text()
+
+            df.to_excel('Data from programm.xlsx', index = False)
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+
+
 
     def getSettings(self):
         global DBhost
@@ -809,6 +839,7 @@ class Ui_AdminFom(object):
         self.tableWidgetFactory.setObjectName("tableWidgetFactory")
         self.tableWidgetFactory.setColumnCount(0)
         self.tableWidgetFactory.setRowCount(0)
+        # self.tableWidgetFactory.itemChanged.connect(self.updateValue)
         self.choosenTableForFactory = QtWidgets.QComboBox(self.tab_3)
         self.choosenTableForFactory.setGeometry(QtCore.QRect(10, 30, 141, 22))
         self.choosenTableForFactory.setObjectName("choosenTableForFactory")
@@ -970,6 +1001,10 @@ class Ui_AdminFom(object):
         self.tip_flyusa_label = QtWidgets.QLabel(self.groupBox_11)
         self.tip_flyusa_label.setGeometry(QtCore.QRect(10, 20, 71, 16))
         self.tip_flyusa_label.setObjectName("tip_flyusa_label")
+        self.exportButton = QtWidgets.QPushButton(self.tab_3)
+        self.exportButton.setGeometry(QtCore.QRect(370, 30, 75, 23))
+        self.exportButton.setObjectName("exportButton")
+        self.exportButton.clicked.connect(self.exportData)
         self.Factory.addTab(self.tab_3, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
@@ -1190,6 +1225,7 @@ class Ui_AdminFom(object):
         self.groupBox_10.setTitle(_translate("AdminFom", "Добавление режима"))
         self.label_23.setText(_translate("AdminFom", "Сталь:"))
         self.addModeButton.setText(_translate("AdminFom", "Добавить"))
+        self.exportButton.setText(_translate("AdminFom", "Экспорт"))
         self.label_26.setText(_translate("AdminFom", "Чугун:"))
         self.label_27.setText(_translate("AdminFom", "Лом:"))
         self.label_28.setText(_translate("AdminFom", "Название:"))
