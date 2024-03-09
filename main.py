@@ -4,7 +4,7 @@ import AdminForm
 import OperForm
 import DeveloperForm
 import mysql.connector as mc
-from SteelmakingConverter import hashAuth, connSettings
+import hashAuth, connSettings
 from configparser import ConfigParser
 
 DBhost = "localhost"
@@ -114,7 +114,7 @@ class Ui_LoginForm(object):
         LoginForm.setDocumentMode(False)
         LoginForm.setTabShape(QtWidgets.QTabWidget.Triangular)
         winIcon = QtGui.QIcon()
-        winIcon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         LoginForm.setWindowIcon(winIcon)
         self.centralwidget = QtWidgets.QWidget(LoginForm)
         self.centralwidget.setObjectName("centralwidget")
@@ -128,14 +128,14 @@ class Ui_LoginForm(object):
         self.label.setGeometry(QtCore.QRect(20, 30, 111, 121))
         self.label.setMaximumSize(QtCore.QSize(291, 151))
         self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/emergency-exit.png"))
+        self.label.setPixmap(QtGui.QPixmap("Pictures/emergency-exit.png"))
         self.label.setScaledContents(True)
         self.label.setObjectName("label")
         self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
         self.SettingsButton.setGeometry(QtCore.QRect(430, 10, 21, 20))
         self.SettingsButton.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("GUI\\../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.SettingsButton.setIcon(icon)
         self.SettingsButton.setObjectName("SetingsButton")
         self.loginLabel = QtWidgets.QLabel(self.centralwidget)

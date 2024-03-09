@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QMessageBox, QAction
 from PyQt5.QtWidgets import QTableWidgetItem
 import OperForm
 import AboutForm
-from SteelmakingConverter import hashAuth
+import hashAuth
 from configparser import ConfigParser
 import pandas as pd
 
@@ -38,7 +38,7 @@ class Ui_AdminFom(object):
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
             msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
+            msg.setInformativeText("Экспорт не был завершен!")
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 
@@ -110,38 +110,35 @@ class Ui_AdminFom(object):
                 query += "Mode;"
                 self.tableWidgetFactory.setColumnCount(5)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(
-                    ["Номер", "Название", "Номер стали", "Номер лома", "Номер чугуна"])
+                    ["Номер", "Название", "Сталь", "Лом", "Чугун"])
             elif (chTable == "Сталь"):
-                query += "SteelData;"
-                self.tableWidgetFactory.setColumnCount(3)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Марка", "Номер состава"])
-            elif (chTable == "Состав стали"):
-                query += "SteelComposition;"
+                query = "select steelname, scomp.SteelCarbon, scomp.SteelSerum, scomp.SteelPhosphor, scomp.SteelSilicon from steeldata as sdata left join steelcomposition as scomp on SteelComposition_idSteelComposition = idSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(5)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний"])
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Марка", "Углерод", "Сера", "Фосфор", "Кремний"])
+            elif (chTable == "Состав стали"):
+                query = "select steelname, scomp.SteelCarbon, scomp.SteelSerum, scomp.SteelPhosphor, scomp.SteelSilicon from steeldata as sdata left join steelcomposition as scomp on SteelComposition_idSteelComposition = idSteelComposition;"
+                self.tableWidgetFactory.setColumnCount(5)
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Марка", "Углерод", "Сера", "Фосфор", "Кремний"])
             elif (chTable == "Чугун"):
-                query += "CastSteelData;"
-                self.tableWidgetFactory.setColumnCount(4)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Температура", "Номер состава"])
+                query = "select cdata.idCastSteelData, cdata.CastSteelWeight, cdata.CastSteelTemperature, ccomp.CastSteelCarbon, ccomp.CastSteelSerum, ccomp.CastSteelPhosphor, ccomp.CastSteelSilicon, ccomp.CastSteelManganese from caststeeldata as cdata left join caststeelcomposition as ccomp on CastSteelComposition_idCastSteelComposition = idCastSteelComposition;"
+                self.tableWidgetFactory.setColumnCount(8)
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Температура", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
             elif (chTable == "Состав чугуна"):
-                query += "CastSteelComposition;"
+                query = "select ccomp.idCastSteelComposition, ccomp.CastSteelCarbon, ccomp.CastSteelSerum, ccomp.CastSteelPhosphor, ccomp.CastSteelSilicon, ccomp.CastSteelManganese from caststeeldata as cdata left join caststeelcomposition as ccomp on CastSteelComposition_idCastSteelComposition = idCastSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(6)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(
-                    ["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер",  "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
             elif (chTable == "Лом"):
-                query += "ScrapData;"
-                self.tableWidgetFactory.setColumnCount(3)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Номер состава"])
+                query = "select sdata.idScrapData, sdata.ScrapWeight, scomp.ScrapCarbon, scomp.ScrapSerum, scomp.ScrapPhosphor, scomp.ScrapSilicon, scomp.ScrapManganese from scrapdata as sdata left join scrapcomposition as scomp on ScrapComposition_idScrapComposition = idScrapComposition;"
+                self.tableWidgetFactory.setColumnCount(7)
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
             elif (chTable == "Состав лома"):
-                query += "ScrapComposition;"
+                query = "select scomp.idScrapComposition, scomp.ScrapCarbon, scomp.ScrapSerum, scomp.ScrapPhosphor, scomp.ScrapSilicon, scomp.ScrapManganese from scrapdata as sdata left join scrapcomposition as scomp on ScrapComposition_idScrapComposition = idScrapComposition;"
                 self.tableWidgetFactory.setColumnCount(6)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(
-                    ["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
             elif (chTable == "Флюсы"):
-                query += "FluxeData;"
-                self.tableWidgetFactory.setColumnCount(3)
-                self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Название", "Номер состава"])
-                # self.tableWidget.setHorizontalHeaderLabels(["Номер", "CaO", "SiO2", "MgO", "Fe2O3", "FeO", "MnO", "Al2O3", "CaCO3", "MgCO3"])
+                query = "select fdata.FluxeName, fcomp.CaO, fcomp.SiO2, fcomp.MgO, fcomp.Fe2O3, fcomp.FeO, fcomp.MnO, fcomp.Al2O3, fcomp.CaCO3, fcomp.MgCO3 from fluxedata as fdata left join fluxecomposition as fcomp on FluxeComposition_idFluxeComposition = idFluxeComposition;"
+                self.tableWidgetFactory.setColumnCount(10)
+                self.tableWidgetFactory.setHorizontalHeaderLabels(["Название", "CaO", "SiO2", "MgO", "Fe2O3", "FeO", "MnO", "Al2O3", "CaCO3", "MgCO3"])
 
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
@@ -171,7 +168,6 @@ class Ui_AdminFom(object):
 
     def insertDataIntoUsers(self):
         try:
-            query = "INSERT INTO users (Login, Password, Roles_idRoles) values (%s, %s, %s)"
             login = self.LoginCreate.text()
             password = self.PasswordCreate.text()
             password = hashAuth.Hash.getHash(password)
@@ -183,29 +179,36 @@ class Ui_AdminFom(object):
                 role = 3
             value = (login, password, role)
             usersDB = mc.connect(
-                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                host=DBhost,
                 user=DBlogin,
                 password=DBpass,
                 database="users_db"
             )
             mycursor = usersDB.cursor()
-            mycursor.execute(query, value)
-            usersDB.commit()                # Обязательно для записи
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setWindowTitle("Успех")
-            msg.setText("Внимание")
-            msg.setInformativeText("Учетная запись успешно добавлена!")
-            msg.exec_()
-        except Exception as err:  # mc.Error
+            mycursor.execute("SELECT * FROM users WHERE Login = %s", (login,))
+            if mycursor.fetchone() is not None:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Внимание")
+                msg.setText("Пользователь с таким логином уже существует!")
+                msg.exec_()
+            else:
+                query = "INSERT INTO users (Login, Password, Roles_idRoles) values (%s, %s, %s)"
+                mycursor.execute(query, value)
+                usersDB.commit()
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Успех")
+                msg.setText("Внимание")
+                msg.setInformativeText("Учетная запись успешно добавлена!")
+                msg.exec_()
+        except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
-
-
 
     def getAllSteel(self):
         try:
@@ -337,6 +340,55 @@ class Ui_AdminFom(object):
     def removeFluxeButtonClicked(self):
         rows = self.FluxeTable.rowCount()
         self.FluxeTable.setRowCount(0)
+
+    def addSteelData(self):
+        try:
+            query = "INSERT INTO steelcomposition (SteelCarbon, SteelSerum, SteelPhosphor, SteelSilicon) values (%s, %s, %s, %s)"
+            steelCarbon = self.steelCarbon.text()
+            steelSerum = self.steelSerum.text()
+            steelPhosphor = self.steelPhosphor.text()
+            steelSilicon = self.steelSilicon.text()
+            value = (steelCarbon, steelSerum, steelPhosphor, steelSilicon)
+
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()                # Обязательно для записи
+            mycursor.close()
+
+            tmp = "SteelCarbon = " + steelCarbon + " AND SteelSerum = " + steelSerum + " AND SteelPhosphor = " + steelPhosphor + " AND SteelSilicon = " + steelSilicon
+            query = "select idSteelComposition from steelcomposition where (" + tmp + ") ORDER BY SteelCarbon ASC LIMIT 1;"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchone()[0]
+            mycursor.close()
+
+
+            query = "insert into steeldata (SteelComposition_idSteelComposition, SteelName) values (%s, %s);"
+            value = (result, self.steelName.text())
+            mycursor = DB.cursor()
+            mycursor.execute(query, value)
+            DB.commit()
+            self.getAllSteel()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Успех")
+            msg.setText("Внимание")
+            msg.setInformativeText("Запись успешно добавлена!")
+            msg.exec_()
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
 
     def addCastData(self):
         try:
@@ -556,7 +608,7 @@ class Ui_AdminFom(object):
         #     DB.close()
 
     def getAllUsersId(self):
-        query = "select idusers from users"
+        query = "select Login from users;"
         usersDB = mc.connect(
             host=DBhost,  # host="192.168.51.179" user="root", password="root",
             user=DBlogin,
@@ -581,24 +633,41 @@ class Ui_AdminFom(object):
             elif self.UserRoleUpdate.currentText() == "Разработчик модели":
                 role = 3
             login = str(self.LoginUpdate.text())
-            query = "update users set login = '" + login + "', Roles_idRoles = " + str(role) + " where idusers = " + str(self.UserIdUpdate.currentText())
+            old_login = str(self.UserIdUpdate.currentText())
             usersDB = mc.connect(
-                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                host=DBhost,
                 user=DBlogin,
                 password=DBpass,
                 database="users_db"
             )
             mycursor = usersDB.cursor()
-            mycursor.execute(query)
-            usersDB.commit()  # Обязательно для записи
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setWindowTitle("Успех")
-            msg.setText("Внимание")
-            msg.setInformativeText("Запись изменена")
-            msg.exec_()
-
-        except Exception as err:  # mc.Error
+            mycursor.execute("SELECT * FROM users WHERE Login = %s", (old_login,))
+            if mycursor.fetchone() is None:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Внимание")
+                msg.setText("Пользователь с таким логином не существует!")
+                msg.exec_()
+            else:
+                mycursor.execute("SELECT * FROM users WHERE Login = %s", (login,))
+                if mycursor.fetchone() is not None:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Warning)
+                    msg.setWindowTitle("Внимание")
+                    msg.setText("Пользователь с таким логином уже существует!")
+                    msg.exec_()
+                else:
+                    query = "update users set login = '" + login + "', Roles_idRoles = " + str(
+                        role) + " where login = '" + old_login + "';"
+                    mycursor.execute(query)
+                    usersDB.commit()
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Information)
+                    msg.setWindowTitle("Успех")
+                    msg.setText("Внимание")
+                    msg.setInformativeText("Запись изменена")
+                    msg.exec_()
+        except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
@@ -606,54 +675,36 @@ class Ui_AdminFom(object):
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
 
+    def create_message(self, icon, title, text, info_text):
+        msg = QMessageBox()
+        msg.setIcon(icon)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setInformativeText(info_text)
+        msg.exec_()
 
     def executeSqlQuery(self):
         try:
-            DB = mc.connect(
-                host=DBhost,  # host="192.168.51.179" user="root", password="root",
-                user=DBlogin,
-                password=DBpass,
-                database="regimdata"
-            )
             query = self.SQLQuery.text()
             lowQuery = query.lower()
-            if "drop" in lowQuery:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("В доступе отказано")
-                msg.setText("Внимание")
-                msg.setInformativeText("Вы не можете удалить таблицу.")
-                msg.exec_()
-                DB.close()
-                return
-            elif "delete" in lowQuery:
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("В доступе отказано")
-                msg.setText("Внимание")
-                msg.setInformativeText("Вы не можете удалить запись.")
-                msg.exec_()
-                DB.close()
-                return
-            else:
+            forbidden_words = ["drop", "delete"]
+            for word in forbidden_words:
+                if word in lowQuery:
+                    self.create_message(QMessageBox.Critical, "В доступе отказано", "Внимание",
+                                        f"Вы не можете использовать команду {word}.")
+                    return
+            with mc.connect(
+                    host=DBhost,
+                    user=DBlogin,
+                    password=DBpass,
+                    database="regimdata"
+            ) as DB:
                 mycursor = DB.cursor()
                 mycursor.execute(query)
                 DB.commit()
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Успех")
-                msg.setText("Внимание")
-                msg.setInformativeText("Запрос выполнен.")
-                msg.exec_()
-                DB.close()
-                return
-        except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
-            msg.exec_()
+                self.create_message(QMessageBox.Information, "Успех", "Внимание", "Запрос выполнен.")
+        except Exception as err:
+            self.create_message(QMessageBox.Critical, "Ошибка", "Внимание", "Проверьте введенные данные!")
 
     def openAbout(self):
         self.window = QtWidgets.QDialog()
@@ -665,7 +716,7 @@ class Ui_AdminFom(object):
         AdminFom.setObjectName("AdminFom")
         AdminFom.resize(798, 620)
         winIcon = QtGui.QIcon()
-        winIcon.addPixmap(QtGui.QPixmap("SteelmakingConverter/Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         AdminFom.setWindowIcon(winIcon)
         self.centralwidget = QtWidgets.QWidget(AdminFom)
         self.centralwidget.setObjectName("centralwidget")
@@ -823,6 +874,7 @@ class Ui_AdminFom(object):
         self.addSteelDataButton = QtWidgets.QPushButton(self.groupBox_5)
         self.addSteelDataButton.setGeometry(QtCore.QRect(210, 30, 81, 23))
         self.addSteelDataButton.setObjectName("addSteelDataButton")
+        self.addSteelDataButton.clicked.connect(self.addSteelData)
         self.tabelLabel_3 = QtWidgets.QLabel(self.tab_3)
         self.tabelLabel_3.setGeometry(QtCore.QRect(10, 10, 131, 18))
         font = QtGui.QFont()
@@ -982,7 +1034,7 @@ class Ui_AdminFom(object):
         self.AddFluxeButton.setGeometry(QtCore.QRect(120, 70, 31, 21))
         self.AddFluxeButton.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.AddFluxeButton.setIcon(icon)
         self.AddFluxeButton.setObjectName("AddFluxeButton")
         self.AddFluxeButton.clicked.connect(self.AddFluxeButtonClicked)
@@ -995,7 +1047,7 @@ class Ui_AdminFom(object):
         self.RemoveFluxeButton.setText("")
         self.RemoveFluxeButton.clicked.connect(self.removeFluxeButtonClicked)
         icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("SteelmakingConverter/GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon1.addPixmap(QtGui.QPixmap("GUI\\../Pictures/remove.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.RemoveFluxeButton.setIcon(icon1)
         self.RemoveFluxeButton.setObjectName("RemoveFluxeButton")
         self.tip_flyusa_label = QtWidgets.QLabel(self.groupBox_11)
