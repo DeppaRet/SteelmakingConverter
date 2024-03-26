@@ -42,7 +42,7 @@
      </size>
     </property>
     <property name="currentIndex">
-     <number>5</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
@@ -52,7 +52,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>70</y>
+        <y>160</y>
         <width>301</width>
         <height>141</height>
        </rect>
@@ -167,7 +167,7 @@
        <widget class="QLabel" name="label_26">
         <property name="geometry">
          <rect>
-          <x>60</x>
+          <x>130</x>
           <y>80</y>
           <width>81</width>
           <height>16</height>
@@ -183,7 +183,7 @@
         </property>
         <property name="geometry">
          <rect>
-          <x>150</x>
+          <x>220</x>
           <y>80</y>
           <width>51</width>
           <height>20</height>
@@ -397,7 +397,7 @@
      <widget class="QGroupBox" name="groupBox_5">
       <property name="geometry">
        <rect>
-        <x>20</x>
+        <x>330</x>
         <y>220</y>
         <width>171</width>
         <height>80</height>
@@ -414,7 +414,7 @@
         <rect>
          <x>10</x>
          <y>40</y>
-         <width>51</width>
+         <width>61</width>
          <height>20</height>
         </rect>
        </property>
@@ -459,6 +459,9 @@
          <width>48</width>
          <height>48</height>
         </size>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
       </widget>
      </widget>
@@ -638,7 +641,7 @@
      <widget class="QGroupBox" name="groupBox_8">
       <property name="geometry">
        <rect>
-        <x>200</x>
+        <x>510</x>
         <y>220</y>
         <width>431</width>
         <height>80</height>
@@ -786,7 +789,7 @@
        <rect>
         <x>20</x>
         <y>310</y>
-        <width>901</width>
+        <width>921</width>
         <height>281</height>
        </rect>
       </property>
@@ -935,6 +938,9 @@
          <height>48</height>
         </size>
        </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
       </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_11">
@@ -943,7 +949,7 @@
         <x>20</x>
         <y>10</y>
         <width>301</width>
-        <height>51</height>
+        <height>71</height>
        </rect>
       </property>
       <property name="title">
@@ -952,9 +958,9 @@
       <widget class="QComboBox" name="ModeComboBox">
        <property name="geometry">
         <rect>
-         <x>70</x>
-         <y>20</y>
-         <width>141</width>
+         <x>80</x>
+         <y>30</y>
+         <width>161</width>
          <height>22</height>
         </rect>
        </property>
@@ -963,21 +969,57 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>20</y>
+         <y>30</y>
          <width>61</width>
          <height>16</height>
         </rect>
        </property>
        <property name="font">
         <font>
-         <pointsize>12</pointsize>
+         <pointsize>10</pointsize>
         </font>
        </property>
        <property name="text">
-        <string>Режим:</string>
+        <string>Сценарий:</string>
        </property>
       </widget>
       <widget class="QPushButton" name="AddNewMode">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="geometry">
+        <rect>
+         <x>260</x>
+         <y>30</y>
+         <width>31</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="icon">
+        <iconset>
+         <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_13">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>90</y>
+        <width>301</width>
+        <height>61</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Конвертер</string>
+      </property>
+      <widget class="QPushButton" name="CheckConverter">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -994,7 +1036,62 @@
        </property>
        <property name="icon">
         <iconset>
-         <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
+         <normaloff>C:/Users/ilyal/YandexDisk/repos/SteelmakingConverter/Pictures/testing.ico</normaloff>C:/Users/ilyal/YandexDisk/repos/SteelmakingConverter/Pictures/testing.ico</iconset>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="height">
+       <property name="geometry">
+        <rect>
+         <x>70</x>
+         <y>20</y>
+         <width>51</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_28">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>20</y>
+         <width>61</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Высота, м:</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="diametr">
+       <property name="geometry">
+        <rect>
+         <x>200</x>
+         <y>20</y>
+         <width>51</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_30">
+       <property name="geometry">
+        <rect>
+         <x>130</x>
+         <y>20</y>
+         <width>61</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Диаметр, м:</string>
        </property>
       </widget>
      </widget>
@@ -1066,6 +1163,9 @@
         <iconset>
          <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
        </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLabel" name="tip_flyusa_label">
        <property name="geometry">
@@ -1108,6 +1208,9 @@
        <property name="icon">
         <iconset>
          <normaloff>../Pictures/remove.ico</normaloff>../Pictures/remove.ico</iconset>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
       </widget>
      </widget>
@@ -1389,6 +1492,9 @@
          <width>48</width>
          <height>48</height>
         </size>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QGroupBox" name="him_sostav_shlaka_v_procentah_group_box">
@@ -1749,6 +1855,9 @@
          <height>48</height>
         </size>
        </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QCheckBox" name="changeSetings">
        <property name="geometry">
@@ -2077,6 +2186,9 @@
         <width>48</width>
         <height>48</height>
        </size>
+      </property>
+      <property name="flat">
+       <bool>true</bool>
       </property>
      </widget>
     </widget>
@@ -2720,6 +2832,9 @@
         <height>48</height>
        </size>
       </property>
+      <property name="flat">
+       <bool>true</bool>
+      </property>
      </widget>
     </widget>
     <widget class="QWidget" name="tab_5">
@@ -2987,6 +3102,9 @@
        <iconset>
         <normaloff>../Pictures/remove.ico</normaloff>../Pictures/remove.ico</iconset>
       </property>
+      <property name="flat">
+       <bool>true</bool>
+      </property>
      </widget>
      <widget class="QPushButton" name="AddFero">
       <property name="geometry">
@@ -3003,6 +3121,9 @@
       <property name="icon">
        <iconset>
         <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
+      </property>
+      <property name="flat">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QGroupBox" name="groupBox_12">
@@ -3234,6 +3355,9 @@
          <height>48</height>
         </size>
        </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QTableWidget" name="SlagChemResult">
        <property name="enabled">
@@ -3327,6 +3451,9 @@
         <width>48</width>
         <height>48</height>
        </size>
+      </property>
+      <property name="flat">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLineEdit" name="limit_MgO">
@@ -3593,7 +3720,6 @@
   </action>
  </widget>
  <resources>
-  <include location="../../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation код/smelting_calculation/res.qrc"/>
   <include location="../../../Рабочий стол/ВУЗ/Материалы ВКР/smelting_calculation код/smelting_calculation/res.qrc"/>
  </resources>
  <connections/>
