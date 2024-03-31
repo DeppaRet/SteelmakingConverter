@@ -3,17 +3,10 @@ from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView, QFileDia
 import mysql.connector as mc
 from PyQt5.QtWidgets import QMessageBox
 import AboutForm
-from tkinter import *
 from tkinter import filedialog
 from configparser import ConfigParser
-# import numpy as np
-# import tensorflow as tf
-# from keras import models
-# from keras.applications.densenet import layers
-# from tensorflow import keras
-# import matplotlib.pyplot as plt
-# import sklearn as sk
-# from sklearn import preprocessing
+
+import config
 
 metalChargeCalcked = False
 tableCalcked = False
@@ -25,7 +18,6 @@ DBhost = "localhost"
 DBlogin = "root"
 DBpass = "root"
 parser = ConfigParser()
-
 
 class FluxeComposition(object):
     name = "Флюс"
@@ -1185,6 +1177,38 @@ class Ui_OperatorForm(object):
             msg.exec_()
 
 
+    def CheckConverterFunc(self):
+        try:
+            H = float(self.height.text())
+            D = float(self.diametr.text())
+            attitude = H / D
+            msg = QMessageBox()
+            if attitude > 2.1:
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Проверка конвертера")
+                msg.setText("Внимание")
+                msg.setInformativeText("Отношение высоты рабочего объема к диаметру выше максимально допустимого (" + str(attitude) + ">2.1)\nВозможно возникновение выбросов")
+            elif attitude < 1.17:
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Проверка конвертера")
+                msg.setText("Внимание")
+                msg.setInformativeText("Отношение высоты рабочего объема к диаметру ниже минимально допустимого (" + str(attitude) + ">1.17)")
+            else:
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Проверка конвертера")
+                msg.setText("Внимание")
+                msg.setInformativeText("Проверка конвертера выполнена успешно.\nОтношение высоты рабочего объема к диаметру находится в допустимых пределах\n(1.17>" + str(attitude) + ">2.1)")
+            msg.exec_()
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+
     def openAbout(self):
         self.window = QtWidgets.QDialog()
         self.ui = AboutForm.Ui_Dialog()
@@ -1201,13 +1225,14 @@ class Ui_OperatorForm(object):
         if file is None:
             return
         try:
+            UserLogin = config.UserLogin
             tmpFluxes = ""
             fluxesRowCount = self.FluxeTable.rowCount()
             for row in range(fluxesRowCount):
                 name = str(self.FluxeTable.item(row, 0).text())
                 weight = str(self.FluxeTable.item(row, 1).text())
                 tmpFluxes += name + " массой " + weight + " Т., "
-            filetext = "Результат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
+            filetext = "Обучаемый:" + UserLogin + "\nРезультат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
                        ", Масса [Т] " + str(self.castWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
                        "Углерод: " + str(self.castCarbon.text()) + ", Сера:" + str(self.castSerum.text()) + \
                        ", Кремний: " + str(self.castSilicon.text()) + ", Фосфор: " + str(self.castPhosphor.text()) +\
@@ -1224,6 +1249,35 @@ class Ui_OperatorForm(object):
             file.close()
         except Exception as err:
             s = 0
+
+
+    def getRecomendation(self):
+        try:
+            steelTemperature = float(self.resultSteelTemperature.text())
+            A = 0.255817 * steelTemperature - 335.0
+            B = 0.066103 * steelTemperature - 85.0
+            slagCaO = float(self.SlagCaOPerc.text())
+            slagSiO2 = float(self.SlagSiO2Perc.text())
+            slagFeO = float(self.SlagFeOPerc.text())
+            slagMgO = float(self.SlagMgOPerc.text())
+            limitSolubility = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875;
+            liningWeightLoss = 4.11155*10**(-6) * steelTemperature * (limitSolubility * slagMgO)
+            self.lining_weight_loss.setText(str(round(liningWeightLoss, 3)))
+            slagСorrosionСriteria = limitSolubility - slagMgO
+            self.limit_MgO.setText(str(round(limitSolubility, 3)))
+            self.content_MgO.setText(str(round(slagMgO)))
+            self.unsaturation_MgO.setText(str(round(slagСorrosionСriteria, 3)))
+            self.steel_temp.setText(str(steelTemperature))
+            slagBasicity = slagCaO / slagSiO2
+            self.slag_basicity.setText(str(round(slagBasicity, 3)))
+            if slagСorrosionСriteria > 3:
+                self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты")
+            else:
+                self.recomendation.setPlainText("Используется оптимальный расход флюсов")
+        except Exception as err:
+            s = 0
+
+
 
     def setupUi(self, OperatorForm):
         OperatorForm.setObjectName("OperatorForm")
@@ -1533,6 +1587,8 @@ class Ui_OperatorForm(object):
         self.CheckConverter.setIcon(icon2)
         self.CheckConverter.setFlat(True)
         self.CheckConverter.setObjectName("CheckConverter")
+        self.CheckConverter.setEnabled(True)
+        self.CheckConverter.clicked.connect(self.CheckConverterFunc)
         self.height = QtWidgets.QLineEdit(self.groupBox_13)
         self.height.setGeometry(QtCore.QRect(70, 20, 51, 20))
         self.height.setText("")
@@ -2313,7 +2369,7 @@ class Ui_OperatorForm(object):
         self.RecomendationCalc.setIconSize(QtCore.QSize(48, 48))
         self.RecomendationCalc.setFlat(True)
         self.RecomendationCalc.setObjectName("RecomendationCalc")
-        self.RecomendationCalc.clicked.connect(self.recomendationCalc)
+        self.RecomendationCalc.clicked.connect(self.getRecomendation)
         self.limit_MgO = QtWidgets.QLineEdit(self.tab_6)
         self.limit_MgO.setEnabled(True)
         self.limit_MgO.setGeometry(QtCore.QRect(180, 180, 91, 20))
@@ -2356,9 +2412,9 @@ class Ui_OperatorForm(object):
         self.label_55 = QtWidgets.QLabel(self.tab_6)
         self.label_55.setGeometry(QtCore.QRect(10, 330, 181, 16))
         self.label_55.setObjectName("label_55")
-        self.recomendation = QtWidgets.QLineEdit(self.tab_6)
+        self.recomendation = QtWidgets.QPlainTextEdit(self.tab_6)
         self.recomendation.setEnabled(False)
-        self.recomendation.setGeometry(QtCore.QRect(10, 40, 261, 121))
+        self.recomendation.setGeometry(QtCore.QRect(0, 30, 271, 141))
         self.recomendation.setObjectName("recomendation")
         self.label_56 = QtWidgets.QLabel(self.tab_6)
         self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))

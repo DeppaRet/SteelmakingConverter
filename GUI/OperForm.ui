@@ -1021,7 +1021,7 @@
       </property>
       <widget class="QPushButton" name="CheckConverter">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -3612,19 +3612,6 @@
        <string>Потеря массы футеровки:</string>
       </property>
      </widget>
-     <widget class="QLineEdit" name="recomendation">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>40</y>
-        <width>261</width>
-        <height>121</height>
-       </rect>
-      </property>
-     </widget>
      <widget class="QLabel" name="label_56">
       <property name="geometry">
        <rect>
@@ -3636,6 +3623,19 @@
       </property>
       <property name="text">
        <string>Рекомендация:</string>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="recomendation">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>30</y>
+        <width>271</width>
+        <height>141</height>
+       </rect>
       </property>
      </widget>
     </widget>

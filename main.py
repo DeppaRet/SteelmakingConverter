@@ -6,6 +6,7 @@ import DeveloperForm
 import mysql.connector as mc
 import hashAuth, connSettings
 from configparser import ConfigParser
+import config
 
 DBhost = "localhost"
 DBlogin = "root"
@@ -40,12 +41,16 @@ class Ui_LoginForm(object):
     def LoginButtonClick(self):
         self.loginFunc()
 
+
+
+
     def loginFunc(self):
         try:
             self.getSettings()
             msg = QMessageBox()
             login = self.LoginLine.text()
             password = self.PasswordLine.text()
+
             password = hashAuth.Hash.getHash(password)
             usersDB = mc.connect(
                 host=DBhost,                                        #192.168.51.179
@@ -54,6 +59,7 @@ class Ui_LoginForm(object):
                 database="users_db"
             )
             result = ""
+            config.UserLogin = login
             mycursor = usersDB.cursor()
             query = "SELECT Roles_idRoles FROM users where Login like '" + login + "' AND Password Like '" + password + "';"
             mycursor.execute(query)
@@ -201,3 +207,6 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 # https://ru.stackoverflow.com/questions/771907/pyqt5-%D0%9E%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8C-%D1%84%D0%BE%D1%80%D0%BC%D1%83-%D0%B2-%D0%B4%D1%80%D1%83%D0%B3%D0%BE%D0%B9-%D1%84%D0%BE%D1%80%D0%BC%D0%B5-%D0%BA%D0%BE%D1%82%D0%BE%D1%80%D1%8B%D0%B5-%D1%81%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D1%8B%D0%B5-%D0%B2-qt-design
+def getLogin():
+    login = Ui_LoginForm.LoginLine.text()
+    return login

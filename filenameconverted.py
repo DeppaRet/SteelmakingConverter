@@ -1092,13 +1092,13 @@ class Ui_OperatorForm(object):
         self.label_55 = QtWidgets.QLabel(self.tab_6)
         self.label_55.setGeometry(QtCore.QRect(10, 330, 181, 16))
         self.label_55.setObjectName("label_55")
-        self.recomendation = QtWidgets.QLineEdit(self.tab_6)
-        self.recomendation.setEnabled(False)
-        self.recomendation.setGeometry(QtCore.QRect(10, 40, 261, 121))
-        self.recomendation.setObjectName("recomendation")
         self.label_56 = QtWidgets.QLabel(self.tab_6)
         self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))
         self.label_56.setObjectName("label_56")
+        self.recomendation = QtWidgets.QPlainTextEdit(self.tab_6)
+        self.recomendation.setEnabled(False)
+        self.recomendation.setGeometry(QtCore.QRect(0, 30, 271, 141))
+        self.recomendation.setObjectName("recomendation")
         self.tabWidget.addTab(self.tab_6, "")
         OperatorForm.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(OperatorForm)
@@ -1141,7 +1141,7 @@ class Ui_OperatorForm(object):
         self.menubar.addAction(self.Help.menuAction())
 
         self.retranslateUi(OperatorForm)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(5)
         QtCore.QMetaObject.connectSlotsByName(OperatorForm)
 
     def retranslateUi(self, OperatorForm):
