@@ -1187,17 +1187,17 @@ class Ui_OperatorForm(object):
                 msg.setIcon(QMessageBox.Critical)
                 msg.setWindowTitle("Проверка конвертера")
                 msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру выше максимально допустимого (" + str(attitude) + ">2.1)\nВозможно возникновение выбросов")
+                msg.setInformativeText("Отношение высоты рабочего объема к диаметру выше максимально допустимого (" + str(round(attitude, 2)) + ">2.1)\nВозможно возникновение выбросов")
             elif attitude < 1.17:
                 msg.setIcon(QMessageBox.Critical)
                 msg.setWindowTitle("Проверка конвертера")
                 msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру ниже минимально допустимого (" + str(attitude) + ">1.17)")
+                msg.setInformativeText("Отношение высоты рабочего объема к диаметру ниже минимально допустимого (" + str(round(attitude, 2)) + ">1.17)")
             else:
                 msg.setIcon(QMessageBox.Information)
                 msg.setWindowTitle("Проверка конвертера")
                 msg.setText("Внимание")
-                msg.setInformativeText("Проверка конвертера выполнена успешно.\nОтношение высоты рабочего объема к диаметру находится в допустимых пределах\n(1.17>" + str(attitude) + ">2.1)")
+                msg.setInformativeText("Проверка конвертера выполнена успешно.\nОтношение высоты рабочего объема к диаметру находится в допустимых пределах\n(1.17>" + str(round(attitude, 2)) + ">2.1)")
             msg.exec_()
         except Exception as err:
             msg = QMessageBox()
