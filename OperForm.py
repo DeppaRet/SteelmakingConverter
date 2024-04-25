@@ -18,6 +18,8 @@ DBhost = "localhost"
 DBlogin = "root"
 DBpass = "root"
 parser = ConfigParser()
+Protokol = ""
+step = 1
 
 class FluxeComposition(object):
     name = "Флюс"
@@ -46,6 +48,20 @@ class Ui_OperatorForm(object):
 
     def getModes(self):
         try:
+            query = "select ScanrioName from scenario;"
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.ScenarioComboBox.addItem((str(data)))
             query = "select ModeName from mode;"
             DB = mc.connect(
                 host = DBhost, # host="192.168.51.179" user="root", password="root",
@@ -89,6 +105,70 @@ class Ui_OperatorForm(object):
             mycursor.close()
             DB.close()
 
+
+    def GetScenario(self):
+        try:
+
+            scenario = self.ScenarioComboBox.currentText()
+            query = "select ScenarioTask from scenario where ScanrioName = '" + scenario + "';"
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            Task = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            Task = mycursor.fetchone()[0]
+            self.ScenarioTask.setPlainText(Task)
+            mycursor.close()
+
+            query = "select mode_idMode from scenario where ScanrioName = '" + scenario + "';"
+            modeId = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeId = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "select ModeName from mode where idMode = '" + str(modeId) + "';"
+            modeName = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeName = mycursor.fetchone()[0]
+            mycursor.close()
+            self.ModeComboBox.setCurrentText(str(modeName))
+
+            self.chooseMods()
+            self.calcMetalChargeClicked()
+            self.calcTableClick()
+            self.slagCalcClicked()
+            self.blastCalcClicked()
+            self.MaterialBalanceCalcClicked()
+            self.HeatBalanceCalcClicked()
+            self.AddFeroBtnClicked()
+            self.deoxCalc()
+            self.getRecomendation()
+            global Protokol
+            Protokol = ''
+            global step
+            step = 1
+
+
+
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+        finally:
+            mycursor.close()
+            DB.close()
 
     def chooseMods(self):
         try:
@@ -626,7 +706,8 @@ class Ui_OperatorForm(object):
             if (blastCalcked == False):
                 self.blastCalcClicked()
                 blastCalcked = True
-            totalOxygenRequired = float(self.SlagFeO.text())* 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
+            #totalOxygenRequired = float(self.TotalOxygenDemandBlast.text())
+            totalOxygenRequired = float(self.SlagFeO.text()) * 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
             totalFeO = 0
             totalFe2O3 = 0
             totalCaCO3 = 0
@@ -646,6 +727,7 @@ class Ui_OperatorForm(object):
             self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 3)))
 
             weightOfIronOxides = float(self.SlagFeO.text()) + float(self.SlagFe2O3.text()) - totalOxygenRequired
+            #weightOfIronOxides = float(self.TotalOxygenDemandBlast.text())
             self.MassOfOxidesPassingIntoSlag.setText(str(round(weightOfIronOxides, 3)))
             self.LossWithCarryOver.setText(str(round(0.02 * float(self.MetalCharge.text()), 3)))
 
@@ -1139,7 +1221,7 @@ class Ui_OperatorForm(object):
 
             self.CO2ThrowRes.setText(str(self.OutputDataTable.item(4,1).text()))
             self.SteelWeightRes.setText(str(self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.text()))
-
+            self.stepResult()
 
         except Exception as err:
             msg = QMessageBox()
@@ -1215,24 +1297,19 @@ class Ui_OperatorForm(object):
         self.ui.setupUi(self.window)
         self.window.show()
 
-    def saveResult(self):
-        file = filedialog.asksaveasfile(defaultextension='.txt',
-                                        filetypes=[
-                                            ("Text file", ".txt"),
-                                            ("HTML file", ".html"),
-                                            ("All files", ".*"),
-                                        ])
-        if file is None:
-            return
+
+    def stepResult(self):
         try:
-            UserLogin = config.UserLogin
+            Performer = self.PerformerName.text()
+            global Protokol
+            global step
             tmpFluxes = ""
             fluxesRowCount = self.FluxeTable.rowCount()
             for row in range(fluxesRowCount):
                 name = str(self.FluxeTable.item(row, 0).text())
                 weight = str(self.FluxeTable.item(row, 1).text())
                 tmpFluxes += name + " массой " + weight + " Т., "
-            filetext = "Обучаемый:" + UserLogin + "\nРезультат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
+            Protokol += ("Шаг №" + str(step) + " Обучаемый: "+ str(Performer) + "\nРезультат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
                        ", Масса [Т] " + str(self.castWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
                        "Углерод: " + str(self.castCarbon.text()) + ", Сера:" + str(self.castSerum.text()) + \
                        ", Кремний: " + str(self.castSilicon.text()) + ", Фосфор: " + str(self.castPhosphor.text()) +\
@@ -1244,7 +1321,44 @@ class Ui_OperatorForm(object):
                        "\nБыла получена сталь массой " + self.SteelWeightRes.text() + " кг, Температурой " + self.resultSteelTemperature.text() + \
                        "C, со следующим содержанием веществ [%масс]:\n" + "Углерод: " + str(self.SteelChemResult.item(0,0).text()) + \
                        ", Кремний: " + str(self.SteelChemResult.item(0,1).text()) + ", Марганец: " + str(self.SteelChemResult.item(0,2).text()) + \
-                       ", Сера: " + str(self.SteelChemResult.item(0,3).text()) + ", Фосфор: " + str(self.SteelChemResult.item(0,4).text())
+                       ", Сера: " + str(self.SteelChemResult.item(0,3).text()) + ", Фосфор: " + str(self.SteelChemResult.item(0,4).text())) + "\n\n"
+            step += 1
+        except Exception as err:
+            s = 0
+
+
+    def saveResult(self):
+        file = filedialog.asksaveasfile(defaultextension='.txt',
+                                        filetypes=[
+                                            ("Text file", ".txt"),
+                                            ("HTML file", ".html"),
+                                            ("All files", ".*"),
+                                        ])
+        if file is None:
+            return
+        try:
+            UserLogin = config.UserLogin
+            global Protokol
+            filetext = Protokol
+            # tmpFluxes = ""
+            # fluxesRowCount = self.FluxeTable.rowCount()
+            # for row in range(fluxesRowCount):
+            #     name = str(self.FluxeTable.item(row, 0).text())
+            #     weight = str(self.FluxeTable.item(row, 1).text())
+            #     tmpFluxes += name + " массой " + weight + " Т., "
+            # filetext = "Обучаемый:" + UserLogin + "\nРезультат плавки для следующего набора данных:\nЧугун: Температура [C]: " + str(self.castTemperature.text()) +\
+            #            ", Масса [Т] " + str(self.castWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
+            #            "Углерод: " + str(self.castCarbon.text()) + ", Сера:" + str(self.castSerum.text()) + \
+            #            ", Кремний: " + str(self.castSilicon.text()) + ", Фосфор: " + str(self.castPhosphor.text()) +\
+            #            ", Марганец: " + str(self.castManganese.text()) +"\nЛом: " +\
+            #            "Масса [Т] " + str(self.scrapWeight.text()) + " со следующим содержанием веществ[%масс]:\n" + \
+            #            "Углерод: " + str(self.scrapCarbon.text()) + ", Сера:" + str(self.scrapSerum.text()) + \
+            #            ", Кремний: " + str(self.scrapSilicon.text()) + ", Фосфор: " + str(self.scrapPhosphor.text()) +\
+            #            ", Марганец: " + str(self.scrapManganese.text()) + "\nс использованием флюсов: " + tmpFluxes + \
+            #            "\nБыла получена сталь массой " + self.SteelWeightRes.text() + " кг, Температурой " + self.resultSteelTemperature.text() + \
+            #            "C, со следующим содержанием веществ [%масс]:\n" + "Углерод: " + str(self.SteelChemResult.item(0,0).text()) + \
+            #            ", Кремний: " + str(self.SteelChemResult.item(0,1).text()) + ", Марганец: " + str(self.SteelChemResult.item(0,2).text()) + \
+            #            ", Сера: " + str(self.SteelChemResult.item(0,3).text()) + ", Фосфор: " + str(self.SteelChemResult.item(0,4).text())
             file.write(filetext)
             file.close()
         except Exception as err:
@@ -1293,6 +1407,52 @@ class Ui_OperatorForm(object):
         self.tabWidget.setGeometry(QtCore.QRect(0, 0, 991, 731))
         self.tabWidget.setMinimumSize(QtCore.QSize(991, 731))
         self.tabWidget.setObjectName("tabWidget")
+        self.tab_7 = QtWidgets.QWidget()
+        self.tab_7.setObjectName("tab_7")
+        self.groupBox_14 = QtWidgets.QGroupBox(self.tab_7)
+        self.groupBox_14.setGeometry(QtCore.QRect(20, 10, 301, 101))
+        self.groupBox_14.setObjectName("groupBox_14")
+        self.ScenarioComboBox = QtWidgets.QComboBox(self.groupBox_14)
+        self.ScenarioComboBox.setGeometry(QtCore.QRect(90, 30, 161, 22))
+        self.ScenarioComboBox.setObjectName("ScenarioComboBox")
+        self.label_27 = QtWidgets.QLabel(self.groupBox_14)
+        self.label_27.setGeometry(QtCore.QRect(10, 30, 61, 16))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.label_27.setFont(font)
+        self.label_27.setObjectName("label_27")
+        self.SelectScenarioButton = QtWidgets.QPushButton(self.groupBox_14)
+        self.SelectScenarioButton.setEnabled(False)
+        self.SelectScenarioButton.setGeometry(QtCore.QRect(260, 30, 31, 21))
+        self.SelectScenarioButton.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("GUI\\../Pictures/add.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.SelectScenarioButton.setIcon(icon)
+        self.SelectScenarioButton.setFlat(True)
+        self.SelectScenarioButton.setEnabled(True)
+        self.SelectScenarioButton.setObjectName("SelectScenarioButton")
+        self.SelectScenarioButton.clicked.connect(self.GetScenario)
+        self.label_31 = QtWidgets.QLabel(self.groupBox_14)
+        self.label_31.setGeometry(QtCore.QRect(10, 70, 81, 16))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.label_31.setFont(font)
+        self.label_31.setObjectName("label_31")
+        self.PerformerName = QtWidgets.QLineEdit(self.groupBox_14)
+        self.PerformerName.setGeometry(QtCore.QRect(90, 70, 161, 20))
+        self.PerformerName.setText("")
+        self.PerformerName.setObjectName("PerformerName")
+        self.ScenarioTask = QtWidgets.QPlainTextEdit(self.tab_7)
+        self.ScenarioTask.setEnabled(False)
+        self.ScenarioTask.setGeometry(QtCore.QRect(340, 20, 631, 211))
+        self.ScenarioTask.setObjectName("ScenarioTask")
+        self.label_29 = QtWidgets.QLabel(self.tab_7)
+        self.label_29.setGeometry(QtCore.QRect(340, 0, 61, 16))
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.label_29.setFont(font)
+        self.label_29.setObjectName("label_29")
+        self.tabWidget.addTab(self.tab_7, "")
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
         self.groupBox = QtWidgets.QGroupBox(self.tab)
@@ -2412,6 +2572,9 @@ class Ui_OperatorForm(object):
         self.label_55 = QtWidgets.QLabel(self.tab_6)
         self.label_55.setGeometry(QtCore.QRect(10, 330, 181, 16))
         self.label_55.setObjectName("label_55")
+        self.label_56 = QtWidgets.QLabel(self.tab_6)
+        self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))
+        self.label_56.setObjectName("label_56")
         self.recomendation = QtWidgets.QPlainTextEdit(self.tab_6)
         self.recomendation.setEnabled(False)
         self.recomendation.setGeometry(QtCore.QRect(0, 30, 271, 141))
@@ -2476,6 +2639,12 @@ class Ui_OperatorForm(object):
     def retranslateUi(self, OperatorForm):
         _translate = QtCore.QCoreApplication.translate
         OperatorForm.setWindowTitle(_translate("OperatorForm", "Процесс плавки стали"))
+        self.groupBox_14.setTitle(_translate("OperatorForm", "Выбрать сценарий обучения"))
+        self.label_27.setText(_translate("OperatorForm", "Сценарий:"))
+        self.label_31.setText(_translate("OperatorForm", "Обучаемый:"))
+        self.PerformerName.setPlaceholderText(_translate("OperatorForm", "Введите ФИО"))
+        self.label_29.setText(_translate("OperatorForm", "Задача:"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _translate("OperatorForm", "Сценарий обучения"))
 
         # устанавливаем стандартные значения
         self.steelCarbon.setText("0.085")
