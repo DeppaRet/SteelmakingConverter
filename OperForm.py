@@ -105,12 +105,11 @@ class Ui_OperatorForm(object):
             mycursor.close()
             DB.close()
 
-
     def GetScenario(self):
         try:
 
             scenario = self.ScenarioComboBox.currentText()
-            query = "select ScenarioTask from scenario where ScanrioName = '" + scenario + "';"
+            query = "select ScenarioTask, SlagMassLimit, SteelMassLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
@@ -120,8 +119,80 @@ class Ui_OperatorForm(object):
             Task = ""
             mycursor = DB.cursor()
             mycursor.execute(query)
-            Task = mycursor.fetchone()[0]
-            self.ScenarioTask.setPlainText(Task)
+            ScenarioQuery = mycursor.fetchall()
+            Task = ScenarioQuery[0][0]
+            MaxSlagMass = ScenarioQuery[0][1]
+            MinSteelMass = ScenarioQuery[0][2]
+            MinSteelTemp = ScenarioQuery[0][3]
+            self.ScenarioTask.setPlainText(str(Task))
+            self.MaxSlagMassLimit.setText(str(MaxSlagMass))
+            self.MinSteelMassLimit.setText(str(MinSteelMass))
+            self.MinSteelTempLimit.setText(str(MinSteelTemp))
+            mycursor.close()
+
+            query = "select mode_idMode from scenario where ScanrioName = '" + scenario + "';"
+            modeId = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeId = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "select ModeName from mode where idMode = '" + str(modeId) + "';"
+            modeName = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeName = mycursor.fetchone()[0]
+            mycursor.close()
+            self.ModeComboBox.setCurrentText(str(modeName))
+
+            self.chooseMods()
+            self.calcMetalChargeClicked()
+            self.calcTableClick()
+            self.removeFluxeButtonClicked()
+            global Protokol
+            Protokol = ''
+            global step
+            step = 1
+
+
+
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+        finally:
+            mycursor.close()
+            DB.close()
+
+    def GetScenarioExample(self):
+        try:
+
+            scenario = self.ScenarioComboBox.currentText()
+            query = "select ScenarioTask, SlagMassLimit, SteelMassLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            Task = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            ScenarioQuery = mycursor.fetchall()
+            Task = ScenarioQuery[0][0]
+            MaxSlagMass = ScenarioQuery[0][1]
+            MinSteelMass = ScenarioQuery[0][2]
+            MinSteelTemp = ScenarioQuery[0][3]
+            self.ScenarioTask.setPlainText(str(Task))
+            self.MaxSlagMassLimit.setText(str(MaxSlagMass))
+            self.MinSteelMassLimit.setText(str(MinSteelMass))
+            self.MinSteelTempLimit.setText(str(MinSteelTemp))
             mycursor.close()
 
             query = "select mode_idMode from scenario where ScanrioName = '" + scenario + "';"
@@ -1388,9 +1459,75 @@ class Ui_OperatorForm(object):
                 self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты")
             else:
                 self.recomendation.setPlainText("Используется оптимальный расход флюсов")
+            if self.MaxSlagMassLimit.text() != "":
+                self.checkLimits()
         except Exception as err:
             s = 0
 
+
+    def checkLimits(self):
+        try:
+            problem = False
+            self.SteelWeightRes.setStyleSheet("QLineEdit"
+                                              "{"
+                                              "background : white;"
+                                              "}")
+            self.resultSteelTemperature.setStyleSheet("QLineEdit"
+                                                      "{"
+                                                      "background : white;"
+                                                      "}")
+            self.SlagWeightRes.setStyleSheet("QLineEdit"
+                                              "{"
+                                              "background : white;"
+                                              "}")
+            checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
+            actualSteelWeight = float(self.SteelWeightRes.text())
+            actualSteelTemp = float(self.resultSteelTemperature.text())
+            actualSlagWeight = float(self.SlagWeightRes.text())
+            minSteelMass = float(self.MinSteelMassLimit.text())
+            minSteelTemp = float(self.MinSteelTempLimit.text())
+            maxSlagMass = float(self.MaxSlagMassLimit.text())
+            msg = QMessageBox()
+            if actualSteelWeight < minSteelMass:
+                checkResult += "Масса стали меньше минимально допустимой.\n"
+                self.SteelWeightRes.setStyleSheet("QLineEdit"
+                                "{"
+                                "background : red;"
+                                "}")
+                problem = True
+            if actualSteelTemp < minSteelTemp:
+                checkResult += "Температура стали меньше минимально допустимой.\n"
+                self.resultSteelTemperature.setStyleSheet("QLineEdit"
+                                                  "{"
+                                                  "background : red;"
+                                                  "}")
+                problem = True
+            if actualSlagWeight > maxSlagMass:
+                checkResult += "Температура стали меньше минимально допустимой.\n"
+                self.resultSteelTemperature.setStyleSheet("QLineEdit"
+                                                          "{"
+                                                          "background : red;"
+                                                          "}")
+                problem = True
+            if problem == True:
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Проверка Результата")
+                msg.setText("Внимание")
+                msg.setInformativeText(checkResult)
+                msg.exec_()
+            elif problem == False:
+                tmp = self.recomendation.toPlainText()
+                tmp += "\nПроверка результатов выполнена успешно, накладываемые ограничения выполняются"
+                self.recomendation.setPlainText(tmp)
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
 
 
     def setupUi(self, OperatorForm):
@@ -1404,6 +1541,7 @@ class Ui_OperatorForm(object):
         self.centralwidget = QtWidgets.QWidget(OperatorForm)
         self.centralwidget.setObjectName("centralwidget")
         self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
+        self.tabWidget.setEnabled(True)
         self.tabWidget.setGeometry(QtCore.QRect(0, 0, 991, 731))
         self.tabWidget.setMinimumSize(QtCore.QSize(991, 731))
         self.tabWidget.setObjectName("tabWidget")
@@ -1443,8 +1581,9 @@ class Ui_OperatorForm(object):
         self.PerformerName.setText("")
         self.PerformerName.setObjectName("PerformerName")
         self.ScenarioTask = QtWidgets.QPlainTextEdit(self.tab_7)
-        self.ScenarioTask.setEnabled(False)
-        self.ScenarioTask.setGeometry(QtCore.QRect(340, 20, 631, 211))
+        self.ScenarioTask.setEnabled(True)
+        self.ScenarioTask.setGeometry(QtCore.QRect(340, 20, 631, 271))
+        self.ScenarioTask.setReadOnly(True)
         self.ScenarioTask.setObjectName("ScenarioTask")
         self.label_29 = QtWidgets.QLabel(self.tab_7)
         self.label_29.setGeometry(QtCore.QRect(340, 0, 61, 16))
@@ -1452,6 +1591,44 @@ class Ui_OperatorForm(object):
         font.setPointSize(10)
         self.label_29.setFont(font)
         self.label_29.setObjectName("label_29")
+        self.groupBox_15 = QtWidgets.QGroupBox(self.tab_7)
+        self.groupBox_15.setGeometry(QtCore.QRect(20, 120, 301, 171))
+        self.groupBox_15.setObjectName("groupBox_15")
+        self.MinSteelTempLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.MinSteelTempLimit.setGeometry(QtCore.QRect(160, 30, 131, 20))
+        self.MinSteelTempLimit.setText("")
+        self.MinSteelTempLimit.setReadOnly(True)
+        self.MinSteelTempLimit.setObjectName("MinSteelTempLimit")
+        self.label_32 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_32.setGeometry(QtCore.QRect(10, 20, 141, 31))
+        self.label_32.setWordWrap(True)
+        self.label_32.setObjectName("label_32")
+        self.label_33 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_33.setGeometry(QtCore.QRect(10, 60, 141, 31))
+        self.label_33.setWordWrap(True)
+        self.label_33.setObjectName("label_33")
+        self.MinSteelMassLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.MinSteelMassLimit.setGeometry(QtCore.QRect(160, 70, 131, 20))
+        self.MinSteelMassLimit.setText("")
+        self.MinSteelMassLimit.setReadOnly(True)
+        self.MinSteelMassLimit.setObjectName("MinSteelMassLimit")
+        self.MaxSlagMassLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.MaxSlagMassLimit.setGeometry(QtCore.QRect(160, 110, 131, 20))
+        self.MaxSlagMassLimit.setText("")
+        self.MaxSlagMassLimit.setReadOnly(True)
+        self.MaxSlagMassLimit.setObjectName("MaxSlagMassLimit")
+        self.label_34 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_34.setGeometry(QtCore.QRect(10, 100, 141, 31))
+        self.label_34.setWordWrap(True)
+        self.label_34.setObjectName("label_34")
+        self.GetResExample = QtWidgets.QPushButton(self.tab_7)
+        self.GetResExample.setEnabled(True)
+        self.GetResExample.setGeometry(QtCore.QRect(940, 300, 31, 21))
+        self.GetResExample.setText("")
+        self.GetResExample.setIcon(icon)
+        self.GetResExample.setFlat(True)
+        self.GetResExample.setObjectName("GetResExample")
+        self.GetResExample.clicked.connect(self.GetScenarioExample)
         self.tabWidget.addTab(self.tab_7, "")
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
@@ -1551,6 +1728,7 @@ class Ui_OperatorForm(object):
         self.MetalCharge = QtWidgets.QLineEdit(self.groupBox_5)
         self.MetalCharge.setEnabled(True)
         self.MetalCharge.setGeometry(QtCore.QRect(10, 40, 61, 20))
+        self.MetalCharge.setReadOnly(True)
         self.MetalCharge.setObjectName("MetalCharge")
         self.label_16 = QtWidgets.QLabel(self.groupBox_5)
         self.label_16.setGeometry(QtCore.QRect(10, 20, 41, 16))
@@ -1620,6 +1798,7 @@ class Ui_OperatorForm(object):
         self.ChemCarbon = QtWidgets.QLineEdit(self.groupBox_8)
         self.ChemCarbon.setEnabled(True)
         self.ChemCarbon.setGeometry(QtCore.QRect(80, 20, 51, 20))
+        self.ChemCarbon.setReadOnly(True)
         self.ChemCarbon.setObjectName("ChemCarbon")
         self.label_18 = QtWidgets.QLabel(self.groupBox_8)
         self.label_18.setGeometry(QtCore.QRect(10, 50, 51, 16))
@@ -1627,10 +1806,12 @@ class Ui_OperatorForm(object):
         self.ChemSerum = QtWidgets.QLineEdit(self.groupBox_8)
         self.ChemSerum.setEnabled(True)
         self.ChemSerum.setGeometry(QtCore.QRect(80, 50, 51, 20))
+        self.ChemSerum.setReadOnly(True)
         self.ChemSerum.setObjectName("ChemSerum")
         self.ChemSilicon = QtWidgets.QLineEdit(self.groupBox_8)
         self.ChemSilicon.setEnabled(True)
         self.ChemSilicon.setGeometry(QtCore.QRect(210, 20, 51, 20))
+        self.ChemSilicon.setReadOnly(True)
         self.ChemSilicon.setObjectName("ChemSilicon")
         self.label_19 = QtWidgets.QLabel(self.groupBox_8)
         self.label_19.setGeometry(QtCore.QRect(140, 20, 71, 16))
@@ -1638,6 +1819,7 @@ class Ui_OperatorForm(object):
         self.ChemPhosphor = QtWidgets.QLineEdit(self.groupBox_8)
         self.ChemPhosphor.setEnabled(True)
         self.ChemPhosphor.setGeometry(QtCore.QRect(210, 50, 51, 20))
+        self.ChemPhosphor.setReadOnly(True)
         self.ChemPhosphor.setObjectName("ChemPhosphor")
         self.label_20 = QtWidgets.QLabel(self.groupBox_8)
         self.label_20.setGeometry(QtCore.QRect(140, 50, 61, 16))
@@ -1646,6 +1828,7 @@ class Ui_OperatorForm(object):
         self.ChemManganese.setEnabled(True)
         self.ChemManganese.setGeometry(QtCore.QRect(350, 20, 51, 20))
         self.ChemManganese.setText("")
+        self.ChemManganese.setReadOnly(True)
         self.ChemManganese.setObjectName("ChemManganese")
         self.label_21 = QtWidgets.QLabel(self.groupBox_8)
         self.label_21.setGeometry(QtCore.QRect(270, 20, 91, 16))
@@ -1653,13 +1836,6 @@ class Ui_OperatorForm(object):
         self.groupBox_9 = QtWidgets.QGroupBox(self.tab)
         self.groupBox_9.setGeometry(QtCore.QRect(20, 310, 921, 281))
         self.groupBox_9.setObjectName("groupBox_9")
-        # self.MetalCharge_2 = QtWidgets.QLineEdit(self.groupBox_9)
-        # self.MetalCharge_2.setEnabled(True)
-        # self.MetalCharge_2.setGeometry(QtCore.QRect(70, 30, 71, 20))
-        # self.MetalCharge_2.setObjectName("MetalCharge_2")
-        # self.label_22 = QtWidgets.QLabel(self.groupBox_9)
-        # self.label_22.setGeometry(QtCore.QRect(20, 30, 71, 16))
-        # self.label_22.setObjectName("label_22")
         self.OxidationTable = QtWidgets.QTableWidget(self.groupBox_9)
         self.OxidationTable.setEnabled(True)
         self.OxidationTable.setGeometry(QtCore.QRect(10, 60, 811, 211))
@@ -1833,31 +2009,37 @@ class Ui_OperatorForm(object):
         self.SlagSiO2.setEnabled(True)
         self.SlagSiO2.setGeometry(QtCore.QRect(60, 30, 91, 20))
         self.SlagSiO2.setInputMask("")
+        self.SlagSiO2.setReadOnly(True)
         self.SlagSiO2.setObjectName("SlagSiO2")
         self.SlagCaO = QtWidgets.QLineEdit(self.him_sostav_shlaka_group_box)
         self.SlagCaO.setEnabled(True)
         self.SlagCaO.setGeometry(QtCore.QRect(60, 60, 91, 20))
         self.SlagCaO.setInputMask("")
+        self.SlagCaO.setReadOnly(True)
         self.SlagCaO.setObjectName("SlagCaO")
         self.SlagMgO = QtWidgets.QLineEdit(self.him_sostav_shlaka_group_box)
         self.SlagMgO.setEnabled(True)
         self.SlagMgO.setGeometry(QtCore.QRect(60, 90, 91, 20))
         self.SlagMgO.setInputMask("")
+        self.SlagMgO.setReadOnly(True)
         self.SlagMgO.setObjectName("SlagMgO")
         self.SlagAl2O3 = QtWidgets.QLineEdit(self.him_sostav_shlaka_group_box)
         self.SlagAl2O3.setEnabled(True)
         self.SlagAl2O3.setGeometry(QtCore.QRect(210, 30, 91, 20))
         self.SlagAl2O3.setInputMask("")
+        self.SlagAl2O3.setReadOnly(True)
         self.SlagAl2O3.setObjectName("SlagAl2O3")
         self.SlagOthers = QtWidgets.QLineEdit(self.him_sostav_shlaka_group_box)
         self.SlagOthers.setEnabled(True)
         self.SlagOthers.setGeometry(QtCore.QRect(60, 120, 91, 20))
         self.SlagOthers.setInputMask("")
+        self.SlagOthers.setReadOnly(True)
         self.SlagOthers.setObjectName("SlagOthers")
         self.SlagFeO = QtWidgets.QLineEdit(self.him_sostav_shlaka_group_box)
         self.SlagFeO.setEnabled(True)
         self.SlagFeO.setGeometry(QtCore.QRect(210, 60, 91, 20))
         self.SlagFeO.setInputMask("")
+        self.SlagFeO.setReadOnly(True)
         self.SlagFeO.setObjectName("SlagFeO")
         self.SlagFeOLabel = QtWidgets.QLabel(self.him_sostav_shlaka_group_box)
         self.SlagFeOLabel.setGeometry(QtCore.QRect(170, 60, 46, 13))
@@ -1866,6 +2048,7 @@ class Ui_OperatorForm(object):
         self.SlagFe2O3.setEnabled(True)
         self.SlagFe2O3.setGeometry(QtCore.QRect(210, 90, 91, 20))
         self.SlagFe2O3.setInputMask("")
+        self.SlagFe2O3.setReadOnly(True)
         self.SlagFe2O3.setObjectName("SlagFe2O3")
         self.SlagFe2O3Label = QtWidgets.QLabel(self.him_sostav_shlaka_group_box)
         self.SlagFe2O3Label.setGeometry(QtCore.QRect(170, 90, 46, 13))
@@ -1895,6 +2078,7 @@ class Ui_OperatorForm(object):
         self.SlagSiO2Perc.setEnabled(True)
         self.SlagSiO2Perc.setGeometry(QtCore.QRect(60, 30, 91, 20))
         self.SlagSiO2Perc.setInputMask("")
+        self.SlagSiO2Perc.setReadOnly(True)
         self.SlagSiO2Perc.setObjectName("SlagSiO2Perc")
         self.SlagAl2O3Label_2 = QtWidgets.QLabel(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagAl2O3Label_2.setGeometry(QtCore.QRect(170, 30, 46, 13))
@@ -1903,11 +2087,13 @@ class Ui_OperatorForm(object):
         self.SlagAl2O3Perc.setEnabled(True)
         self.SlagAl2O3Perc.setGeometry(QtCore.QRect(210, 30, 91, 20))
         self.SlagAl2O3Perc.setInputMask("")
+        self.SlagAl2O3Perc.setReadOnly(True)
         self.SlagAl2O3Perc.setObjectName("SlagAl2O3Perc")
         self.SlagFeOPerc = QtWidgets.QLineEdit(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagFeOPerc.setEnabled(True)
         self.SlagFeOPerc.setGeometry(QtCore.QRect(210, 60, 91, 20))
         self.SlagFeOPerc.setInputMask("")
+        self.SlagFeOPerc.setReadOnly(True)
         self.SlagFeOPerc.setObjectName("SlagFeOPerc")
         self.SlagFeOLabel_2 = QtWidgets.QLabel(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagFeOLabel_2.setGeometry(QtCore.QRect(170, 60, 46, 13))
@@ -1922,6 +2108,7 @@ class Ui_OperatorForm(object):
         self.SlagCaOPerc.setEnabled(True)
         self.SlagCaOPerc.setGeometry(QtCore.QRect(60, 60, 91, 20))
         self.SlagCaOPerc.setInputMask("")
+        self.SlagCaOPerc.setReadOnly(True)
         self.SlagCaOPerc.setObjectName("SlagCaOPerc")
         self.SlagCaOLabel_2 = QtWidgets.QLabel(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagCaOLabel_2.setGeometry(QtCore.QRect(10, 60, 46, 13))
@@ -1930,11 +2117,13 @@ class Ui_OperatorForm(object):
         self.SlagOthersPerc.setEnabled(True)
         self.SlagOthersPerc.setGeometry(QtCore.QRect(60, 120, 91, 20))
         self.SlagOthersPerc.setInputMask("")
+        self.SlagOthersPerc.setReadOnly(True)
         self.SlagOthersPerc.setObjectName("SlagOthersPerc")
         self.SlagMgOPerc = QtWidgets.QLineEdit(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagMgOPerc.setEnabled(True)
         self.SlagMgOPerc.setGeometry(QtCore.QRect(60, 90, 91, 20))
         self.SlagMgOPerc.setInputMask("")
+        self.SlagMgOPerc.setReadOnly(True)
         self.SlagMgOPerc.setObjectName("SlagMgOPerc")
         self.SlagMgOLabel_2 = QtWidgets.QLabel(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagMgOLabel_2.setGeometry(QtCore.QRect(10, 90, 46, 13))
@@ -1943,6 +2132,7 @@ class Ui_OperatorForm(object):
         self.SlagFe2O3Perc.setEnabled(True)
         self.SlagFe2O3Perc.setGeometry(QtCore.QRect(210, 90, 91, 20))
         self.SlagFe2O3Perc.setInputMask("")
+        self.SlagFe2O3Perc.setReadOnly(True)
         self.SlagFe2O3Perc.setObjectName("SlagFe2O3Perc")
         self.SlagOthersLabel_2 = QtWidgets.QLabel(self.him_sostav_shlaka_v_procentah_group_box)
         self.SlagOthersLabel_2.setGeometry(QtCore.QRect(10, 120, 46, 13))
@@ -1953,18 +2143,22 @@ class Ui_OperatorForm(object):
         self.TotalConsumptionOfBlastKg = QtWidgets.QLineEdit(self.raschet_dutya_group_box)
         self.TotalConsumptionOfBlastKg.setEnabled(True)
         self.TotalConsumptionOfBlastKg.setGeometry(QtCore.QRect(260, 70, 91, 20))
+        self.TotalConsumptionOfBlastKg.setReadOnly(False)
         self.TotalConsumptionOfBlastKg.setObjectName("TotalConsumptionOfBlastKg")
         self.ExcessBlast = QtWidgets.QLineEdit(self.raschet_dutya_group_box)
         self.ExcessBlast.setEnabled(True)
         self.ExcessBlast.setGeometry(QtCore.QRect(260, 130, 91, 20))
+        self.ExcessBlast.setReadOnly(False)
         self.ExcessBlast.setObjectName("ExcessBlast")
         self.TotalConsumptionOfBlastM3 = QtWidgets.QLineEdit(self.raschet_dutya_group_box)
         self.TotalConsumptionOfBlastM3.setEnabled(True)
         self.TotalConsumptionOfBlastM3.setGeometry(QtCore.QRect(260, 100, 91, 20))
+        self.TotalConsumptionOfBlastM3.setReadOnly(False)
         self.TotalConsumptionOfBlastM3.setObjectName("TotalConsumptionOfBlastM3")
         self.TotalOxygenDemandBlast = QtWidgets.QLineEdit(self.raschet_dutya_group_box)
         self.TotalOxygenDemandBlast.setEnabled(True)
         self.TotalOxygenDemandBlast.setGeometry(QtCore.QRect(260, 40, 91, 20))
+        self.TotalOxygenDemandBlast.setReadOnly(False)
         self.TotalOxygenDemandBlast.setObjectName("TotalOxygenDemandBlast")
         self.TotalOxygenDemandBlastLabel = QtWidgets.QLabel(self.raschet_dutya_group_box)
         self.TotalOxygenDemandBlastLabel.setGeometry(QtCore.QRect(20, 40, 231, 16))
@@ -2011,6 +2205,7 @@ class Ui_OperatorForm(object):
         self.ReclaimedIronWeight = QtWidgets.QLineEdit(self.tab_3)
         self.ReclaimedIronWeight.setEnabled(True)
         self.ReclaimedIronWeight.setGeometry(QtCore.QRect(380, 20, 81, 20))
+        self.ReclaimedIronWeight.setReadOnly(True)
         self.ReclaimedIronWeight.setObjectName("ReclaimedIronWeight")
         self.IncomingData = QtWidgets.QTableWidget(self.tab_3)
         self.IncomingData.setEnabled(True)
@@ -2036,6 +2231,7 @@ class Ui_OperatorForm(object):
         self.LiquidIronYield = QtWidgets.QLineEdit(self.tab_3)
         self.LiquidIronYield.setEnabled(True)
         self.LiquidIronYield.setGeometry(QtCore.QRect(380, 50, 81, 20))
+        self.LiquidIronYield.setReadOnly(True)
         self.LiquidIronYield.setObjectName("LiquidIronYield")
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label = QtWidgets.QLabel(self.tab_3)
         self.vyhod_zhidkovo_metalla_pered_raskisleniem_label.setGeometry(QtCore.QRect(10, 50, 311, 16))
@@ -2058,18 +2254,22 @@ class Ui_OperatorForm(object):
         self.MassOfOxidizedImpurities = QtWidgets.QLineEdit(self.OutputDataGroupBox)
         self.MassOfOxidizedImpurities.setEnabled(True)
         self.MassOfOxidizedImpurities.setGeometry(QtCore.QRect(350, 30, 101, 20))
+        self.MassOfOxidizedImpurities.setReadOnly(True)
         self.MassOfOxidizedImpurities.setObjectName("MassOfOxidizedImpurities")
         self.MassOfOxidesPassingIntoSlag = QtWidgets.QLineEdit(self.OutputDataGroupBox)
         self.MassOfOxidesPassingIntoSlag.setEnabled(True)
         self.MassOfOxidesPassingIntoSlag.setGeometry(QtCore.QRect(350, 50, 101, 20))
+        self.MassOfOxidesPassingIntoSlag.setReadOnly(True)
         self.MassOfOxidesPassingIntoSlag.setObjectName("MassOfOxidesPassingIntoSlag")
         self.LossWithCarryOver = QtWidgets.QLineEdit(self.OutputDataGroupBox)
         self.LossWithCarryOver.setEnabled(True)
         self.LossWithCarryOver.setGeometry(QtCore.QRect(350, 70, 101, 20))
+        self.LossWithCarryOver.setReadOnly(True)
         self.LossWithCarryOver.setObjectName("LossWithCarryOver")
         self.DustLoss = QtWidgets.QLineEdit(self.OutputDataGroupBox)
         self.DustLoss.setEnabled(True)
         self.DustLoss.setGeometry(QtCore.QRect(350, 90, 101, 20))
+        self.DustLoss.setReadOnly(True)
         self.DustLoss.setObjectName("DustLoss")
         self.OutputDataTable = QtWidgets.QTableWidget(self.OutputDataGroupBox)
         self.OutputDataTable.setEnabled(True)
@@ -2128,10 +2328,12 @@ class Ui_OperatorForm(object):
         self.HeatDustForm = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatDustForm.setEnabled(True)
         self.HeatDustForm.setGeometry(QtCore.QRect(300, 120, 101, 20))
+        self.HeatDustForm.setReadOnly(True)
         self.HeatDustForm.setObjectName("HeatDustForm")
         self.PhysHeatSlag = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.PhysHeatSlag.setEnabled(True)
         self.PhysHeatSlag.setGeometry(QtCore.QRect(300, 40, 101, 20))
+        self.PhysHeatSlag.setReadOnly(True)
         self.PhysHeatSlag.setObjectName("PhysHeatSlag")
         self.phizicheskoe_teplo_zhidkovo_metalla_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.phizicheskoe_teplo_zhidkovo_metalla_label_2.setGeometry(QtCore.QRect(20, 20, 221, 16))
@@ -2139,10 +2341,12 @@ class Ui_OperatorForm(object):
         self.PhysHeatLiquidSteel = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.PhysHeatLiquidSteel.setEnabled(True)
         self.PhysHeatLiquidSteel.setGeometry(QtCore.QRect(300, 20, 101, 20))
+        self.PhysHeatLiquidSteel.setReadOnly(True)
         self.PhysHeatLiquidSteel.setObjectName("PhysHeatLiquidSteel")
         self.HeatLosesRemove = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatLosesRemove.setEnabled(True)
         self.HeatLosesRemove.setGeometry(QtCore.QRect(300, 100, 101, 20))
+        self.HeatLosesRemove.setReadOnly(True)
         self.HeatLosesRemove.setObjectName("HeatLosesRemove")
         self.HeatConsDecompos_label = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.HeatConsDecompos_label.setGeometry(QtCore.QRect(20, 80, 281, 16))
@@ -2159,6 +2363,7 @@ class Ui_OperatorForm(object):
         self.PhysHeatOutGas = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.PhysHeatOutGas.setEnabled(True)
         self.PhysHeatOutGas.setGeometry(QtCore.QRect(300, 60, 101, 20))
+        self.PhysHeatOutGas.setReadOnly(True)
         self.PhysHeatOutGas.setObjectName("PhysHeatOutGas")
         self.phizicheskoe_teplo_shlaka_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.phizicheskoe_teplo_shlaka_label_2.setGeometry(QtCore.QRect(20, 40, 251, 16))
@@ -2166,10 +2371,12 @@ class Ui_OperatorForm(object):
         self.HeatConsDecompos = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatConsDecompos.setEnabled(True)
         self.HeatConsDecompos.setGeometry(QtCore.QRect(300, 80, 101, 20))
+        self.HeatConsDecompos.setReadOnly(True)
         self.HeatConsDecompos.setObjectName("HeatConsDecompos")
         self.HeatLoses = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatLoses.setEnabled(True)
         self.HeatLoses.setGeometry(QtCore.QRect(300, 160, 101, 20))
+        self.HeatLoses.setReadOnly(True)
         self.HeatLoses.setObjectName("HeatLoses")
         self.teplovie_poteri_label_2 = QtWidgets.QLabel(self.rashodnie_statii_group_box_2)
         self.teplovie_poteri_label_2.setGeometry(QtCore.QRect(20, 160, 251, 16))
@@ -2183,10 +2390,12 @@ class Ui_OperatorForm(object):
         self.HeatCarbonDecom = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatCarbonDecom.setEnabled(True)
         self.HeatCarbonDecom.setGeometry(QtCore.QRect(300, 140, 101, 20))
+        self.HeatCarbonDecom.setReadOnly(True)
         self.HeatCarbonDecom.setObjectName("HeatCarbonDecom")
         self.TotalHeatCons = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.TotalHeatCons.setEnabled(True)
         self.TotalHeatCons.setGeometry(QtCore.QRect(300, 180, 101, 20))
+        self.TotalHeatCons.setReadOnly(True)
         self.TotalHeatCons.setObjectName("TotalHeatCons")
         self.OutputHeatTable = QtWidgets.QTableWidget(self.rashodnie_statii_group_box_2)
         self.OutputHeatTable.setEnabled(True)
@@ -2222,6 +2431,7 @@ class Ui_OperatorForm(object):
         self.LiquidSteelTemp = QtWidgets.QLineEdit(self.tab_4)
         self.LiquidSteelTemp.setEnabled(True)
         self.LiquidSteelTemp.setGeometry(QtCore.QRect(300, 410, 101, 20))
+        self.LiquidSteelTemp.setReadOnly(True)
         self.LiquidSteelTemp.setObjectName("LiquidSteelTemp")
         self.prihodnie_statii_group_box_2 = QtWidgets.QGroupBox(self.tab_4)
         self.prihodnie_statii_group_box_2.setGeometry(QtCore.QRect(0, 10, 481, 391))
@@ -2229,14 +2439,17 @@ class Ui_OperatorForm(object):
         self.ChemHeatOxyd = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.ChemHeatOxyd.setEnabled(True)
         self.ChemHeatOxyd.setGeometry(QtCore.QRect(290, 70, 101, 20))
+        self.ChemHeatOxyd.setReadOnly(True)
         self.ChemHeatOxyd.setObjectName("ChemHeatOxyd")
         self.ThermalReactEffect = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.ThermalReactEffect.setEnabled(True)
         self.ThermalReactEffect.setGeometry(QtCore.QRect(290, 50, 101, 20))
+        self.ThermalReactEffect.setReadOnly(True)
         self.ThermalReactEffect.setObjectName("ThermalReactEffect")
         self.ChemHeatSlag = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.ChemHeatSlag.setEnabled(True)
         self.ChemHeatSlag.setGeometry(QtCore.QRect(290, 90, 101, 20))
+        self.ChemHeatSlag.setReadOnly(True)
         self.ChemHeatSlag.setObjectName("ChemHeatSlag")
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setGeometry(QtCore.QRect(10, 90, 281, 16))
@@ -2253,10 +2466,12 @@ class Ui_OperatorForm(object):
         self.CastPhysHeat = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.CastPhysHeat.setEnabled(True)
         self.CastPhysHeat.setGeometry(QtCore.QRect(290, 30, 101, 20))
+        self.CastPhysHeat.setReadOnly(True)
         self.CastPhysHeat.setObjectName("CastPhysHeat")
         self.HeatCO = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.HeatCO.setEnabled(True)
         self.HeatCO.setGeometry(QtCore.QRect(290, 110, 101, 20))
+        self.HeatCO.setReadOnly(True)
         self.HeatCO.setObjectName("HeatCO")
         self.teplo_ot_dozhiganiya_co_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.teplo_ot_dozhiganiya_co_label_2.setGeometry(QtCore.QRect(10, 110, 251, 16))
@@ -2264,6 +2479,7 @@ class Ui_OperatorForm(object):
         self.TotalHeatInc = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.TotalHeatInc.setEnabled(True)
         self.TotalHeatInc.setGeometry(QtCore.QRect(290, 130, 101, 20))
+        self.TotalHeatInc.setReadOnly(True)
         self.TotalHeatInc.setObjectName("TotalHeatInc")
         self.obshii_prihod_tepla_label_2 = QtWidgets.QLabel(self.prihodnie_statii_group_box_2)
         self.obshii_prihod_tepla_label_2.setGeometry(QtCore.QRect(10, 130, 251, 16))
@@ -2293,6 +2509,7 @@ class Ui_OperatorForm(object):
         self.OverheatTemp = QtWidgets.QLineEdit(self.tab_4)
         self.OverheatTemp.setEnabled(True)
         self.OverheatTemp.setGeometry(QtCore.QRect(300, 430, 101, 20))
+        self.OverheatTemp.setReadOnly(True)
         self.OverheatTemp.setObjectName("OverheatTemp")
         self.label_50 = QtWidgets.QLabel(self.tab_4)
         self.label_50.setGeometry(QtCore.QRect(290, 470, 61, 61))
@@ -2325,6 +2542,7 @@ class Ui_OperatorForm(object):
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setEnabled(True)
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setGeometry(QtCore.QRect(770, 60, 91, 20))
+        self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setReadOnly(True)
         self.vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2.setObjectName("vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2")
         self.balans_pri_raskislenii_stali_label_2 = QtWidgets.QLabel(self.tab_5)
         self.balans_pri_raskislenii_stali_label_2.setGeometry(QtCore.QRect(10, 130, 251, 16))
@@ -2406,6 +2624,7 @@ class Ui_OperatorForm(object):
         self.rashod_pervovo_ferrosplava_line_edit_2 = QtWidgets.QLineEdit(self.tab_5)
         self.rashod_pervovo_ferrosplava_line_edit_2.setEnabled(True)
         self.rashod_pervovo_ferrosplava_line_edit_2.setGeometry(QtCore.QRect(630, 60, 91, 20))
+        self.rashod_pervovo_ferrosplava_line_edit_2.setReadOnly(True)
         self.rashod_pervovo_ferrosplava_line_edit_2.setObjectName("rashod_pervovo_ferrosplava_line_edit_2")
         self.RemoveFero = QtWidgets.QPushButton(self.tab_5)
         self.RemoveFero.setGeometry(QtCore.QRect(320, 10, 31, 21))
@@ -2474,8 +2693,10 @@ class Ui_OperatorForm(object):
         self.label_46.setGeometry(QtCore.QRect(10, 140, 161, 16))
         self.label_46.setObjectName("label_46")
         self.LiningWeightLoss = QtWidgets.QLineEdit(self.groupBox_12)
+        self.LiningWeightLoss.setEnabled(True)
         self.LiningWeightLoss.setGeometry(QtCore.QRect(190, 140, 91, 20))
         self.LiningWeightLoss.setText("")
+        self.LiningWeightLoss.setReadOnly(True)
         self.LiningWeightLoss.setObjectName("LiningWeightLoss")
         self.label_47 = QtWidgets.QLabel(self.groupBox_12)
         self.label_47.setGeometry(QtCore.QRect(10, 110, 171, 16))
@@ -2483,6 +2704,7 @@ class Ui_OperatorForm(object):
         self.resultSteelTemperature = QtWidgets.QLineEdit(self.groupBox_12)
         self.resultSteelTemperature.setEnabled(True)
         self.resultSteelTemperature.setGeometry(QtCore.QRect(190, 110, 91, 20))
+        self.resultSteelTemperature.setReadOnly(True)
         self.resultSteelTemperature.setObjectName("resultSteelTemperature")
         self.SteelDeoxidationCalc = QtWidgets.QPushButton(self.groupBox_12)
         self.SteelDeoxidationCalc.setEnabled(True)
@@ -2576,8 +2798,9 @@ class Ui_OperatorForm(object):
         self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))
         self.label_56.setObjectName("label_56")
         self.recomendation = QtWidgets.QPlainTextEdit(self.tab_6)
-        self.recomendation.setEnabled(False)
+        self.recomendation.setEnabled(True)
         self.recomendation.setGeometry(QtCore.QRect(0, 30, 271, 141))
+        self.recomendation.setReadOnly(True)
         self.recomendation.setObjectName("recomendation")
         self.label_56 = QtWidgets.QLabel(self.tab_6)
         self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))
@@ -2633,7 +2856,7 @@ class Ui_OperatorForm(object):
         self.SaveFile.triggered.connect(self.saveResult)
 
         self.retranslateUi(OperatorForm)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(OperatorForm)
 
     def retranslateUi(self, OperatorForm):
@@ -2644,6 +2867,10 @@ class Ui_OperatorForm(object):
         self.label_31.setText(_translate("OperatorForm", "Обучаемый:"))
         self.PerformerName.setPlaceholderText(_translate("OperatorForm", "Введите ФИО"))
         self.label_29.setText(_translate("OperatorForm", "Задача:"))
+        self.groupBox_15.setTitle(_translate("OperatorForm", "Ограничения"))
+        self.label_32.setText(_translate("OperatorForm", "Минимальная температура стали [℃]:"))
+        self.label_33.setText(_translate("OperatorForm", "Минимальная масса стали [кг]:"))
+        self.label_34.setText(_translate("OperatorForm", "Максимальная масса шлака [кг]:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _translate("OperatorForm", "Сценарий обучения"))
 
         # устанавливаем стандартные значения

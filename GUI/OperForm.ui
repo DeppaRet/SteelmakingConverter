@@ -27,6 +27,9 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QTabWidget" name="tabWidget">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
     <property name="geometry">
      <rect>
       <x>0</x>
@@ -148,15 +151,18 @@
      </widget>
      <widget class="QPlainTextEdit" name="ScenarioTask">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
         <x>340</x>
         <y>20</y>
         <width>631</width>
-        <height>211</height>
+        <height>271</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLabel" name="label_29">
@@ -175,6 +181,138 @@
       </property>
       <property name="text">
        <string>Задача:</string>
+      </property>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_15">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>120</y>
+        <width>301</width>
+        <height>171</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string>Ограничения</string>
+      </property>
+      <widget class="QLineEdit" name="MinSteelTempLimit">
+       <property name="geometry">
+        <rect>
+         <x>160</x>
+         <y>30</y>
+         <width>131</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_32">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>20</y>
+         <width>141</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Минимальная температура стали [℃]:</string>
+       </property>
+       <property name="wordWrap">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_33">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>60</y>
+         <width>141</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Минимальная масса стали [т]:</string>
+       </property>
+       <property name="wordWrap">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="MinSteelMassLimit">
+       <property name="geometry">
+        <rect>
+         <x>160</x>
+         <y>70</y>
+         <width>131</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="MaxSlagMassLimit">
+       <property name="geometry">
+        <rect>
+         <x>160</x>
+         <y>110</y>
+         <width>131</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_34">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>100</y>
+         <width>141</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Максимальная масса шлака [т]:</string>
+       </property>
+       <property name="wordWrap">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QPushButton" name="GetResExample">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="geometry">
+       <rect>
+        <x>940</x>
+        <y>300</y>
+        <width>31</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>../Pictures/add.ico</normaloff>../Pictures/add.ico</iconset>
+      </property>
+      <property name="flat">
+       <bool>true</bool>
       </property>
      </widget>
     </widget>
@@ -799,7 +937,7 @@
       </widget>
       <widget class="QLineEdit" name="ChemCarbon">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -808,6 +946,9 @@
          <width>51</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_18">
@@ -825,7 +966,7 @@
       </widget>
       <widget class="QLineEdit" name="ChemSerum">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -835,10 +976,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ChemSilicon">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -847,6 +991,9 @@
          <width>51</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_19">
@@ -864,7 +1011,7 @@
       </widget>
       <widget class="QLineEdit" name="ChemPhosphor">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -873,6 +1020,9 @@
          <width>51</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_20">
@@ -890,7 +1040,7 @@
       </widget>
       <widget class="QLineEdit" name="ChemManganese">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -902,6 +1052,9 @@
        </property>
        <property name="text">
         <string/>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_21">
@@ -930,32 +1083,6 @@
       <property name="title">
        <string>Окисление элементов металлошихты (на 100кг металлошихты)</string>
       </property>
-      <widget class="QLineEdit" name="MetalCharge_2">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="geometry">
-        <rect>
-         <x>70</x>
-         <y>30</y>
-         <width>71</width>
-         <height>20</height>
-        </rect>
-       </property>
-      </widget>
-      <widget class="QLabel" name="label_22">
-       <property name="geometry">
-        <rect>
-         <x>20</x>
-         <y>30</y>
-         <width>71</width>
-         <height>16</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Масса:</string>
-       </property>
-      </widget>
       <widget class="QTableWidget" name="OxidationTable">
        <property name="enabled">
         <bool>true</bool>
@@ -1439,7 +1566,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagSiO2">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1452,10 +1579,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagCaO">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1468,10 +1598,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagMgO">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1484,10 +1617,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagAl2O3">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1500,10 +1636,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagOthers">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1516,10 +1655,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagFeO">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1531,6 +1673,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagFeOLabel">
@@ -1548,7 +1693,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagFe2O3">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1560,6 +1705,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagFe2O3Label">
@@ -1645,7 +1793,7 @@
        </property>
        <widget class="QLineEdit" name="SlagSiO2Perc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1657,6 +1805,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagAl2O3Label_2">
@@ -1674,7 +1825,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagAl2O3Perc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1687,10 +1838,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagFeOPerc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1702,6 +1856,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagFeOLabel_2">
@@ -1745,7 +1902,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagCaOPerc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1757,6 +1914,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagCaOLabel_2">
@@ -1774,7 +1934,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagOthersPerc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1787,10 +1947,13 @@
         <property name="inputMask">
          <string/>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
        </widget>
        <widget class="QLineEdit" name="SlagMgOPerc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1802,6 +1965,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagMgOLabel_2">
@@ -1819,7 +1985,7 @@
        </widget>
        <widget class="QLineEdit" name="SlagFe2O3Perc">
         <property name="enabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="geometry">
          <rect>
@@ -1831,6 +1997,9 @@
         </property>
         <property name="inputMask">
          <string/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
        <widget class="QLabel" name="SlagOthersLabel_2">
@@ -1862,7 +2031,7 @@
       </property>
       <widget class="QLineEdit" name="TotalConsumptionOfBlastKg">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -1872,10 +2041,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>false</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ExcessBlast">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -1885,10 +2057,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>false</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="TotalConsumptionOfBlastM3">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -1898,10 +2073,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>false</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="TotalOxygenDemandBlast">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -1910,6 +2088,9 @@
          <width>91</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>false</bool>
        </property>
       </widget>
       <widget class="QLabel" name="TotalOxygenDemandBlastLabel">
@@ -2030,7 +2211,7 @@
      </widget>
      <widget class="QLineEdit" name="ReclaimedIronWeight">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2040,10 +2221,13 @@
         <height>20</height>
        </rect>
       </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
      </widget>
      <widget class="QTableWidget" name="IncomingData">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2069,7 +2253,7 @@
      </widget>
      <widget class="QTableWidget" name="OutputData">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2092,7 +2276,7 @@
      </widget>
      <widget class="QLineEdit" name="LiquidIronYield">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2101,6 +2285,9 @@
         <width>81</width>
         <height>20</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLabel" name="vyhod_zhidkovo_metalla_pered_raskisleniem_label">
@@ -2182,7 +2369,7 @@
       </widget>
       <widget class="QLineEdit" name="MassOfOxidizedImpurities">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2192,10 +2379,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="MassOfOxidesPassingIntoSlag">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2205,10 +2395,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="LossWithCarryOver">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2218,10 +2411,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="DustLoss">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2231,10 +2427,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QTableWidget" name="OutputDataTable">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2357,7 +2556,7 @@
       </property>
       <widget class="QLineEdit" name="HeatDustForm">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2367,10 +2566,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="PhysHeatSlag">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2379,6 +2581,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="phizicheskoe_teplo_zhidkovo_metalla_label_2">
@@ -2396,7 +2601,7 @@
       </widget>
       <widget class="QLineEdit" name="PhysHeatLiquidSteel">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2406,10 +2611,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="HeatLosesRemove">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2418,6 +2626,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="HeatConsDecompos_label">
@@ -2474,7 +2685,7 @@
       </widget>
       <widget class="QLineEdit" name="PhysHeatOutGas">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2483,6 +2694,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="phizicheskoe_teplo_shlaka_label_2">
@@ -2500,7 +2714,7 @@
       </widget>
       <widget class="QLineEdit" name="HeatConsDecompos">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2510,10 +2724,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="HeatLoses">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2522,6 +2739,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="teplovie_poteri_label_2">
@@ -2565,7 +2785,7 @@
       </widget>
       <widget class="QLineEdit" name="HeatCarbonDecom">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2575,10 +2795,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="TotalHeatCons">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2588,10 +2811,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QTableWidget" name="OutputHeatTable">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2673,7 +2899,7 @@
      </widget>
      <widget class="QLineEdit" name="LiquidSteelTemp">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2682,6 +2908,9 @@
         <width>101</width>
         <height>20</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QGroupBox" name="prihodnie_statii_group_box_2">
@@ -2698,7 +2927,7 @@
       </property>
       <widget class="QLineEdit" name="ChemHeatOxyd">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2708,10 +2937,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ThermalReactEffect">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2721,10 +2953,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="ChemHeatSlag">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2733,6 +2968,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="teplovoi_effect_reakcii_shlakoobrazovaniya_label_2">
@@ -2789,7 +3027,7 @@
       </widget>
       <widget class="QLineEdit" name="CastPhysHeat">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2799,10 +3037,13 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="HeatCO">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2811,6 +3052,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="teplo_ot_dozhiganiya_co_label_2">
@@ -2828,7 +3072,7 @@
       </widget>
       <widget class="QLineEdit" name="TotalHeatInc">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2837,6 +3081,9 @@
          <width>101</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="obshii_prihod_tepla_label_2">
@@ -2854,7 +3101,7 @@
       </widget>
       <widget class="QTableWidget" name="IncomingHeatTable">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -2908,7 +3155,7 @@
      </widget>
      <widget class="QLineEdit" name="OverheatTemp">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2917,6 +3164,9 @@
         <width>101</width>
         <height>20</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLabel" name="NextSteel">
@@ -2990,7 +3240,7 @@
      </widget>
      <widget class="QLineEdit" name="vyhod_pervovo_metalla_posle_raskisleniya_line_edit_2">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -2999,6 +3249,9 @@
         <width>91</width>
         <height>20</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QLabel" name="balans_pri_raskislenii_stali_label_2">
@@ -3209,7 +3462,7 @@
      </widget>
      <widget class="QLineEdit" name="rashod_pervovo_ferrosplava_line_edit_2">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -3218,6 +3471,9 @@
         <width>91</width>
         <height>20</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QPushButton" name="RemoveFero">
@@ -3274,7 +3530,7 @@
       </property>
       <widget class="QTableWidget" name="SteelChemResult">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -3346,6 +3602,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLineEdit" name="SlagWeightRes">
        <property name="enabled">
@@ -3358,6 +3617,9 @@
          <width>91</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_43">
@@ -3398,6 +3660,9 @@
          <height>20</height>
         </rect>
        </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
       </widget>
       <widget class="QLabel" name="label_45">
        <property name="geometry">
@@ -3426,6 +3691,9 @@
        </property>
       </widget>
       <widget class="QLineEdit" name="LiningWeightLoss">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="geometry">
         <rect>
          <x>190</x>
@@ -3436,6 +3704,9 @@
        </property>
        <property name="text">
         <string/>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QLabel" name="label_47">
@@ -3462,6 +3733,9 @@
          <width>91</width>
          <height>20</height>
         </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
       <widget class="QPushButton" name="SteelDeoxidationCalc">
@@ -3495,7 +3769,7 @@
       </widget>
       <widget class="QTableWidget" name="SlagChemResult">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="geometry">
         <rect>
@@ -3761,7 +4035,7 @@
      </widget>
      <widget class="QPlainTextEdit" name="recomendation">
       <property name="enabled">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="geometry">
        <rect>
@@ -3770,6 +4044,9 @@
         <width>271</width>
         <height>141</height>
        </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
     </widget>
