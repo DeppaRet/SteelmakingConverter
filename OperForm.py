@@ -1,3 +1,5 @@
+import math
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView, QFileDialog
 import mysql.connector as mc
@@ -109,7 +111,7 @@ class Ui_OperatorForm(object):
         try:
 
             scenario = self.ScenarioComboBox.currentText()
-            query = "select ScenarioTask, SlagMassLimit, SteelMassLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
+            query = "select ScenarioTask, SteelCarbonLimit, SteelPhosphorLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
@@ -121,12 +123,12 @@ class Ui_OperatorForm(object):
             mycursor.execute(query)
             ScenarioQuery = mycursor.fetchall()
             Task = ScenarioQuery[0][0]
-            MaxSlagMass = ScenarioQuery[0][1]
-            MinSteelMass = ScenarioQuery[0][2]
+            SteelCarbonLimit = ScenarioQuery[0][1]
+            SteelPhosphorLimit = ScenarioQuery[0][2]
             MinSteelTemp = ScenarioQuery[0][3]
             self.ScenarioTask.setPlainText(str(Task))
-            self.MaxSlagMassLimit.setText(str(MaxSlagMass))
-            self.MinSteelMassLimit.setText(str(MinSteelMass))
+            self.SteelCarbonLimit.setText(str(SteelCarbonLimit))
+            self.SteelPhosphorLimit.setText(str(SteelPhosphorLimit))
             self.MinSteelTempLimit.setText(str(MinSteelTemp))
             mycursor.close()
 
@@ -174,7 +176,7 @@ class Ui_OperatorForm(object):
         try:
 
             scenario = self.ScenarioComboBox.currentText()
-            query = "select ScenarioTask, SlagMassLimit, SteelMassLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
+            query = "select ScenarioTask, SteelCarbonLimit, SteelPhosphorLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
@@ -186,12 +188,12 @@ class Ui_OperatorForm(object):
             mycursor.execute(query)
             ScenarioQuery = mycursor.fetchall()
             Task = ScenarioQuery[0][0]
-            MaxSlagMass = ScenarioQuery[0][1]
-            MinSteelMass = ScenarioQuery[0][2]
+            SteelCarbonLimit = ScenarioQuery[0][1]
+            SteelPhosphorLimit = ScenarioQuery[0][2]
             MinSteelTemp = ScenarioQuery[0][3]
             self.ScenarioTask.setPlainText(str(Task))
-            self.MaxSlagMassLimit.setText(str(MaxSlagMass))
-            self.MinSteelMassLimit.setText(str(MinSteelMass))
+            self.SteelCarbonLimit.setText(str(SteelCarbonLimit))
+            self.SteelPhosphorLimit.setText(str(SteelPhosphorLimit))
             self.MinSteelTempLimit.setText(str(MinSteelTemp))
             mycursor.close()
 
@@ -1438,6 +1440,7 @@ class Ui_OperatorForm(object):
 
     def getRecomendation(self):
         try:
+            self.calcPhosphor()
             steelTemperature = float(self.resultSteelTemperature.text())
             A = 0.255817 * steelTemperature - 335.0
             B = 0.066103 * steelTemperature - 85.0
@@ -1459,10 +1462,19 @@ class Ui_OperatorForm(object):
                 self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты")
             else:
                 self.recomendation.setPlainText("Используется оптимальный расход флюсов")
-            if self.MaxSlagMassLimit.text() != "":
+            if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
         except Exception as err:
             s = 0
+
+
+    def calcPhosphor(self):
+        FeO = float(self.SlagFeOPerc.text())
+        CaO = float(self.SlagCaOPerc.text())
+        T = float(self.resultSteelTemperature.text())
+        log_Lp = 22350 / T + 2.5 * math.log(FeO) + 0.08 * CaO - 16
+        L_p = math.exp(log_Lp)  # Вычисляем обратную операцию, чтобы получить L_p
+        a = 0
 
 
     def checkLimits(self):
@@ -1481,19 +1493,15 @@ class Ui_OperatorForm(object):
                                               "background : white;"
                                               "}")
             checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
-            actualSteelWeight = float(self.SteelWeightRes.text())
+            actualSteelCarbon = float(self.SteelChemResult.item(0,0).text())
             actualSteelTemp = float(self.resultSteelTemperature.text())
-            actualSlagWeight = float(self.SlagWeightRes.text())
-            minSteelMass = float(self.MinSteelMassLimit.text())
+            actualSteelPhosphor = float(self.SteelChemResult.item(0,4).text())
+            steelCarbon = float(self.SteelCarbonLimit.text())
             minSteelTemp = float(self.MinSteelTempLimit.text())
-            maxSlagMass = float(self.MaxSlagMassLimit.text())
+            steelPhosphor = float(self.SteelPhosphorLimit.text())
             msg = QMessageBox()
-            if actualSteelWeight < minSteelMass:
-                checkResult += "Масса стали меньше минимально допустимой.\n"
-                self.SteelWeightRes.setStyleSheet("QLineEdit"
-                                "{"
-                                "background : red;"
-                                "}")
+            if actualSteelCarbon > steelCarbon:
+                checkResult += "Содержание углерода в стали меньше минимально допустимого.\n"
                 problem = True
             if actualSteelTemp < minSteelTemp:
                 checkResult += "Температура стали меньше минимально допустимой.\n"
@@ -1502,12 +1510,8 @@ class Ui_OperatorForm(object):
                                                   "background : red;"
                                                   "}")
                 problem = True
-            if actualSlagWeight > maxSlagMass:
-                checkResult += "Температура стали меньше минимально допустимой.\n"
-                self.resultSteelTemperature.setStyleSheet("QLineEdit"
-                                                          "{"
-                                                          "background : red;"
-                                                          "}")
+            if actualSteelPhosphor > steelPhosphor:
+                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\n"
                 problem = True
             if problem == True:
                 msg.setIcon(QMessageBox.Information)
@@ -1607,16 +1611,16 @@ class Ui_OperatorForm(object):
         self.label_33.setGeometry(QtCore.QRect(10, 60, 141, 31))
         self.label_33.setWordWrap(True)
         self.label_33.setObjectName("label_33")
-        self.MinSteelMassLimit = QtWidgets.QLineEdit(self.groupBox_15)
-        self.MinSteelMassLimit.setGeometry(QtCore.QRect(160, 70, 131, 20))
-        self.MinSteelMassLimit.setText("")
-        self.MinSteelMassLimit.setReadOnly(True)
-        self.MinSteelMassLimit.setObjectName("MinSteelMassLimit")
-        self.MaxSlagMassLimit = QtWidgets.QLineEdit(self.groupBox_15)
-        self.MaxSlagMassLimit.setGeometry(QtCore.QRect(160, 110, 131, 20))
-        self.MaxSlagMassLimit.setText("")
-        self.MaxSlagMassLimit.setReadOnly(True)
-        self.MaxSlagMassLimit.setObjectName("MaxSlagMassLimit")
+        self.SteelPhosphorLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.SteelPhosphorLimit.setGeometry(QtCore.QRect(160, 70, 131, 20))
+        self.SteelPhosphorLimit.setText("")
+        self.SteelPhosphorLimit.setReadOnly(True)
+        self.SteelPhosphorLimit.setObjectName("SteelPhosphorLimit")
+        self.SteelCarbonLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.SteelCarbonLimit.setGeometry(QtCore.QRect(160, 110, 131, 20))
+        self.SteelCarbonLimit.setText("")
+        self.SteelCarbonLimit.setReadOnly(True)
+        self.SteelCarbonLimit.setObjectName("SteelCarbonLimit")
         self.label_34 = QtWidgets.QLabel(self.groupBox_15)
         self.label_34.setGeometry(QtCore.QRect(10, 100, 141, 31))
         self.label_34.setWordWrap(True)
@@ -2323,7 +2327,7 @@ class Ui_OperatorForm(object):
         self.label_49.setGeometry(QtCore.QRect(290, 540, 201, 16))
         self.label_49.setObjectName("label_49")
         self.rashodnie_statii_group_box_2 = QtWidgets.QGroupBox(self.tab_4)
-        self.rashodnie_statii_group_box_2.setGeometry(QtCore.QRect(490, 10, 471, 531))
+        self.rashodnie_statii_group_box_2.setGeometry(QtCore.QRect(420, 10, 421, 531))
         self.rashodnie_statii_group_box_2.setObjectName("rashodnie_statii_group_box_2")
         self.HeatDustForm = QtWidgets.QLineEdit(self.rashodnie_statii_group_box_2)
         self.HeatDustForm.setEnabled(True)
@@ -2399,9 +2403,9 @@ class Ui_OperatorForm(object):
         self.TotalHeatCons.setObjectName("TotalHeatCons")
         self.OutputHeatTable = QtWidgets.QTableWidget(self.rashodnie_statii_group_box_2)
         self.OutputHeatTable.setEnabled(True)
-        self.OutputHeatTable.setGeometry(QtCore.QRect(10, 210, 451, 311))
+        self.OutputHeatTable.setGeometry(QtCore.QRect(20, 210, 381, 311))
         self.OutputHeatTable.setObjectName("OutputHeatTable")
-        self.OutputHeatTable.setColumnCount(2)
+        self.OutputHeatTable.setColumnCount(1)
         self.OutputHeatTable.setRowCount(9)
         item = QtWidgets.QTableWidgetItem()
         self.OutputHeatTable.setVerticalHeaderItem(0, item)
@@ -2434,7 +2438,7 @@ class Ui_OperatorForm(object):
         self.LiquidSteelTemp.setReadOnly(True)
         self.LiquidSteelTemp.setObjectName("LiquidSteelTemp")
         self.prihodnie_statii_group_box_2 = QtWidgets.QGroupBox(self.tab_4)
-        self.prihodnie_statii_group_box_2.setGeometry(QtCore.QRect(0, 10, 481, 391))
+        self.prihodnie_statii_group_box_2.setGeometry(QtCore.QRect(0, 10, 411, 391))
         self.prihodnie_statii_group_box_2.setObjectName("prihodnie_statii_group_box_2")
         self.ChemHeatOxyd = QtWidgets.QLineEdit(self.prihodnie_statii_group_box_2)
         self.ChemHeatOxyd.setEnabled(True)
@@ -2486,9 +2490,9 @@ class Ui_OperatorForm(object):
         self.obshii_prihod_tepla_label_2.setObjectName("obshii_prihod_tepla_label_2")
         self.IncomingHeatTable = QtWidgets.QTableWidget(self.prihodnie_statii_group_box_2)
         self.IncomingHeatTable.setEnabled(True)
-        self.IncomingHeatTable.setGeometry(QtCore.QRect(0, 160, 471, 221))
+        self.IncomingHeatTable.setGeometry(QtCore.QRect(10, 160, 381, 221))
         self.IncomingHeatTable.setObjectName("IncomingHeatTable")
-        self.IncomingHeatTable.setColumnCount(2)
+        self.IncomingHeatTable.setColumnCount(1)
         self.IncomingHeatTable.setRowCount(6)
         item = QtWidgets.QTableWidgetItem()
         self.IncomingHeatTable.setVerticalHeaderItem(0, item)
@@ -2526,7 +2530,7 @@ class Ui_OperatorForm(object):
         self.NextSteel.setObjectName("NextSteel")
         self.HeatBalanceCalc = QtWidgets.QPushButton(self.tab_4)
         self.HeatBalanceCalc.setEnabled(True)
-        self.HeatBalanceCalc.setGeometry(QtCore.QRect(430, 470, 51, 61))
+        self.HeatBalanceCalc.setGeometry(QtCore.QRect(350, 460, 51, 61))
         self.HeatBalanceCalc.setText("")
         self.HeatBalanceCalc.setIcon(icon)
         self.HeatBalanceCalc.setIconSize(QtCore.QSize(48, 48))
@@ -2869,8 +2873,8 @@ class Ui_OperatorForm(object):
         self.label_29.setText(_translate("OperatorForm", "Задача:"))
         self.groupBox_15.setTitle(_translate("OperatorForm", "Ограничения"))
         self.label_32.setText(_translate("OperatorForm", "Минимальная температура стали [℃]:"))
-        self.label_33.setText(_translate("OperatorForm", "Минимальная масса стали [кг]:"))
-        self.label_34.setText(_translate("OperatorForm", "Максимальная масса шлака [кг]:"))
+        self.label_33.setText(_translate("OperatorForm", "Содержание фосфора в стали [%масс]:"))
+        self.label_34.setText(_translate("OperatorForm", "Содержание углерода в стали [%масс]:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _translate("OperatorForm", "Сценарий обучения"))
 
         # устанавливаем стандартные значения
@@ -3064,8 +3068,6 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "Итого"))
         item = self.OutputHeatTable.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Кол-во, кДж"))
-        item = self.OutputHeatTable.horizontalHeaderItem(1)
-        item.setText(_translate("OperatorForm", "Кол-во, %"))
         self.temperatura_peregreva_label_2.setText(_translate("OperatorForm", "Температура перегрева [°C]:"))
         self.prihodnie_statii_group_box_2.setTitle(_translate("OperatorForm", "Приходные статьи"))
         self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2.setText(_translate("OperatorForm", "Тепловой эффект реакций шлакообразования [кДж]:"))
@@ -3088,8 +3090,6 @@ class Ui_OperatorForm(object):
         item.setText(_translate("OperatorForm", "Итого"))
         item = self.IncomingHeatTable.horizontalHeaderItem(0)
         item.setText(_translate("OperatorForm", "Кол-во, кДж"))
-        item = self.IncomingHeatTable.horizontalHeaderItem(1)
-        item.setText(_translate("OperatorForm", "Кол-во, %"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_4), _translate("OperatorForm", "Тепловой баланс"))
         self.tip_ferrosplava_label_2.setText(_translate("OperatorForm", "Тип ферросллава:"))
         self.balans_pri_raskislenii_stali_label_2.setText(_translate("OperatorForm", "Баланс элементов при раскислении стали"))
