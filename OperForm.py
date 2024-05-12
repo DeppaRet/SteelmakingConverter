@@ -1153,7 +1153,8 @@ class Ui_OperatorForm(object):
             _0_3 = 0
             _0_4 = float(self.OxidationTable.item(1,4).text())
             _0_5 = 0
-            _0_6 = float(self.OxidationTable.item(1,5).text())
+            _0_6 = self.calcPhosphor()
+            #_0_6 = float(self.OxidationTable.item(1,5).text())
             _0_7 = float(self.OxidationTable.item(1,6).text())
             _0_8 = 100.0 - (_0_0 + _0_1 + _0_2 + _0_3 + _0_4 + _0_5 + _0_6 + _0_7)
             _0_9 = 100
@@ -1473,8 +1474,12 @@ class Ui_OperatorForm(object):
         CaO = float(self.SlagCaOPerc.text())
         T = float(self.resultSteelTemperature.text())
         log_Lp = 22350 / T + 2.5 * math.log(FeO) + 0.08 * CaO - 16
-        L_p = math.exp(log_Lp)  # Вычисляем обратную операцию, чтобы получить L_p
+        L_p = math.exp(log_Lp)
+        L_p = 0.099 * L_p + 30
+        ph = float(self.ChemPhosphor.text())
+        stPh = ph / L_p * 100
         a = 0
+        return stPh
 
 
     def checkLimits(self):
@@ -1493,9 +1498,9 @@ class Ui_OperatorForm(object):
                                               "background : white;"
                                               "}")
             checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
-            actualSteelCarbon = float(self.SteelChemResult.item(0,0).text())
+            actualSteelCarbon = float(self.DeoxidationBalance.item(0,0).text())
             actualSteelTemp = float(self.resultSteelTemperature.text())
-            actualSteelPhosphor = float(self.SteelChemResult.item(0,4).text())
+            actualSteelPhosphor = float(self.DeoxidationBalance.item(0,6).text())
             steelCarbon = float(self.SteelCarbonLimit.text())
             minSteelTemp = float(self.MinSteelTempLimit.text())
             steelPhosphor = float(self.SteelPhosphorLimit.text())
@@ -1511,7 +1516,7 @@ class Ui_OperatorForm(object):
                                                   "}")
                 problem = True
             if actualSteelPhosphor > steelPhosphor:
-                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\n"
+                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\n Рекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
                 problem = True
             if problem == True:
                 msg.setIcon(QMessageBox.Information)
