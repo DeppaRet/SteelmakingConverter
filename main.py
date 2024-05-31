@@ -101,7 +101,7 @@ class Ui_LoginForm(object):
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
             msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
+            msg.setInformativeText("Проверьте введенные данные или настройки подключения!")
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 

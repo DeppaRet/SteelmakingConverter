@@ -157,6 +157,19 @@
     <string>Пароль</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="testButton">
+   <property name="geometry">
+    <rect>
+     <x>164</x>
+     <y>150</y>
+     <width>101</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Тест соединения</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>

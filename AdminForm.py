@@ -33,6 +33,13 @@ class Ui_AdminFom(object):
                     df.at[row, columnHeader[col]] = self.tableWidgetFactory.item(row,col).text()
 
             df.to_excel('Data from programm.xlsx', index = False)
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Внмание")
+            msg.setText("Экспорт успешно завершен")
+            msg.setInformativeText("Файл можно найти в папке с программой")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -42,6 +49,36 @@ class Ui_AdminFom(object):
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 
+
+    def exportScenarioFunc(self):
+        try:
+            columnHeader = []
+
+            for j in range(self.tableWidgetFactory_2.model().columnCount()):
+                columnHeader.append(self.tableWidgetFactory_2.horizontalHeaderItem(j).text())
+
+            df = pd.DataFrame(columns = columnHeader)
+
+            for row in range(self.tableWidgetFactory_2.rowCount()):
+                for col in range(self.tableWidgetFactory_2.columnCount()):
+                    df.at[row, columnHeader[col]] = self.tableWidgetFactory_2.item(row,col).text()
+
+            df.to_excel('Scenario.xlsx', index = False)
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Внмание")
+            msg.setText("Экспорт успешно завершен")
+            msg.setInformativeText("Файл можно найти в папке с программой")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Экспорт не был завершен!")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
 
 
 
@@ -107,10 +144,10 @@ class Ui_AdminFom(object):
             chTable = self.choosenTableForFactory.currentText()
             query = "SELECT * FROM "
             if (chTable == "Режимы"):
-                query += "Mode;"
-                self.tableWidgetFactory.setColumnCount(5)
+                query += "v_combined_data;"
+                self.tableWidgetFactory.setColumnCount(22) #5
                 self.tableWidgetFactory.setHorizontalHeaderLabels(
-                    ["Номер", "Название", "Сталь", "Лом", "Чугун"])
+                    ["Название", "Сталь", "C", "S", "P", "Si", "Mn", "Температура чугуна", "Масса чугуна", "C", "S", "P", "Si", "Mn", "Масса лома", "C", "S", "P", "Si", "Mn", "Высота", "Диаметр"]) #["Номер", "Название", "Сталь", "Лом", "Чугун"])
             elif (chTable == "Сталь"):
                 query = "select steelname, scomp.SteelCarbon, scomp.SteelSerum, scomp.SteelPhosphor, scomp.SteelSilicon from steeldata as sdata left join steelcomposition as scomp on SteelComposition_idSteelComposition = idSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(5)
@@ -607,6 +644,111 @@ class Ui_AdminFom(object):
         #     mycursor.close()
         #     DB.close()
 
+
+    def showScenario(self):
+        try:
+            self.tableWidgetFactory_2.setRowCount(0)
+            query = "select ScanrioName, ScenarioTask, SteelCarbonLimit, SteelTempLimit, SteelPhosphorLimit, ModeName from scenario join mode on Mode_idMode = idMode;"
+            self.tableWidgetFactory_2.setColumnCount(6)
+            self.tableWidgetFactory_2.setHorizontalHeaderLabels(["Наименование", "Задача", "Лимит C", "Лимит T", "Лимит P", "Наименование режима"])
+
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+
+            for row_number, row_data in enumerate(result):
+                self.tableWidgetFactory_2.insertRow(row_number)
+                for column_number, data in enumerate(row_data):
+                    self.tableWidgetFactory_2.setItem(row_number, column_number, QTableWidgetItem(str(data)))
+
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+
+
+    def getModes(self):
+        try:
+            query = "select ModeName from mode;"
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            result = ""
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            result = mycursor.fetchall()
+            for row_number, row_data in enumerate(result):
+                for column_number, data in enumerate(row_data):
+                    self.modeNameBox.addItem((str(data)))
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
+
+    def addScenario (self):
+        try:
+            DB = mc.connect(
+                host=DBhost,  # host="192.168.51.179" user="root", password="root",
+                user=DBlogin,
+                password=DBpass,
+                database="regimdata"
+            )
+            query = "select idMode from mode where ModeName = '" + self.modeNameBox.currentText() + "'"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            idMode = mycursor.fetchone()[0]
+            mycursor.close()
+
+            query = "insert into scenario (ScanrioName, ScenarioTask, Mode_idMode, SteelCarbonLimit, SteelTempLimit, SteelPhosphorLimit) values(%s, %s, %s, %s, %s, %s)"
+
+            values = (self.scenarioName.text(), self.scenarioTask.toPlainText(), idMode, self.SteelCarbonLimit.text(), self.MinSteelTempLimit.text(), self.SteelPhosphorLimit.text())
+
+            mycursor = DB.cursor()
+            mycursor.execute(query, values)
+            DB.commit()  # Обязательно для записи
+            mycursor.close()
+            DB.close()
+            self.showScenario()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Успех")
+            msg.setText("Внимание")
+            msg.setInformativeText("Сценарий успешно добавлен!")
+            msg.exec_()
+
+        except Exception as err:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            msg.exec_()
+        finally:
+            mycursor.close()
+            DB.close()
+
     def getAllUsersId(self):
         query = "select Login from users;"
         usersDB = mc.connect(
@@ -1058,6 +1200,94 @@ class Ui_AdminFom(object):
         self.exportButton.setObjectName("exportButton")
         self.exportButton.clicked.connect(self.exportData)
         self.Factory.addTab(self.tab_3, "")
+        self.tab = QtWidgets.QWidget()
+        self.tab.setObjectName("tab")
+        self.tabelLabel_5 = QtWidgets.QLabel(self.tab)
+        self.tabelLabel_5.setGeometry(QtCore.QRect(10, 10, 131, 18))
+        font = QtGui.QFont()
+        font.setFamily("Times New Roman")
+        font.setPointSize(14)
+        self.tabelLabel_5.setFont(font)
+        self.tabelLabel_5.setObjectName("tabelLabel_5")
+        self.exportScenario = QtWidgets.QPushButton(self.tab)
+        self.exportScenario.setGeometry(QtCore.QRect(690, 10, 75, 23))
+        self.exportScenario.setObjectName("exportScenario")
+        self.exportScenario.clicked.connect(self.exportScenarioFunc)
+        self.showTableForScenario = QtWidgets.QPushButton(self.tab)
+        self.showTableForScenario.setGeometry(QtCore.QRect(610, 10, 75, 23))
+        self.showTableForScenario.setObjectName("showTableForScenario")
+        self.showTableForScenario.clicked.connect(self.showScenario)
+        self.tableWidgetFactory_2 = QtWidgets.QTableWidget(self.tab)
+        self.tableWidgetFactory_2.setGeometry(QtCore.QRect(10, 40, 761, 231))
+        self.tableWidgetFactory_2.setObjectName("tableWidgetFactory_2")
+        self.tableWidgetFactory_2.setColumnCount(0)
+        self.tableWidgetFactory_2.setRowCount(0)
+        self.groupBox_13 = QtWidgets.QGroupBox(self.tab)
+        self.groupBox_13.setGeometry(QtCore.QRect(10, 280, 761, 271))
+        self.groupBox_13.setObjectName("groupBox_13")
+        self.addScenarioButton_2 = QtWidgets.QPushButton(self.groupBox_13)
+        self.addScenarioButton_2.setGeometry(QtCore.QRect(680, 20, 71, 23))
+        self.addScenarioButton_2.setObjectName("addScenarioButton_2")
+        self.addScenarioButton_2.clicked.connect(self.addScenario)
+        self.scenarioName = QtWidgets.QLineEdit(self.groupBox_13)
+        self.scenarioName.setGeometry(QtCore.QRect(100, 20, 201, 20))
+        self.scenarioName.setObjectName("scenarioName")
+        self.label_41 = QtWidgets.QLabel(self.groupBox_13)
+        self.label_41.setGeometry(QtCore.QRect(10, 20, 81, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_41.setFont(font)
+        self.label_41.setObjectName("label_41")
+        self.label_42 = QtWidgets.QLabel(self.groupBox_13)
+        self.label_42.setGeometry(QtCore.QRect(10, 50, 81, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_42.setFont(font)
+        self.label_42.setObjectName("label_42")
+        self.scenarioTask = QtWidgets.QPlainTextEdit(self.groupBox_13)
+        self.scenarioTask.setEnabled(True)
+        self.scenarioTask.setGeometry(QtCore.QRect(10, 70, 421, 181))
+        self.scenarioTask.setObjectName("scenarioTask")
+        self.groupBox_15 = QtWidgets.QGroupBox(self.groupBox_13)
+        self.groupBox_15.setGeometry(QtCore.QRect(450, 70, 301, 181))
+        self.groupBox_15.setObjectName("groupBox_15")
+        self.MinSteelTempLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.MinSteelTempLimit.setGeometry(QtCore.QRect(160, 30, 131, 20))
+        self.MinSteelTempLimit.setText("")
+        self.MinSteelTempLimit.setReadOnly(False)
+        self.MinSteelTempLimit.setObjectName("MinSteelTempLimit")
+        self.label_44 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_44.setGeometry(QtCore.QRect(10, 20, 141, 31))
+        self.label_44.setWordWrap(True)
+        self.label_44.setObjectName("label_44")
+        self.label_45 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_45.setGeometry(QtCore.QRect(10, 60, 141, 31))
+        self.label_45.setWordWrap(True)
+        self.label_45.setObjectName("label_45")
+        self.SteelPhosphorLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.SteelPhosphorLimit.setGeometry(QtCore.QRect(160, 70, 131, 20))
+        self.SteelPhosphorLimit.setText("")
+        self.SteelPhosphorLimit.setReadOnly(False)
+        self.SteelPhosphorLimit.setObjectName("SteelPhosphorLimit")
+        self.SteelCarbonLimit = QtWidgets.QLineEdit(self.groupBox_15)
+        self.SteelCarbonLimit.setGeometry(QtCore.QRect(160, 110, 131, 20))
+        self.SteelCarbonLimit.setText("")
+        self.SteelCarbonLimit.setReadOnly(False)
+        self.SteelCarbonLimit.setObjectName("SteelCarbonLimit")
+        self.label_46 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_46.setGeometry(QtCore.QRect(10, 100, 141, 31))
+        self.label_46.setWordWrap(True)
+        self.label_46.setObjectName("label_46")
+        self.modeNameBox = QtWidgets.QComboBox(self.groupBox_15)
+        self.modeNameBox.setGeometry(QtCore.QRect(160, 150, 131, 21))
+        self.modeNameBox.setObjectName("modeNameBox")
+        self.label_43 = QtWidgets.QLabel(self.groupBox_15)
+        self.label_43.setGeometry(QtCore.QRect(10, 150, 51, 20))
+        font = QtGui.QFont()
+        font.setPointSize(8)
+        self.label_43.setFont(font)
+        self.label_43.setObjectName("label_43")
+        self.Factory.addTab(self.tab, "")
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
         self.groupBox_2 = QtWidgets.QGroupBox(self.tab_4)
@@ -1285,7 +1515,21 @@ class Ui_AdminFom(object):
         item = self.FluxeTable.horizontalHeaderItem(0)
         item.setText(_translate("AdminFom", "Тип флюса"))
         self.tip_flyusa_label.setText(_translate("AdminFom", "Тип флюса:"))
+        self.exportButton.setText(_translate("AdminFom", "Экспорт"))
         self.Factory.setTabText(self.Factory.indexOf(self.tab_3), _translate("AdminFom", "Промышленные данные"))
+        self.tabelLabel_5.setText(_translate("AdminFom", "Сценарии"))
+        self.exportScenario.setText(_translate("AdminFom", "Экспорт"))
+        self.showTableForScenario.setText(_translate("AdminFom", "Обновить"))
+        self.groupBox_13.setTitle(_translate("AdminFom", "Добавление сценария"))
+        self.addScenarioButton_2.setText(_translate("AdminFom", "Добавить"))
+        self.label_41.setText(_translate("AdminFom", "Наименование:"))
+        self.label_42.setText(_translate("AdminFom", "Задача:"))
+        self.groupBox_15.setTitle(_translate("AdminFom", "Ограничения"))
+        self.label_44.setText(_translate("AdminFom", "Минимальная температура стали [℃]:"))
+        self.label_45.setText(_translate("AdminFom", "Содержание фосфора в стали [%масс]:"))
+        self.label_46.setText(_translate("AdminFom", "Содержание углерода в стали [%масс]:"))
+        self.label_43.setText(_translate("AdminFom", "Режим:"))
+        self.Factory.setTabText(self.Factory.indexOf(self.tab), _translate("AdminFom", "Сценарии"))
         self.groupBox_2.setTitle(_translate("AdminFom", "Добавление учетных записей"))
         self.AddUserButton.setText(_translate("AdminFom", "Добавить"))
         self.label.setText(_translate("AdminFom", "Логин:"))
@@ -1320,7 +1564,9 @@ class Ui_AdminFom(object):
         self.getAllScrap()
         self.getAllSteel()
         self.getAllCast()
+        self.getModes()
         self.getAllUsersId()
+        self.showScenario()
 
 
 if __name__ == "__main__":
