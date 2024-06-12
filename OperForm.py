@@ -1,6 +1,7 @@
 import math
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import pyqtSignal, QThread
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QHeaderView, QFileDialog
 import mysql.connector as mc
 from PyQt5.QtWidgets import QMessageBox
@@ -37,8 +38,75 @@ class FluxeComposition(object):
 
 listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6', 'fluxe7', 'fluxe8',
                                'fluxe9', 'fluxe10','fluxe11','fluxe12','fluxe13','fluxe14','fluxe15', 'fluxe16']
-class Ui_OperatorForm(object):
 
+
+class WorkerThread(QThread):
+    progress = pyqtSignal(int)
+    result_scenario = pyqtSignal(str, str, str, str)
+    result_mode = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, scenario, db_host, db_login, db_pass):
+        super().__init__()
+        self.scenario = scenario
+        self.db_host = db_host
+        self.db_login = db_login
+        self.db_pass = db_pass
+
+    def run(self):
+        try:
+            self.progress.emit(0)
+            query = f"SELECT ScenarioTask, SteelCarbonLimit, SteelPhosphorLimit, SteelTempLimit FROM scenario WHERE ScanrioName = '{self.scenario}';"
+            DB = mc.connect(
+                host=self.db_host,
+                user=self.db_login,
+                password=self.db_pass,
+                database="regimdata"
+            )
+            self.progress.emit(10)
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            ScenarioQuery = mycursor.fetchall()
+            self.progress.emit(40)
+            if not ScenarioQuery:
+                raise ValueError("No data found for the selected scenario.")
+
+            Task = ScenarioQuery[0][0]
+            SteelCarbonLimit = ScenarioQuery[0][1]
+            SteelPhosphorLimit = ScenarioQuery[0][2]
+            MinSteelTemp = ScenarioQuery[0][3]
+            self.result_scenario.emit(str(Task), str(SteelCarbonLimit), str(SteelPhosphorLimit), str(MinSteelTemp))
+
+            mycursor.close()
+
+            query = f"SELECT mode_idMode FROM scenario WHERE ScanrioName = '{self.scenario}';"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeId = mycursor.fetchone()[0]
+            mycursor.close()
+
+            self.progress.emit(70)
+
+            query = f"SELECT ModeName FROM mode WHERE idMode = '{modeId}';"
+            mycursor = DB.cursor()
+            mycursor.execute(query)
+            modeName = mycursor.fetchone()[0]
+            mycursor.close()
+
+            self.progress.emit(90)
+            self.result_mode.emit(str(modeName))
+            self.progress.emit(100)
+
+        except Exception as err:
+            self.error.emit(str(err))
+        finally:
+            if mycursor: mycursor.close()
+            if DB: DB.close()
+
+
+class Ui_OperatorForm(object):
+    scenarioProgress = pyqtSignal(int)
+    finished = pyqtSignal(str)
     def getSettings(self):
         parser.read('dev.ini')
         global DBhost
@@ -84,7 +152,7 @@ class Ui_OperatorForm(object):
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
                 password=DBpass,
-                database="FerroalloyDB"
+                database="ferroalloydb"
             )
             result = ""
             mycursor = DB.cursor()
@@ -173,75 +241,140 @@ class Ui_OperatorForm(object):
             DB.close()
 
     def GetScenarioExample(self):
-        try:
 
+        # try:
+        #
+        #     scenario = self.ScenarioComboBox.currentText()
+        #     query = "select ScenarioTask, SteelCarbonLimit, SteelPhosphorLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
+        #     DB = mc.connect(
+        #         host=DBhost,  # host="192.168.51.179" user="root", password="root",
+        #         user=DBlogin,
+        #         password=DBpass,
+        #         database="regimdata"
+        #     )
+        #
+        #     Task = ""
+        #     mycursor = DB.cursor()
+        #     mycursor.execute(query)
+        #     ScenarioQuery = mycursor.fetchall()
+        #     Task = ScenarioQuery[0][0]
+        #     SteelCarbonLimit = ScenarioQuery[0][1]
+        #     SteelPhosphorLimit = ScenarioQuery[0][2]
+        #     MinSteelTemp = ScenarioQuery[0][3]
+        #
+        #     self.ScenarioTask.setPlainText(str(Task))
+        #     self.SteelCarbonLimit.setText(str(SteelCarbonLimit))
+        #     self.SteelPhosphorLimit.setText(str(SteelPhosphorLimit))
+        #     self.MinSteelTempLimit.setText(str(MinSteelTemp))
+        #
+        #     mycursor.close()
+        #
+        #     query = "select mode_idMode from scenario where ScanrioName = '" + scenario + "';"
+        #     modeId = ""
+        #     mycursor = DB.cursor()
+        #     mycursor.execute(query)
+        #     modeId = mycursor.fetchone()[0]
+        #     mycursor.close()
+        #
+        #     query = "select ModeName from mode where idMode = '" + str(modeId) + "';"
+        #     modeName = ""
+        #     mycursor = DB.cursor()
+        #     mycursor.execute(query)
+        #     modeName = mycursor.fetchone()[0]
+        #     mycursor.close()
+        #     self.ModeComboBox.setCurrentText(str(modeName))
+        #     self.chooseMods()
+        #     self.calcMetalChargeClicked()
+        #     self.calcTableClick()
+        #     self.slagCalcClicked()
+        #     self.blastCalcClicked()
+        #     self.MaterialBalanceCalcClicked()
+        #     self.HeatBalanceCalcClicked()
+        #     self.AddFeroBtnClicked()
+        #     self.deoxCalc()
+        #     self.getRecomendation()
+        #     global Protokol
+        #     Protokol = ''
+        #     global step
+        #     step = 1
+        #
+        # except Exception as err:
+        #     msg = QMessageBox()
+        #     msg.setIcon(QMessageBox.Critical)
+        #     msg.setWindowTitle("Ошибка")
+        #     msg.setText("Внимание")
+        #     msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
+        #     # msg.setInformativeText("Error: {0}".format(err))
+        #     msg.exec_()
+        #
+        # finally:
+        #     mycursor.close()
+        #     DB.close()
+        try:
             scenario = self.ScenarioComboBox.currentText()
-            query = "select ScenarioTask, SteelCarbonLimit, SteelPhosphorLimit, SteelTempLimit from scenario where ScanrioName = '" + scenario + "';"
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
                 password=DBpass,
                 database="regimdata"
             )
-            Task = ""
-            mycursor = DB.cursor()
-            mycursor.execute(query)
-            ScenarioQuery = mycursor.fetchall()
-            Task = ScenarioQuery[0][0]
-            SteelCarbonLimit = ScenarioQuery[0][1]
-            SteelPhosphorLimit = ScenarioQuery[0][2]
-            MinSteelTemp = ScenarioQuery[0][3]
-            self.ScenarioTask.setPlainText(str(Task))
-            self.SteelCarbonLimit.setText(str(SteelCarbonLimit))
-            self.SteelPhosphorLimit.setText(str(SteelPhosphorLimit))
-            self.MinSteelTempLimit.setText(str(MinSteelTemp))
-            mycursor.close()
-
-            query = "select mode_idMode from scenario where ScanrioName = '" + scenario + "';"
-            modeId = ""
-            mycursor = DB.cursor()
-            mycursor.execute(query)
-            modeId = mycursor.fetchone()[0]
-            mycursor.close()
-
-            query = "select ModeName from mode where idMode = '" + str(modeId) + "';"
-            modeName = ""
-            mycursor = DB.cursor()
-            mycursor.execute(query)
-            modeName = mycursor.fetchone()[0]
-            mycursor.close()
-            self.ModeComboBox.setCurrentText(str(modeName))
-
-            self.chooseMods()
-            self.calcMetalChargeClicked()
-            self.calcTableClick()
-            self.slagCalcClicked()
-            self.blastCalcClicked()
-            self.MaterialBalanceCalcClicked()
-            self.HeatBalanceCalcClicked()
-            self.AddFeroBtnClicked()
-            self.deoxCalc()
-            self.getRecomendation()
-            global Protokol
-            Protokol = ''
-            global step
-            step = 1
-
-
-
-
+            self.thread = WorkerThread(scenario, DBhost, DBlogin, DBpass)
+            self.thread.progress.connect(self.update_progress)
+            self.thread.result_scenario.connect(self.update_scenario)
+            self.thread.result_mode.connect(self.update_mode)
+            self.thread.error.connect(self.show_error)
+            self.thread.finished.connect(self.run_calculations)
+            self.thread.start()
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 
-        finally:
-            mycursor.close()
-            DB.close()
+    def update_progress(self, value):
+        self.scenarioProgress.setValue(value)
+
+    def update_scenario(self, task, carbon, phosphor, temp):
+        self.ScenarioTask.setPlainText(task)
+        self.SteelCarbonLimit.setText(carbon)
+        self.SteelPhosphorLimit.setText(phosphor)
+        self.MinSteelTempLimit.setText(temp)
+
+    def update_mode(self, mode):
+        self.ModeComboBox.setCurrentText(mode)
+
+    def show_error(self, error):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setWindowTitle("Ошибка")
+        msg.setText("Внимание")
+        msg.setInformativeText(f"Проверьте введенные данные! {error}")
+        msg.exec_()
+
+    def run_calculations(self):
+        self.chooseMods()
+        self.calcMetalChargeClicked()
+        self.calcTableClick()
+        self.slagCalcClicked()
+        self.blastCalcClicked()
+        self.MaterialBalanceCalcClicked()
+        self.HeatBalanceCalcClicked()
+        self.AddFeroBtnClicked()
+        self.deoxCalc()
+        self.getRecomendation()
+        global Protokol
+        Protokol = ''
+        global step
+        step = 1
+
+
+
+
+
+
+
 
     def chooseMods(self):
         try:
@@ -610,7 +743,7 @@ class Ui_OperatorForm(object):
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
                 user=DBlogin,
                 password=DBpass,
-                database="FerroalloyDB"
+                database="ferroalloydb"
             )
             result = ""
             mycursor = DB.cursor()
@@ -692,10 +825,17 @@ class Ui_OperatorForm(object):
                 slagAl2O3 += listOfNamesForClass[row].fluxeWeight * listOfNamesForClass[row].fluxeAl2O3 / 100
 
             FeO = 20.0 + 0.218 / float(self.steelCarbon.text()) + 0.031 / float(self.steelPhosphor.text())
-            Fe2O3 = 0.0
+            Fe2O3 = 0
 
             steelCarbon = float(self.steelCarbon.text())
             steelPhosphor = float(self.steelPhosphor.text())
+
+            if (steelCarbon < 0.1):
+                Fe2O3 = 9
+            elif (steelCarbon >= 0.1 and steelCarbon <= 0.25):
+                Fe2O3 = 5
+            else:
+                Fe2O3 = 4
 
             metalChargeWeight = float(self.MetalCharge.text())
 
@@ -882,7 +1022,7 @@ class Ui_OperatorForm(object):
             incomingDataRowCount += 1
 
             summary = 0
-            for row in range(incomingDataRowCount - 1):
+            for row in range(incomingDataRowCount):
                 summary += float(self.IncomingData.item(row, 1).text())
 
             self.IncomingData.insertRow(incomingDataRowCount)
@@ -1046,7 +1186,7 @@ class Ui_OperatorForm(object):
             #Физическое тепло шлака
             PhysSlagHeat = (2.09 * SteelTemperature - 1379.0) * float(self.SlagWeight.text()) * 1000
             self.PhysHeatSlag.setText(str(round(PhysSlagHeat, 3)))
-            self.OutputHeatTable.setItem(1, 0, QTableWidgetItem(str(round(PhysSteelHeat, 3))))
+            self.OutputHeatTable.setItem(1, 0, QTableWidgetItem(str(round(PhysSlagHeat, 3))))
 
             #Общий расход тепла
             TotalHeatOut = PhysSteelHeat + PhysSlagHeat + PhysGasHeat + FeOxydesHeatLoses + heatLoses + heatCarbonDecom + heatDustLoses + emissionsHeatLoses
@@ -1054,13 +1194,13 @@ class Ui_OperatorForm(object):
             self.OutputHeatTable.setItem(8, 0, QTableWidgetItem(str(round(TotalHeatOut, 3))))
 
             #Температура жидкого металла в конце продувки
-            self.LiquidSteelTemp.setText(str(round(SteelTemperature, 3)))
+            self.LiquidSteelTemp.setText(str(round(SteelTemperature, 1)))
 
             #Температура перегрева
             # МОЖНО ДОБАВИТЬ ПРОВЕРКУ НА ТО, ЕСЛИ ТЕМПРЕАТУРА ПЕРЕГРЕВА ОТРИЦАТЕЛЬНАЯ ТО БАН
             meltTemperature = 1539.0 - 80.0 * float(self.steelCarbon.text())
             overheatTemperature = SteelTemperature - meltTemperature
-            self.OverheatTemp.setText(str(round(overheatTemperature, 3)))
+            self.OverheatTemp.setText(str(round(overheatTemperature, 1)))
 
             #Выводим кол-во процентов в таблицы
 
@@ -1106,7 +1246,7 @@ class Ui_OperatorForm(object):
             limitSolubilityMgO = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875
             limitSolubilityMgO = abs(limitSolubilityMgO)
             #Потери массы футеровки
-            liningWeightLoss = 4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text()) * (limitSolubilityMgO - slagMgO)
+            liningWeightLoss = 4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text()) * (limitSolubilityMgO * slagMgO)
             self.LiningWeightLoss.setText(str(round(liningWeightLoss, 3)))
 
             self.resultSteelTemperature.setText(self.LiquidSteelTemp.text())
@@ -1449,7 +1589,7 @@ class Ui_OperatorForm(object):
             slagSiO2 = float(self.SlagSiO2Perc.text())
             slagFeO = float(self.SlagFeOPerc.text())
             slagMgO = float(self.SlagMgOPerc.text())
-            limitSolubility = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875;
+            limitSolubility = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875
             liningWeightLoss = 4.11155*10**(-6) * steelTemperature * (limitSolubility * slagMgO)
             self.lining_weight_loss.setText(str(round(liningWeightLoss, 3)))
             slagСorrosionСriteria = limitSolubility - slagMgO
@@ -1460,9 +1600,9 @@ class Ui_OperatorForm(object):
             slagBasicity = slagCaO / slagSiO2
             self.slag_basicity.setText(str(round(slagBasicity, 3)))
             if slagСorrosionСriteria > 3:
-                self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты")
+                self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты\n")
             else:
-                self.recomendation.setPlainText("Используется оптимальный расход флюсов")
+                self.recomendation.setPlainText("Используется оптимальный расход флюсов\n")
             if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
         except Exception as err:
@@ -1504,19 +1644,23 @@ class Ui_OperatorForm(object):
             steelCarbon = float(self.SteelCarbonLimit.text())
             minSteelTemp = float(self.MinSteelTempLimit.text())
             steelPhosphor = float(self.SteelPhosphorLimit.text())
+            recText = self.recomendation.toPlainText()
             msg = QMessageBox()
             if actualSteelCarbon > steelCarbon:
                 checkResult += "Содержание углерода в стали меньше минимально допустимого.\n"
+                recText += "Содержание углерода в стали меньше минимально допустимого.\n"
                 problem = True
             if actualSteelTemp < minSteelTemp:
                 checkResult += "Температура стали меньше минимально допустимой.\n"
+                recText += "Температура стали меньше минимально допустимой.\n"
                 self.resultSteelTemperature.setStyleSheet("QLineEdit"
                                                   "{"
                                                   "background : red;"
                                                   "}")
                 problem = True
             if actualSteelPhosphor > steelPhosphor:
-                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\n Рекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
+                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
+                recText += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
                 problem = True
             if problem == True:
                 msg.setIcon(QMessageBox.Information)
@@ -1527,8 +1671,9 @@ class Ui_OperatorForm(object):
             elif problem == False:
                 tmp = self.recomendation.toPlainText()
                 tmp += "\nПроверка результатов выполнена успешно, накладываемые ограничения выполняются"
+                recText += "Ограничения сценария выполняются\n"
                 self.recomendation.setPlainText(tmp)
-
+            self.recomendation.setPlainText(recText)
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -1606,7 +1751,7 @@ class Ui_OperatorForm(object):
         self.MinSteelTempLimit = QtWidgets.QLineEdit(self.groupBox_15)
         self.MinSteelTempLimit.setGeometry(QtCore.QRect(160, 30, 131, 20))
         self.MinSteelTempLimit.setText("")
-        self.MinSteelTempLimit.setReadOnly(True)
+        self.MinSteelTempLimit.setReadOnly(False)
         self.MinSteelTempLimit.setObjectName("MinSteelTempLimit")
         self.label_32 = QtWidgets.QLabel(self.groupBox_15)
         self.label_32.setGeometry(QtCore.QRect(10, 20, 141, 31))
@@ -1619,12 +1764,12 @@ class Ui_OperatorForm(object):
         self.SteelPhosphorLimit = QtWidgets.QLineEdit(self.groupBox_15)
         self.SteelPhosphorLimit.setGeometry(QtCore.QRect(160, 70, 131, 20))
         self.SteelPhosphorLimit.setText("")
-        self.SteelPhosphorLimit.setReadOnly(True)
+        self.SteelPhosphorLimit.setReadOnly(False)
         self.SteelPhosphorLimit.setObjectName("SteelPhosphorLimit")
         self.SteelCarbonLimit = QtWidgets.QLineEdit(self.groupBox_15)
         self.SteelCarbonLimit.setGeometry(QtCore.QRect(160, 110, 131, 20))
         self.SteelCarbonLimit.setText("")
-        self.SteelCarbonLimit.setReadOnly(True)
+        self.SteelCarbonLimit.setReadOnly(False)
         self.SteelCarbonLimit.setObjectName("SteelCarbonLimit")
         self.label_34 = QtWidgets.QLabel(self.groupBox_15)
         self.label_34.setGeometry(QtCore.QRect(10, 100, 141, 31))
@@ -1638,6 +1783,11 @@ class Ui_OperatorForm(object):
         self.GetResExample.setFlat(True)
         self.GetResExample.setObjectName("GetResExample")
         self.GetResExample.clicked.connect(self.GetScenarioExample)
+        self.scenarioProgress = QtWidgets.QProgressBar(self.tab_7)
+        self.scenarioProgress.setGeometry(QtCore.QRect(20, 330, 951, 23))
+        self.scenarioProgress.setProperty("value", 24)
+        self.scenarioProgress.setObjectName("scenarioProgress")
+        self.scenarioProgress.setValue(0)
         self.tabWidget.addTab(self.tab_7, "")
         self.tab = QtWidgets.QWidget()
         self.tab.setObjectName("tab")
@@ -1843,11 +1993,11 @@ class Ui_OperatorForm(object):
         self.label_21.setGeometry(QtCore.QRect(270, 20, 91, 16))
         self.label_21.setObjectName("label_21")
         self.groupBox_9 = QtWidgets.QGroupBox(self.tab)
-        self.groupBox_9.setGeometry(QtCore.QRect(20, 310, 921, 281))
+        self.groupBox_9.setGeometry(QtCore.QRect(20, 310, 921, 241))
         self.groupBox_9.setObjectName("groupBox_9")
         self.OxidationTable = QtWidgets.QTableWidget(self.groupBox_9)
         self.OxidationTable.setEnabled(True)
-        self.OxidationTable.setGeometry(QtCore.QRect(10, 60, 811, 211))
+        self.OxidationTable.setGeometry(QtCore.QRect(10, 20, 811, 211))
         self.OxidationTable.setObjectName("OxidationTable")
         self.OxidationTable.setColumnCount(8)
         self.OxidationTable.setRowCount(6)
@@ -1948,6 +2098,11 @@ class Ui_OperatorForm(object):
         self.label_30 = QtWidgets.QLabel(self.groupBox_13)
         self.label_30.setGeometry(QtCore.QRect(130, 20, 61, 16))
         self.label_30.setObjectName("label_30")
+        self.modeProgress = QtWidgets.QProgressBar(self.tab)
+        self.modeProgress.setGeometry(QtCore.QRect(20, 560, 921, 23))
+        self.modeProgress.setProperty("value", 24)
+        self.modeProgress.setObjectName("modeProgress")
+        self.modeProgress.setValue(0)
         self.tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
@@ -2754,7 +2909,7 @@ class Ui_OperatorForm(object):
         self.tab_6.setObjectName("tab_6")
         self.RecomendationCalc = QtWidgets.QPushButton(self.tab_6)
         self.RecomendationCalc.setEnabled(True)
-        self.RecomendationCalc.setGeometry(QtCore.QRect(290, 40, 51, 61))
+        self.RecomendationCalc.setGeometry(QtCore.QRect(400, 240, 51, 61))
         self.RecomendationCalc.setText("")
         self.RecomendationCalc.setIcon(icon)
         self.RecomendationCalc.setIconSize(QtCore.QSize(48, 48))
@@ -2763,52 +2918,52 @@ class Ui_OperatorForm(object):
         self.RecomendationCalc.clicked.connect(self.getRecomendation)
         self.limit_MgO = QtWidgets.QLineEdit(self.tab_6)
         self.limit_MgO.setEnabled(True)
-        self.limit_MgO.setGeometry(QtCore.QRect(180, 180, 91, 20))
+        self.limit_MgO.setGeometry(QtCore.QRect(180, 240, 91, 20))
         self.limit_MgO.setObjectName("limit_MgO")
         self.content_MgO = QtWidgets.QLineEdit(self.tab_6)
         self.content_MgO.setEnabled(True)
-        self.content_MgO.setGeometry(QtCore.QRect(180, 210, 91, 20))
+        self.content_MgO.setGeometry(QtCore.QRect(180, 270, 91, 20))
         self.content_MgO.setObjectName("content_MgO")
         self.unsaturation_MgO = QtWidgets.QLineEdit(self.tab_6)
         self.unsaturation_MgO.setEnabled(True)
-        self.unsaturation_MgO.setGeometry(QtCore.QRect(180, 240, 91, 20))
+        self.unsaturation_MgO.setGeometry(QtCore.QRect(180, 300, 91, 20))
         self.unsaturation_MgO.setObjectName("unsaturation_MgO")
         self.steel_temp = QtWidgets.QLineEdit(self.tab_6)
         self.steel_temp.setEnabled(True)
-        self.steel_temp.setGeometry(QtCore.QRect(180, 270, 91, 20))
+        self.steel_temp.setGeometry(QtCore.QRect(180, 330, 91, 20))
         self.steel_temp.setObjectName("steel_temp")
         self.slag_basicity = QtWidgets.QLineEdit(self.tab_6)
         self.slag_basicity.setEnabled(True)
-        self.slag_basicity.setGeometry(QtCore.QRect(180, 300, 91, 20))
+        self.slag_basicity.setGeometry(QtCore.QRect(180, 360, 91, 20))
         self.slag_basicity.setObjectName("slag_basicity")
         self.lining_weight_loss = QtWidgets.QLineEdit(self.tab_6)
         self.lining_weight_loss.setEnabled(True)
-        self.lining_weight_loss.setGeometry(QtCore.QRect(180, 330, 91, 20))
+        self.lining_weight_loss.setGeometry(QtCore.QRect(180, 390, 91, 20))
         self.lining_weight_loss.setObjectName("lining_weight_loss")
         self.label_48 = QtWidgets.QLabel(self.tab_6)
-        self.label_48.setGeometry(QtCore.QRect(10, 180, 181, 16))
+        self.label_48.setGeometry(QtCore.QRect(10, 240, 181, 16))
         self.label_48.setObjectName("label_48")
         self.label_49 = QtWidgets.QLabel(self.tab_6)
-        self.label_49.setGeometry(QtCore.QRect(10, 210, 181, 16))
+        self.label_49.setGeometry(QtCore.QRect(10, 270, 181, 16))
         self.label_49.setObjectName("label_49")
         self.label_50 = QtWidgets.QLabel(self.tab_6)
-        self.label_50.setGeometry(QtCore.QRect(10, 240, 181, 16))
+        self.label_50.setGeometry(QtCore.QRect(10, 300, 181, 16))
         self.label_50.setObjectName("label_50")
         self.label_53 = QtWidgets.QLabel(self.tab_6)
-        self.label_53.setGeometry(QtCore.QRect(10, 270, 181, 16))
+        self.label_53.setGeometry(QtCore.QRect(10, 330, 181, 16))
         self.label_53.setObjectName("label_53")
         self.label_54 = QtWidgets.QLabel(self.tab_6)
-        self.label_54.setGeometry(QtCore.QRect(10, 300, 181, 16))
+        self.label_54.setGeometry(QtCore.QRect(10, 360, 181, 16))
         self.label_54.setObjectName("label_54")
         self.label_55 = QtWidgets.QLabel(self.tab_6)
-        self.label_55.setGeometry(QtCore.QRect(10, 330, 181, 16))
+        self.label_55.setGeometry(QtCore.QRect(10, 390, 181, 16))
         self.label_55.setObjectName("label_55")
         self.label_56 = QtWidgets.QLabel(self.tab_6)
         self.label_56.setGeometry(QtCore.QRect(10, 10, 181, 16))
         self.label_56.setObjectName("label_56")
         self.recomendation = QtWidgets.QPlainTextEdit(self.tab_6)
         self.recomendation.setEnabled(True)
-        self.recomendation.setGeometry(QtCore.QRect(0, 30, 271, 141))
+        self.recomendation.setGeometry(QtCore.QRect(10, 30, 441, 201))
         self.recomendation.setReadOnly(True)
         self.recomendation.setObjectName("recomendation")
         self.label_56 = QtWidgets.QLabel(self.tab_6)
