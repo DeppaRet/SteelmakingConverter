@@ -668,6 +668,9 @@ class Ui_AdminFom(object):
                 for column_number, data in enumerate(row_data):
                     self.tableWidgetFactory_2.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
+            self.tableWidgetFactory_2.horizontalHeader().setDefaultSectionSize(100)
+            self.tableWidgetFactory_2.verticalHeader().setDefaultSectionSize(200)
+            self.tableWidgetFactory_2.setColumnWidth(1, 250)
         except Exception as err:  # mc.Error
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -677,6 +680,30 @@ class Ui_AdminFom(object):
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
 
+
+    def onCellClicked(self, row, column):
+        try:
+        # Получение данных из выбранной строки
+            data1 = self.tableWidgetFactory_2.item(row, 0).text() if self.tableWidgetFactory_2.item(row, 0) else ''
+            data2 = self.tableWidgetFactory_2.item(row, 1).text() if self.tableWidgetFactory_2.item(row, 1) else ''
+            data3 = self.tableWidgetFactory_2.item(row, 2).text() if self.tableWidgetFactory_2.item(row, 2) else ''
+            data4 = self.tableWidgetFactory_2.item(row, 3).text() if self.tableWidgetFactory_2.item(row, 3) else ''
+            data5 = self.tableWidgetFactory_2.item(row, 4).text() if self.tableWidgetFactory_2.item(row, 4) else ''
+
+            # Заполнение текстовых полей
+            self.scenarioName.setText(data1)
+            self.scenarioTask.setPlainText(data2)
+            self.SteelCarbonLimit.setText(data3)
+            self.MinSteelTempLimit.setText(data4)
+            self.SteelPhosphorLimit.setText(data5)
+        except Exception as err:  # mc.Error
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Ошибка")
+            msg.setText("Внимание")
+            msg.setInformativeText("Проверьте введенные данные!")
+            # msg.setInformativeText("Error: {0}".format(err))
+            msg.exec_()
 
     def getModes(self):
         try:
@@ -707,7 +734,49 @@ class Ui_AdminFom(object):
             DB.close()
 
 
-    def addScenario (self):
+    # def addScenario (self):
+    #     try:
+    #         DB = mc.connect(
+    #             host=DBhost,  # host="192.168.51.179" user="root", password="root",
+    #             user=DBlogin,
+    #             password=DBpass,
+    #             database="regimdata"
+    #         )
+    #         query = "select idMode from mode where ModeName = '" + self.modeNameBox.currentText() + "'"
+    #         mycursor = DB.cursor()
+    #         mycursor.execute(query)
+    #         idMode = mycursor.fetchone()[0]
+    #         mycursor.close()
+    #
+    #         query = "insert into scenario (ScanrioName, ScenarioTask, Mode_idMode, SteelCarbonLimit, SteelTempLimit, SteelPhosphorLimit) values(%s, %s, %s, %s, %s, %s)"
+    #
+    #         values = (self.scenarioName.text(), self.scenarioTask.toPlainText(), idMode, self.SteelCarbonLimit.text(), self.MinSteelTempLimit.text(), self.SteelPhosphorLimit.text())
+    #
+    #         mycursor = DB.cursor()
+    #         mycursor.execute(query, values)
+    #         DB.commit()  # Обязательно для записи
+    #         mycursor.close()
+    #         DB.close()
+    #         self.showScenario()
+    #         msg = QMessageBox()
+    #         msg.setIcon(QMessageBox.Information)
+    #         msg.setWindowTitle("Успех")
+    #         msg.setText("Внимание")
+    #         msg.setInformativeText("Сценарий успешно добавлен!")
+    #         msg.exec_()
+    #
+    #     except Exception as err:
+    #         msg = QMessageBox()
+    #         msg.setIcon(QMessageBox.Critical)
+    #         msg.setWindowTitle("Ошибка")
+    #         msg.setText("Внимание")
+    #         msg.setInformativeText("Проверьте введенные данные!")
+    #         msg.exec_()
+    #     finally:
+    #         mycursor.close()
+    #         DB.close()
+
+    def addScenario(self):
         try:
             DB = mc.connect(
                 host=DBhost,  # host="192.168.51.179" user="root", password="root",
@@ -715,15 +784,38 @@ class Ui_AdminFom(object):
                 password=DBpass,
                 database="regimdata"
             )
-            query = "select idMode from mode where ModeName = '" + self.modeNameBox.currentText() + "'"
+
+            # Проверка наличия записи с такими же данными
+            check_query = "SELECT COUNT(*) FROM scenario WHERE ScanrioName = %s AND ScenarioTask = %s AND Mode_idMode = %s"
+            check_values = (
+                self.scenarioName.text(),
+                self.scenarioTask.toPlainText(),
+                self.getModeId(DB)  # Функция для получения idMode
+            )
             mycursor = DB.cursor()
-            mycursor.execute(query)
-            idMode = mycursor.fetchone()[0]
+            mycursor.execute(check_query, check_values)
+            record_count = mycursor.fetchone()[0]
             mycursor.close()
 
-            query = "insert into scenario (ScanrioName, ScenarioTask, Mode_idMode, SteelCarbonLimit, SteelTempLimit, SteelPhosphorLimit) values(%s, %s, %s, %s, %s, %s)"
+            if record_count > 0:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Warning)
+                msg.setWindowTitle("Предупреждение")
+                msg.setText("Внимание")
+                msg.setInformativeText("Запись с такими данными уже существует!")
+                msg.exec_()
+                return
 
-            values = (self.scenarioName.text(), self.scenarioTask.toPlainText(), idMode, self.SteelCarbonLimit.text(), self.MinSteelTempLimit.text(), self.SteelPhosphorLimit.text())
+            # Вставка новой записи
+            query = "INSERT INTO scenario (ScanrioName, ScenarioTask, Mode_idMode, SteelCarbonLimit, SteelTempLimit, SteelPhosphorLimit) VALUES (%s, %s, %s, %s, %s, %s)"
+            values = (
+                self.scenarioName.text(),
+                self.scenarioTask.toPlainText(),
+                check_values[2],  # idMode
+                self.SteelCarbonLimit.text(),
+                self.MinSteelTempLimit.text(),
+                self.SteelPhosphorLimit.text()
+            )
 
             mycursor = DB.cursor()
             mycursor.execute(query, values)
@@ -731,6 +823,7 @@ class Ui_AdminFom(object):
             mycursor.close()
             DB.close()
             self.showScenario()
+
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Information)
             msg.setWindowTitle("Успех")
@@ -746,8 +839,21 @@ class Ui_AdminFom(object):
             msg.setInformativeText("Проверьте введенные данные!")
             msg.exec_()
         finally:
-            mycursor.close()
-            DB.close()
+            try:
+                mycursor.close()
+                DB.close()
+            except:
+                pass
+
+    def getModeId(self, DB):
+        query = "SELECT idMode FROM mode WHERE ModeName = %s"
+        mycursor = DB.cursor()
+        mycursor.execute(query, (self.modeNameBox.currentText(),))
+        idMode = mycursor.fetchone()[0]
+        mycursor.close()
+        return idMode
+
+
 
     def getAllUsersId(self):
         query = "select Login from users;"
@@ -1222,6 +1328,7 @@ class Ui_AdminFom(object):
         self.tableWidgetFactory_2.setObjectName("tableWidgetFactory_2")
         self.tableWidgetFactory_2.setColumnCount(0)
         self.tableWidgetFactory_2.setRowCount(0)
+        self.tableWidgetFactory_2.cellClicked.connect(self.onCellClicked)
         self.groupBox_13 = QtWidgets.QGroupBox(self.tab)
         self.groupBox_13.setGeometry(QtCore.QRect(10, 280, 761, 271))
         self.groupBox_13.setObjectName("groupBox_13")
