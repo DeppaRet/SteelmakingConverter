@@ -1,8 +1,9 @@
 import mysql.connector as mc
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMessageBox, QGraphicsDropShadowEffect
+from PyQt5.QtGui import QPalette, QColor, QFont
+from PyQt5.QtCore import Qt
 from configparser import ConfigParser
-
-from PyQt5.QtWidgets import QMessageBox
 
 parser = ConfigParser()
 
@@ -10,13 +11,9 @@ class Ui_ConnectionSettings(object):
 
     def getData(self):
         parser.read('dev.ini')
-        tmp = str(parser.get('DBsettings', 'DBhost'))
         self.DBIpLine.setText(str(parser.get('DBsettings', 'DBhost')))
         self.DBLoginLine.setText(str(parser.get('DBsettings', 'login')))
         self.DBPasswordLine.setText(str(parser.get('DBsettings', 'password')))
-
-
-
 
     def save(self):
         parser = ConfigParser()
@@ -25,7 +22,6 @@ class Ui_ConnectionSettings(object):
         parser.set('DBsettings', 'login', self.DBLoginLine.text())
         parser.set('DBsettings', 'password', self.DBPasswordLine.text())
 
-        # Writing our configuration file to 'example.ini'
         with open('dev.ini', 'w') as configfile:
             parser.write(configfile)
 
@@ -39,10 +35,10 @@ class Ui_ConnectionSettings(object):
     def connect_to_db(self):
         try:
             connection = mc.connect(
-                host = self.DBIpLine.text(),
-                database = 'users_db',
-                user = self.DBLoginLine.text(),
-                password= self.DBPasswordLine.text()
+                host=self.DBIpLine.text(),
+                database='users_db',
+                user=self.DBLoginLine.text(),
+                password=self.DBPasswordLine.text()
             )
             if connection.is_connected():
                 db_info = connection.get_server_info()
@@ -55,7 +51,6 @@ class Ui_ConnectionSettings(object):
                 cursor.execute("select database();")
                 record = cursor.fetchone()
                 print("You're connected to database: ", record)
-                # msg.setInformativeText("Error: {0}".format(err))
                 msg.setInformativeText("Подключение к БД установлено!")
                 msg.exec_()
 
@@ -68,73 +63,140 @@ class Ui_ConnectionSettings(object):
             msg.exec_()
             print("Error while connecting to MySQL", e)
 
-
     def setupUi(self, ConnectionSettings):
         ConnectionSettings.setObjectName("ConnectionSettings")
-        ConnectionSettings.setWindowModality(QtCore.Qt.WindowModal)
-        ConnectionSettings.resize(355, 181)
-        self.saveButton = QtWidgets.QPushButton(ConnectionSettings)
-        self.saveButton.setGeometry(QtCore.QRect(270, 150, 75, 23))
-        self.saveButton.setObjectName("saveButton")
-        self.saveButton.clicked.connect(self.save)
-        self.label = QtWidgets.QLabel(ConnectionSettings)
-        self.label.setGeometry(QtCore.QRect(10, 30, 71, 21))
-        font = QtGui.QFont()
-        font.setPointSize(12)
-        self.label.setFont(font)
-        self.label.setObjectName("label")
-        self.DBIpLine = QtWidgets.QLineEdit(ConnectionSettings)
-        self.DBIpLine.setGeometry(QtCore.QRect(102, 30, 241, 20))
-        self.DBIpLine.setObjectName("DBIpLine")
-        self.label_2 = QtWidgets.QLabel(ConnectionSettings)
-        self.label_2.setGeometry(QtCore.QRect(90, 0, 221, 16))
-        self.label_2.setText("")
-        self.label_2.setObjectName("label_2")
-        self.DBPortLine = QtWidgets.QLineEdit(ConnectionSettings)
-        self.DBPortLine.setGeometry(QtCore.QRect(102, 60, 241, 20))
-        self.DBPortLine.setObjectName("DBPortLine")
-        self.label_3 = QtWidgets.QLabel(ConnectionSettings)
-        self.label_3.setGeometry(QtCore.QRect(10, 60, 71, 21))
-        font = QtGui.QFont()
-        font.setPointSize(12)
-        self.label_3.setFont(font)
-        self.label_3.setObjectName("label_3")
-        self.DBLoginLine = QtWidgets.QLineEdit(ConnectionSettings)
-        self.DBLoginLine.setGeometry(QtCore.QRect(100, 90, 241, 20))
-        self.DBLoginLine.setObjectName("DBLoginLine")
-        self.label_4 = QtWidgets.QLabel(ConnectionSettings)
-        self.label_4.setGeometry(QtCore.QRect(10, 90, 71, 21))
-        font = QtGui.QFont()
-        font.setPointSize(12)
-        self.label_4.setFont(font)
-        self.label_4.setObjectName("label_4")
-        self.DBPasswordLine = QtWidgets.QLineEdit(ConnectionSettings)
-        self.DBPasswordLine.setGeometry(QtCore.QRect(100, 120, 241, 20))
-        self.DBPasswordLine.setObjectName("DBPasswordLine")
-        self.label_5 = QtWidgets.QLabel(ConnectionSettings)
-        self.label_5.setGeometry(QtCore.QRect(10, 120, 71, 21))
-        font = QtGui.QFont()
-        font.setPointSize(12)
-        self.label_5.setFont(font)
-        self.label_5.setObjectName("label_5")
-        self.testButton = QtWidgets.QPushButton(ConnectionSettings)
-        self.testButton.setGeometry(QtCore.QRect(164, 150, 101, 23))
-        self.testButton.setObjectName("testButton")
+        ConnectionSettings.setWindowModality(Qt.WindowModal)
+        ConnectionSettings.setFixedSize(400, 320)
+
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(25, 25, 35))
+        ConnectionSettings.setPalette(palette)
+
+        self.centralwidget = QtWidgets.QWidget(ConnectionSettings)
+        self.centralwidget.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
+            }
+        """)
+
+        self.titleLabel = QtWidgets.QLabel(self.centralwidget)
+        self.titleLabel.setGeometry(0, 10, 400, 30)
+        self.titleLabel.setAlignment(Qt.AlignCenter)
+        titleFont = QFont("Segoe UI", 14, QFont.Bold)
+        self.titleLabel.setFont(titleFont)
+        self.titleLabel.setStyleSheet("color: #00d4ff; background: transparent;")
+
+        self.formContainer = QtWidgets.QWidget(self.centralwidget)
+        self.formContainer.setGeometry(25, 50, 350, 200)
+        self.formContainer.setStyleSheet("""
+            QWidget {
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 12px;
+                border: 1px solid rgba(0, 212, 255, 0.2);
+            }
+        """)
+
+        lineEditStyle = """
+            QLineEdit {
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 6px;
+                padding: 6px 12px;
+                color: #ffffff;
+                font-family: 'Segoe UI';
+                font-size: 11px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #00d4ff;
+                background: rgba(0, 212, 255, 0.1);
+            }
+            QLineEdit::placeholder {
+                color: rgba(255, 255, 255, 0.4);
+            }
+        """
+
+        rowY = [25, 70, 115, 160]
+        labels = ["Хост", "Порт", "Логин", "Пароль"]
+        self.lines = []
+
+        for i, (y, label) in enumerate(zip(rowY, labels)):
+            lbl = QtWidgets.QLabel(self.formContainer)
+            lbl.setGeometry(20, y, 70, 25)
+            lbl.setText(label)
+            lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
+            lbl.setStyleSheet("color: #ffffff; background: transparent;")
+
+            line = QtWidgets.QLineEdit(self.formContainer)
+            line.setGeometry(95, y - 5, 235, 32)
+            line.setFont(QFont("Segoe UI", 11))
+            line.setStyleSheet(lineEditStyle)
+            self.lines.append(line)
+
+        self.DBIpLine = self.lines[0]
+        self.DBPortLine = self.lines[1]
+        self.DBLoginLine = self.lines[2]
+        self.DBPasswordLine = self.lines[3]
+        self.DBPortLine.setPlaceholderText("3306 (опционально)")
+
+        self.buttonContainer = QtWidgets.QWidget(self.centralwidget)
+        self.buttonContainer.setGeometry(25, 260, 350, 45)
+        self.buttonContainer.setStyleSheet("background: transparent;")
+
+        self.testButton = QtWidgets.QPushButton(self.buttonContainer)
+        self.testButton.setGeometry(0, 5, 140, 35)
+        self.testButton.setText("Тест соединения")
+        self.testButton.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        self.testButton.setCursor(Qt.PointingHandCursor)
+        self.testButton.setStyleSheet("""
+            QPushButton {
+                background: rgba(0, 212, 255, 0.2);
+                color: #00d4ff;
+                border: 1px solid #00d4ff;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background: rgba(0, 212, 255, 0.3);
+            }
+            QPushButton:pressed {
+                background: rgba(0, 212, 255, 0.4);
+            }
+        """)
         self.testButton.clicked.connect(self.connect_to_db)
+
+        self.saveButton = QtWidgets.QPushButton(self.buttonContainer)
+        self.saveButton.setGeometry(210, 5, 140, 35)
+        self.saveButton.setText("Сохранить")
+        self.saveButton.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        self.saveButton.setCursor(Qt.PointingHandCursor)
+        self.saveButton.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
+                color: #1a1a2e;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa);
+            }
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 212, 255, 60))
+        shadow.setOffset(0, 3)
+        self.saveButton.setGraphicsEffect(shadow)
+        self.saveButton.clicked.connect(self.save)
 
         self.retranslateUi(ConnectionSettings)
         QtCore.QMetaObject.connectSlotsByName(ConnectionSettings)
 
     def retranslateUi(self, ConnectionSettings):
         _translate = QtCore.QCoreApplication.translate
-        ConnectionSettings.setWindowTitle(_translate("ConnectionSettings", "Настройка подключения к базе MySQL"))
-        self.saveButton.setText(_translate("ConnectionSettings", "Принять"))
-        self.label.setText(_translate("ConnectionSettings", "Ip-адресс"))
-        self.DBPortLine.setPlaceholderText(_translate("ConnectionSettings", "если порт отустствует оставьте поле пустым"))
-        self.label_3.setText(_translate("ConnectionSettings", "Порт"))
-        self.label_4.setText(_translate("ConnectionSettings", "Логин"))
-        self.label_5.setText(_translate("ConnectionSettings", "Пароль"))
-        self.testButton.setText(_translate("ConnectionSettings", "Тест соединения"))
+        ConnectionSettings.setWindowTitle(_translate("ConnectionSettings", "Настройка подключения"))
+        self.titleLabel.setText(_translate("ConnectionSettings", "Настройка подключения к БД"))
         self.getData()
 
 

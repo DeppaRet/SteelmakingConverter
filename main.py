@@ -1,5 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QLineEdit
+from PyQt5.QtWidgets import QMessageBox, QLineEdit, QGraphicsDropShadowEffect
+from PyQt5.QtGui import QLinearGradient, QPalette, QBrush, QColor, QFont
+from PyQt5.QtCore import Qt, QRect, QPoint
 import AdminForm
 import OperForm
 import DeveloperForm
@@ -28,7 +30,6 @@ parser = ConfigParser()
 #     config.write(f)
 
 class Ui_LoginForm(object):
-
     def getSettings(self):
         parser.read('dev.ini')
         global DBhost
@@ -115,72 +116,153 @@ class Ui_LoginForm(object):
     # ---------------------------- Interface ----------------------------
     def setupUi(self, LoginForm):
         LoginForm.setObjectName("LoginForm")
-        LoginForm.setFixedSize(462, 180)
-        LoginForm.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
-        LoginForm.setDocumentMode(False)
-        LoginForm.setTabShape(QtWidgets.QTabWidget.Triangular)
+        LoginForm.setFixedSize(420, 340)
+        
         winIcon = QtGui.QIcon()
         winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         LoginForm.setWindowIcon(winIcon)
+
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(25, 25, 35))
+        LoginForm.setPalette(palette)
+
         self.centralwidget = QtWidgets.QWidget(LoginForm)
         self.centralwidget.setObjectName("centralwidget")
-        self.loginButton = QtWidgets.QPushButton(self.centralwidget)
+        self.centralwidget.setStyleSheet("""
+            QWidget#centralwidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
+                border-radius: 15px;
+            }
+            QLabel {
+                color: #e0e0e0;
+            }
+        """)
 
+        self.titleLabel = QtWidgets.QLabel(self.centralwidget)
+        self.titleLabel.setGeometry(0, 15, 420, 30)
+        self.titleLabel.setAlignment(Qt.AlignCenter)
+        titleFont = QFont("Segoe UI", 14, QFont.Bold)
+        self.titleLabel.setFont(titleFont)
+        self.titleLabel.setStyleSheet("color: #00d4ff; background: transparent;")
+
+        self.iconLabel = QtWidgets.QLabel(self.centralwidget)
+        self.iconLabel.setGeometry(155, 50, 110, 80)
+        self.iconLabel.setAlignment(Qt.AlignCenter)
+        self.iconLabel.setPixmap(QtGui.QPixmap("Pictures/steel_ico.png").scaled(70, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.iconLabel.setStyleSheet("background: #e8e8e8; border-radius: 12px; border: 2px solid #00d4ff; padding: 5px;")
+
+        self.formContainer = QtWidgets.QWidget(self.centralwidget)
+        self.formContainer.setGeometry(40, 145, 340, 140)
+        self.formContainer.setStyleSheet("""
+            QWidget {
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 12px;
+                border: 1px solid rgba(0, 212, 255, 0.2);
+            }
+        """)
+
+        self.loginLabel = QtWidgets.QLabel(self.formContainer)
+        self.loginLabel.setGeometry(25, 20, 70, 25)
+        loginLabelFont = QFont("Segoe UI", 11, QFont.Bold)
+        self.loginLabel.setFont(loginLabelFont)
+        self.loginLabel.setStyleSheet("color: #ffffff; background: transparent;")
+
+        self.LoginLine = QtWidgets.QLineEdit(self.formContainer)
+        self.LoginLine.setGeometry(100, 15, 215, 35)
+        self.LoginLine.setFont(QFont("Segoe UI", 11))
+        self.LoginLine.setStyleSheet("""
+            QLineEdit {
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 8px;
+                padding: 5px 12px;
+                color: #ffffff;
+                selection-background-color: #00d4ff;
+            }
+            QLineEdit:focus {
+                border: 2px solid #00d4ff;
+                background: rgba(0, 212, 255, 0.1);
+            }
+            QLineEdit::placeholder {
+                color: rgba(255, 255, 255, 0.4);
+            }
+        """)
+        self.LoginLine.setPlaceholderText("Введите логин")
+
+        self.passwordLabel = QtWidgets.QLabel(self.formContainer)
+        self.passwordLabel.setGeometry(25, 60, 70, 25)
+        self.passwordLabel.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.passwordLabel.setStyleSheet("color: #ffffff; background: transparent;")
+
+        self.PasswordLine = QtWidgets.QLineEdit(self.formContainer)
+        self.PasswordLine.setGeometry(100, 55, 215, 35)
+        self.PasswordLine.setFont(QFont("Segoe UI", 11))
+        self.PasswordLine.setEchoMode(QLineEdit.Password)
+        self.PasswordLine.setStyleSheet("""
+            QLineEdit {
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 8px;
+                padding: 5px 12px;
+                color: #ffffff;
+                selection-background-color: #00d4ff;
+            }
+            QLineEdit:focus {
+                border: 2px solid #00d4ff;
+                background: rgba(0, 212, 255, 0.1);
+            }
+            QLineEdit::placeholder {
+                color: rgba(255, 255, 255, 0.4);
+            }
+        """)
+        self.PasswordLine.setPlaceholderText("Введите пароль")
+
+        self.loginButton = QtWidgets.QPushButton(self.formContainer)
+        self.loginButton.setGeometry(100, 100, 140, 32)
+        self.loginButton.setCursor(Qt.PointingHandCursor)
+        self.loginButton.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.loginButton.setText("Войти")
+        self.loginButton.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
+                color: #1a1a2e;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa);
+            }
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 212, 255, 80))
+        shadow.setOffset(0, 4)
+        self.loginButton.setGraphicsEffect(shadow)
         self.loginButton.clicked.connect(self.LoginButtonClick)
 
-        self.loginButton.setGeometry(QtCore.QRect(340, 130, 111, 41))
-        self.loginButton.setObjectName("loginButton")
-        self.label = QtWidgets.QLabel(self.centralwidget)
-        self.label.setGeometry(QtCore.QRect(20, 30, 111, 121))
-        self.label.setMaximumSize(QtCore.QSize(291, 151))
-        self.label.setText("")
-        self.label.setPixmap(QtGui.QPixmap("Pictures/emergency-exit.png"))
-        self.label.setScaledContents(True)
-        self.label.setObjectName("label")
         self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
-        self.SettingsButton.setGeometry(QtCore.QRect(430, 10, 21, 20))
+        self.SettingsButton.setGeometry(385, 295, 30, 20)
         self.SettingsButton.setText("")
+        self.SettingsButton.setCursor(Qt.PointingHandCursor)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("GUI\\../Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap("Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.SettingsButton.setIcon(icon)
-        self.SettingsButton.setObjectName("SetingsButton")
-        self.loginLabel = QtWidgets.QLabel(self.centralwidget)
-        self.loginLabel.setGeometry(QtCore.QRect(150, 50, 61, 27))
-        font = QtGui.QFont()
-        font.setFamily("Times New Roman")
-        font.setPointSize(14)
-        self.loginLabel.setFont(font)
-        self.loginLabel.setObjectName("loginLabel")
-        self.LoginLine = QtWidgets.QLineEdit(self.centralwidget)
-        self.LoginLine.setGeometry(QtCore.QRect(230, 50, 221, 27))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.LoginLine.sizePolicy().hasHeightForWidth())
-        self.LoginLine.setSizePolicy(sizePolicy)
-        font = QtGui.QFont()
-        font.setFamily("Times New Roman")
-        font.setPointSize(14)
-        self.LoginLine.setFont(font)
-        self.LoginLine.setPlaceholderText("")
-        self.LoginLine.setObjectName("LoginLine")
-        self.passwordLabel = QtWidgets.QLabel(self.centralwidget)
-        self.passwordLabel.setGeometry(QtCore.QRect(150, 90, 63, 27))
-        font = QtGui.QFont()
-        font.setFamily("Times New Roman")
-        font.setPointSize(14)
-        self.passwordLabel.setFont(font)
-        self.passwordLabel.setObjectName("passwordLabel")
-        self.PasswordLine = QtWidgets.QLineEdit(self.centralwidget)
-        self.PasswordLine.setGeometry(QtCore.QRect(229, 90, 221, 27))
-        font = QtGui.QFont()
-        font.setFamily("Times New Roman")
-        font.setPointSize(14)
-        self.PasswordLine.setFont(font)
-        self.PasswordLine.setPlaceholderText("")
-        self.PasswordLine.setObjectName("PasswordLine")
-        self.PasswordLine.setEchoMode(QLineEdit.Password)
+        self.SettingsButton.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+        """)
         self.SettingsButton.clicked.connect(self.openSettings)
+
         LoginForm.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(LoginForm)
@@ -189,9 +271,9 @@ class Ui_LoginForm(object):
     def retranslateUi(self, LoginForm):
         _translate = QtCore.QCoreApplication.translate
         LoginForm.setWindowTitle(_translate("LoginForm", "Авторизация"))
-        self.loginButton.setText(_translate("LoginForm", "Войти"))
-        self.loginLabel.setText(_translate("LoginForm", "Логин:"))
-        self.passwordLabel.setText(_translate("LoginForm", "Пароль:"))
+        self.titleLabel.setText(_translate("LoginForm", "Steelmaking Converter"))
+        self.loginLabel.setText(_translate("LoginForm", "Логин"))
+        self.passwordLabel.setText(_translate("LoginForm", "Пароль"))
         self.getSettings()
 
 

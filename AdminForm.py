@@ -1,7 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMessageBox, QAction, QTableWidgetItem
+from PyQt5.QtGui import QPalette, QColor, QFont
+from PyQt5.QtCore import Qt
 import mysql.connector as mc
-from PyQt5.QtWidgets import QMessageBox, QAction
-from PyQt5.QtWidgets import QTableWidgetItem
 import OperForm
 import AboutForm
 import hashAuth
@@ -962,131 +963,251 @@ class Ui_AdminFom(object):
 
     def setupUi(self, AdminFom):
         AdminFom.setObjectName("AdminFom")
-        AdminFom.resize(798, 620)
+        AdminFom.resize(1050, 700)
         winIcon = QtGui.QIcon()
         winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         AdminFom.setWindowIcon(winIcon)
+
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(25, 25, 35))
+        palette.setColor(QPalette.WindowText, QColor(224, 224, 224))
+        palette.setColor(QPalette.Base, QColor(35, 35, 50))
+        palette.setColor(QPalette.AlternateBase, QColor(45, 45, 60))
+        palette.setColor(QPalette.ToolTipBase, QColor(0, 212, 255))
+        palette.setColor(QPalette.ToolTipText, QColor(25, 25, 35))
+        palette.setColor(QPalette.Text, QColor(224, 224, 224))
+        palette.setColor(QPalette.Button, QColor(45, 45, 60))
+        palette.setColor(QPalette.ButtonText, QColor(224, 224, 224))
+        palette.setColor(QPalette.Highlight, QColor(0, 212, 255))
+        palette.setColor(QPalette.HighlightedText, QColor(25, 25, 35))
+        AdminFom.setPalette(palette)
+
         self.centralwidget = QtWidgets.QWidget(AdminFom)
         self.centralwidget.setObjectName("centralwidget")
+        self.centralwidget.setStyleSheet("""
+            QWidget#centralwidget {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
+            }
+            QLabel { color: #e0e0e0; }
+            QGroupBox {
+                color: #00d4ff;
+                font-weight: bold;
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 5px;
+                background: rgba(0, 0, 0, 0.2);
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+            QLineEdit, QPlainTextEdit {
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 4px;
+                padding: 3px 6px;
+                color: #ffffff;
+            }
+            QLineEdit:focus, QPlainTextEdit:focus {
+                border: 2px solid #00d4ff;
+            }
+            QComboBox {
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 6px;
+                padding: 5px;
+                color: #ffffff;
+            }
+            QComboBox:hover { border: 1px solid #00d4ff; }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #1a1a2e;
+                color: #ffffff;
+                selection-background-color: #00d4ff;
+            }
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
+                color: #1a1a2e;
+                border: none;
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa);
+            }
+            QTableWidget {
+                background: rgba(0, 0, 0, 0.3);
+                alternate-background-color: rgba(255, 255, 255, 0.05);
+                gridline-color: rgba(0, 212, 255, 0.2);
+                color: #e0e0e0;
+                border: 1px solid rgba(0, 212, 255, 0.2);
+                border-radius: 8px;
+            }
+            QTableWidget::item { padding: 5px; color: #e0e0e0; }
+            QTableWidget::item:selected { background: rgba(0, 212, 255, 0.3); color: #ffffff; }
+            QHeaderView { background: rgba(0, 0, 0, 0.4); }
+            QHeaderView::section {
+                background: rgba(0, 212, 255, 0.25);
+                color: #ffffff;
+                padding: 6px;
+                border: none;
+                font-weight: bold;
+            }
+            QTableWidget QTableCornerButton::section { background: rgba(0, 212, 255, 0.25); border: none; }
+            QTabWidget::pane {
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                border-radius: 8px;
+                background: rgba(0, 0, 0, 0.2);
+            }
+            QTabBar::tab {
+                background: rgba(0, 0, 0, 0.3);
+                color: #e0e0e0;
+                padding: 4px 10px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 2px;
+                font-size: 10px;
+                min-width: 130px;
+            }
+            QTabBar::tab:selected { background: rgba(0, 212, 255, 0.3); color: #00d4ff; font-weight: bold; }
+            QTabBar::tab:hover { background: rgba(0, 212, 255, 0.15); }
+            QScrollBar:vertical { background: rgba(0, 0, 0, 0.3); width: 12px; border-radius: 6px; }
+            QScrollBar::handle:vertical { background: rgba(0, 212, 255, 0.5); border-radius: 5px; }
+            QScrollBar:horizontal { background: rgba(0, 0, 0, 0.3); height: 12px; border-radius: 6px; }
+            QScrollBar::handle:horizontal { background: rgba(0, 212, 255, 0.5); border-radius: 5px; }
+            QMenuBar { background: rgba(0, 0, 0, 0.5); color: #e0e0e0; }
+            QMenuBar::item:selected { background: rgba(0, 212, 255, 0.3); }
+            QMenu { background: #1a1a2e; color: #e0e0e0; border: 1px solid rgba(0, 212, 255, 0.3); }
+            QMenu::item:selected { background: rgba(0, 212, 255, 0.3); }
+            QStatusBar { background: rgba(0, 0, 0, 0.5); color: #e0e0e0; }
+        """)
+
         self.Factory = QtWidgets.QTabWidget(self.centralwidget)
-        self.Factory.setGeometry(QtCore.QRect(0, 0, 791, 581))
+        self.Factory.setGeometry(QtCore.QRect(0, 0, 1041, 661))
         self.Factory.setAutoFillBackground(False)
         self.Factory.setObjectName("Factory")
         self.tab_3 = QtWidgets.QWidget()
         self.tab_3.setObjectName("tab_3")
         self.groupBox = QtWidgets.QGroupBox(self.tab_3)
-        self.groupBox.setGeometry(QtCore.QRect(450, 10, 331, 541))
+        self.groupBox.setGeometry(QtCore.QRect(480, 10, 550, 640))
         self.groupBox.setObjectName("groupBox")
         self.groupBox_3 = QtWidgets.QGroupBox(self.groupBox)
-        self.groupBox_3.setGeometry(QtCore.QRect(10, 170, 301, 161))
+        self.groupBox_3.setGeometry(QtCore.QRect(10, 195, 530, 180))
         self.groupBox_3.setObjectName("groupBox_3")
         self.addScrapDataButton = QtWidgets.QPushButton(self.groupBox_3)
-        self.addScrapDataButton.setGeometry(QtCore.QRect(210, 20, 81, 23))
+        self.addScrapDataButton.setGeometry(QtCore.QRect(400, 20, 120, 23))
         self.addScrapDataButton.setObjectName("addScrapDataButton")
         self.addScrapDataButton.clicked.connect(self.addScrap)
         self.label_11 = QtWidgets.QLabel(self.groupBox_3)
         self.label_11.setGeometry(QtCore.QRect(10, 20, 101, 16))
         self.label_11.setObjectName("label_11")
         self.scrapWeight = QtWidgets.QLineEdit(self.groupBox_3)
-        self.scrapWeight.setGeometry(QtCore.QRect(70, 20, 81, 20))
+        self.scrapWeight.setGeometry(QtCore.QRect(110, 20, 100, 20))
         self.scrapWeight.setText("")
         self.scrapWeight.setObjectName("scrapWeight")
         self.groupBox_7 = QtWidgets.QGroupBox(self.groupBox_3)
-        self.groupBox_7.setGeometry(QtCore.QRect(10, 40, 281, 111))
+        self.groupBox_7.setGeometry(QtCore.QRect(10, 50, 510, 120))
         self.groupBox_7.setObjectName("groupBox_7")
         self.label_12 = QtWidgets.QLabel(self.groupBox_7)
         self.label_12.setGeometry(QtCore.QRect(10, 20, 71, 16))
         self.label_12.setObjectName("label_12")
         self.label_13 = QtWidgets.QLabel(self.groupBox_7)
-        self.label_13.setGeometry(QtCore.QRect(10, 50, 71, 16))
+        self.label_13.setGeometry(QtCore.QRect(140, 20, 71, 16))
         self.label_13.setObjectName("label_13")
         self.label_14 = QtWidgets.QLabel(self.groupBox_7)
-        self.label_14.setGeometry(QtCore.QRect(150, 20, 51, 16))
+        self.label_14.setGeometry(QtCore.QRect(270, 20, 51, 16))
         self.label_14.setObjectName("label_14")
         self.label_15 = QtWidgets.QLabel(self.groupBox_7)
-        self.label_15.setGeometry(QtCore.QRect(150, 50, 61, 16))
+        self.label_15.setGeometry(QtCore.QRect(400, 20, 61, 16))
         self.label_15.setObjectName("label_15")
         self.scrapCarbon = QtWidgets.QLineEdit(self.groupBox_7)
-        self.scrapCarbon.setGeometry(QtCore.QRect(80, 20, 51, 20))
+        self.scrapCarbon.setGeometry(QtCore.QRect(10, 35, 120, 20))
         self.scrapCarbon.setObjectName("scrapCarbon")
         self.scrapSilicon = QtWidgets.QLineEdit(self.groupBox_7)
-        self.scrapSilicon.setGeometry(QtCore.QRect(80, 50, 51, 20))
+        self.scrapSilicon.setGeometry(QtCore.QRect(140, 35, 120, 20))
         self.scrapSilicon.setObjectName("scrapSilicon")
         self.scrapSerum = QtWidgets.QLineEdit(self.groupBox_7)
-        self.scrapSerum.setGeometry(QtCore.QRect(220, 20, 51, 20))
+        self.scrapSerum.setGeometry(QtCore.QRect(270, 35, 120, 20))
         self.scrapSerum.setObjectName("scrapSerum")
         self.scrapPhosphor = QtWidgets.QLineEdit(self.groupBox_7)
-        self.scrapPhosphor.setGeometry(QtCore.QRect(220, 50, 51, 20))
+        self.scrapPhosphor.setGeometry(QtCore.QRect(400, 35, 100, 20))
         self.scrapPhosphor.setObjectName("scrapPhosphor")
-        self.label_25 = QtWidgets.QLabel(self.groupBox_7)
-        self.label_25.setGeometry(QtCore.QRect(130, 80, 81, 16))
-        self.label_25.setObjectName("label_25")
         self.scrapManganese = QtWidgets.QLineEdit(self.groupBox_7)
         self.scrapManganese.setEnabled(True)
-        self.scrapManganese.setGeometry(QtCore.QRect(220, 80, 51, 20))
+        self.scrapManganese.setGeometry(QtCore.QRect(10, 75, 120, 20))
         self.scrapManganese.setText("")
         self.scrapManganese.setObjectName("scrapManganese")
+        self.label_25 = QtWidgets.QLabel(self.groupBox_7)
+        self.label_25.setGeometry(QtCore.QRect(10, 55, 81, 16))
+        self.label_25.setObjectName("label_25")
         self.groupBox_4 = QtWidgets.QGroupBox(self.groupBox)
-        self.groupBox_4.setGeometry(QtCore.QRect(10, 340, 301, 191))
+        self.groupBox_4.setGeometry(QtCore.QRect(10, 380, 530, 230))
         self.groupBox_4.setObjectName("groupBox_4")
+        self.label_10 = QtWidgets.QLabel(self.groupBox_4)
+        self.label_10.setGeometry(QtCore.QRect(10, 20, 120, 16))
+        self.label_10.setObjectName("label_10")
         self.castTemperature = QtWidgets.QLineEdit(self.groupBox_4)
-        self.castTemperature.setGeometry(QtCore.QRect(110, 20, 81, 20))
+        self.castTemperature.setGeometry(QtCore.QRect(130, 20, 100, 20))
         self.castTemperature.setText("")
         self.castTemperature.setObjectName("castTemperature")
-        self.label_10 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_10.setGeometry(QtCore.QRect(10, 20, 101, 16))
-        self.label_10.setObjectName("label_10")
         self.label_16 = QtWidgets.QLabel(self.groupBox_4)
-        self.label_16.setGeometry(QtCore.QRect(10, 50, 101, 16))
+        self.label_16.setGeometry(QtCore.QRect(10, 50, 170, 16))
         self.label_16.setObjectName("label_16")
         self.castWeight = QtWidgets.QLineEdit(self.groupBox_4)
-        self.castWeight.setGeometry(QtCore.QRect(110, 50, 81, 20))
+        self.castWeight.setGeometry(QtCore.QRect(130, 50, 100, 20))
         self.castWeight.setText("")
         self.castWeight.setObjectName("castWeight")
         self.groupBox_6 = QtWidgets.QGroupBox(self.groupBox_4)
-        self.groupBox_6.setGeometry(QtCore.QRect(10, 70, 281, 111))
+        self.groupBox_6.setGeometry(QtCore.QRect(10, 75, 510, 120))
         self.groupBox_6.setObjectName("groupBox_6")
         self.label_17 = QtWidgets.QLabel(self.groupBox_6)
         self.label_17.setGeometry(QtCore.QRect(10, 20, 71, 16))
         self.label_17.setObjectName("label_17")
         self.label_18 = QtWidgets.QLabel(self.groupBox_6)
-        self.label_18.setGeometry(QtCore.QRect(10, 50, 71, 16))
+        self.label_18.setGeometry(QtCore.QRect(140, 20, 71, 16))
         self.label_18.setObjectName("label_18")
         self.label_19 = QtWidgets.QLabel(self.groupBox_6)
-        self.label_19.setGeometry(QtCore.QRect(150, 20, 51, 16))
+        self.label_19.setGeometry(QtCore.QRect(270, 20, 51, 16))
         self.label_19.setObjectName("label_19")
         self.label_20 = QtWidgets.QLabel(self.groupBox_6)
-        self.label_20.setGeometry(QtCore.QRect(150, 50, 61, 16))
+        self.label_20.setGeometry(QtCore.QRect(400, 20, 61, 16))
         self.label_20.setObjectName("label_20")
         self.castCarbon = QtWidgets.QLineEdit(self.groupBox_6)
-        self.castCarbon.setGeometry(QtCore.QRect(80, 20, 51, 20))
+        self.castCarbon.setGeometry(QtCore.QRect(10, 35, 120, 20))
         self.castCarbon.setObjectName("castCarbon")
         self.castSilicon = QtWidgets.QLineEdit(self.groupBox_6)
-        self.castSilicon.setGeometry(QtCore.QRect(80, 50, 51, 20))
+        self.castSilicon.setGeometry(QtCore.QRect(140, 35, 120, 20))
         self.castSilicon.setObjectName("castSilicon")
         self.castSerum = QtWidgets.QLineEdit(self.groupBox_6)
-        self.castSerum.setGeometry(QtCore.QRect(220, 20, 51, 20))
+        self.castSerum.setGeometry(QtCore.QRect(270, 35, 120, 20))
         self.castSerum.setObjectName("castSerum")
         self.castPhosphor = QtWidgets.QLineEdit(self.groupBox_6)
-        self.castPhosphor.setGeometry(QtCore.QRect(220, 50, 51, 20))
+        self.castPhosphor.setGeometry(QtCore.QRect(400, 35, 100, 20))
         self.castPhosphor.setObjectName("castPhosphor")
         self.castManganese = QtWidgets.QLineEdit(self.groupBox_6)
         self.castManganese.setEnabled(True)
-        self.castManganese.setGeometry(QtCore.QRect(220, 80, 51, 20))
+        self.castManganese.setGeometry(QtCore.QRect(10, 75, 120, 20))
         self.castManganese.setText("")
         self.castManganese.setObjectName("castManganese")
         self.label_24 = QtWidgets.QLabel(self.groupBox_6)
-        self.label_24.setGeometry(QtCore.QRect(130, 80, 81, 16))
+        self.label_24.setGeometry(QtCore.QRect(10, 70, 81, 16))
         self.label_24.setObjectName("label_24")
         self.addCastButton = QtWidgets.QPushButton(self.groupBox_4)
-        self.addCastButton.setGeometry(QtCore.QRect(200, 30, 81, 23))
+        self.addCastButton.setGeometry(QtCore.QRect(400, 20, 120, 23))
         self.addCastButton.setObjectName("addCastButton")
         self.addCastButton.clicked.connect(self.addCastData)
         self.groupBox_5 = QtWidgets.QGroupBox(self.groupBox)
-        self.groupBox_5.setGeometry(QtCore.QRect(10, 20, 301, 151))
+        self.groupBox_5.setGeometry(QtCore.QRect(10, 20, 530, 170))
         self.groupBox_5.setObjectName("groupBox_5")
         self.groupBox_8 = QtWidgets.QGroupBox(self.groupBox_5)
-        self.groupBox_8.setGeometry(QtCore.QRect(10, 60, 281, 81))
+        self.groupBox_8.setGeometry(QtCore.QRect(10, 60, 510, 100))
         self.groupBox_8.setObjectName("groupBox_8")
         self.label_4 = QtWidgets.QLabel(self.groupBox_8)
         self.label_4.setGeometry(QtCore.QRect(10, 20, 71, 16))
@@ -1095,53 +1216,53 @@ class Ui_AdminFom(object):
         self.label_5.setGeometry(QtCore.QRect(10, 50, 71, 16))
         self.label_5.setObjectName("label_5")
         self.label_6 = QtWidgets.QLabel(self.groupBox_8)
-        self.label_6.setGeometry(QtCore.QRect(150, 20, 51, 16))
+        self.label_6.setGeometry(QtCore.QRect(180, 20, 51, 16))
         self.label_6.setObjectName("label_6")
         self.label_7 = QtWidgets.QLabel(self.groupBox_8)
-        self.label_7.setGeometry(QtCore.QRect(150, 50, 61, 16))
+        self.label_7.setGeometry(QtCore.QRect(180, 50, 61, 16))
         self.label_7.setObjectName("label_7")
         self.steelCarbon = QtWidgets.QLineEdit(self.groupBox_8)
-        self.steelCarbon.setGeometry(QtCore.QRect(80, 20, 51, 20))
+        self.steelCarbon.setGeometry(QtCore.QRect(80, 20, 80, 20))
         self.steelCarbon.setObjectName("steelCarbon")
         self.steelSilicon = QtWidgets.QLineEdit(self.groupBox_8)
-        self.steelSilicon.setGeometry(QtCore.QRect(80, 50, 51, 20))
+        self.steelSilicon.setGeometry(QtCore.QRect(80, 50, 80, 20))
         self.steelSilicon.setObjectName("steelSilicon")
         self.steelSerum = QtWidgets.QLineEdit(self.groupBox_8)
-        self.steelSerum.setGeometry(QtCore.QRect(220, 20, 51, 20))
+        self.steelSerum.setGeometry(QtCore.QRect(250, 20, 80, 20))
         self.steelSerum.setObjectName("steelSerum")
         self.steelPhosphor = QtWidgets.QLineEdit(self.groupBox_8)
-        self.steelPhosphor.setGeometry(QtCore.QRect(220, 50, 51, 20))
+        self.steelPhosphor.setGeometry(QtCore.QRect(250, 50, 80, 20))
         self.steelPhosphor.setObjectName("steelPhosphor")
-        self.label_21 = QtWidgets.QLabel(self.groupBox_5)
-        self.label_21.setGeometry(QtCore.QRect(10, 30, 101, 16))
-        self.label_21.setObjectName("label_21")
         self.steelName = QtWidgets.QLineEdit(self.groupBox_5)
-        self.steelName.setGeometry(QtCore.QRect(70, 30, 81, 20))
+        self.steelName.setGeometry(QtCore.QRect(70, 30, 150, 20))
         self.steelName.setText("")
         self.steelName.setObjectName("steelName")
+        self.label_21 = QtWidgets.QLabel(self.groupBox_5)
+        self.label_21.setGeometry(QtCore.QRect(10, 30, 60, 16))
+        self.label_21.setObjectName("label_21")
         self.addSteelDataButton = QtWidgets.QPushButton(self.groupBox_5)
-        self.addSteelDataButton.setGeometry(QtCore.QRect(210, 30, 81, 23))
+        self.addSteelDataButton.setGeometry(QtCore.QRect(400, 30, 120, 23))
         self.addSteelDataButton.setObjectName("addSteelDataButton")
         self.addSteelDataButton.clicked.connect(self.addSteelData)
         self.tabelLabel_3 = QtWidgets.QLabel(self.tab_3)
-        self.tabelLabel_3.setGeometry(QtCore.QRect(10, 10, 131, 18))
+        self.tabelLabel_3.setGeometry(QtCore.QRect(10, 10, 180, 18))
         font = QtGui.QFont()
         font.setFamily("Times New Roman")
-        font.setPointSize(14)
+        font.setPointSize(12)
         self.tabelLabel_3.setFont(font)
         self.tabelLabel_3.setObjectName("tabelLabel_3")
         self.showTableForFactory = QtWidgets.QPushButton(self.tab_3)
-        self.showTableForFactory.setGeometry(QtCore.QRect(160, 30, 75, 23))
+        self.showTableForFactory.setGeometry(QtCore.QRect(200, 30, 110, 25))
         self.showTableForFactory.setObjectName("showTableForFactory")
         self.showTableForFactory.clicked.connect(self.showTableForFactoryClick)
         self.tableWidgetFactory = QtWidgets.QTableWidget(self.tab_3)
-        self.tableWidgetFactory.setGeometry(QtCore.QRect(10, 60, 431, 211))
+        self.tableWidgetFactory.setGeometry(QtCore.QRect(10, 60, 460, 200))
         self.tableWidgetFactory.setObjectName("tableWidgetFactory")
         self.tableWidgetFactory.setColumnCount(0)
         self.tableWidgetFactory.setRowCount(0)
         # self.tableWidgetFactory.itemChanged.connect(self.updateValue)
         self.choosenTableForFactory = QtWidgets.QComboBox(self.tab_3)
-        self.choosenTableForFactory.setGeometry(QtCore.QRect(10, 30, 141, 22))
+        self.choosenTableForFactory.setGeometry(QtCore.QRect(10, 30, 180, 25))
         self.choosenTableForFactory.setObjectName("choosenTableForFactory")
         self.choosenTableForFactory.addItem("")
         self.choosenTableForFactory.addItem("")
@@ -1152,7 +1273,7 @@ class Ui_AdminFom(object):
         self.choosenTableForFactory.addItem("")
         self.choosenTableForFactory.addItem("")
         self.groupBox_9 = QtWidgets.QGroupBox(self.tab_3)
-        self.groupBox_9.setGeometry(QtCore.QRect(10, 430, 431, 121))
+        self.groupBox_9.setGeometry(QtCore.QRect(10, 500, 460, 140))
         self.groupBox_9.setObjectName("groupBox_9")
         self.label_8 = QtWidgets.QLabel(self.groupBox_9)
         self.label_8.setGeometry(QtCore.QRect(20, 50, 31, 16))
@@ -1178,12 +1299,12 @@ class Ui_AdminFom(object):
         self.fluxeFe2O3 = QtWidgets.QLineEdit(self.groupBox_9)
         self.fluxeFe2O3.setGeometry(QtCore.QRect(160, 70, 51, 20))
         self.fluxeFe2O3.setObjectName("fluxeFe2O3")
-        self.label_30 = QtWidgets.QLabel(self.groupBox_9)
-        self.label_30.setGeometry(QtCore.QRect(10, 20, 71, 16))
-        self.label_30.setObjectName("label_30")
         self.fluxeName = QtWidgets.QLineEdit(self.groupBox_9)
         self.fluxeName.setGeometry(QtCore.QRect(80, 20, 111, 20))
         self.fluxeName.setObjectName("fluxeName")
+        self.label_30 = QtWidgets.QLabel(self.groupBox_9)
+        self.label_30.setGeometry(QtCore.QRect(10, 20, 71, 16))
+        self.label_30.setObjectName("label_30")
         self.label_31 = QtWidgets.QLabel(self.groupBox_9)
         self.label_31.setGeometry(QtCore.QRect(230, 50, 31, 16))
         self.label_31.setObjectName("label_31")
@@ -1215,11 +1336,11 @@ class Ui_AdminFom(object):
         self.fluxeMgCO3.setGeometry(QtCore.QRect(370, 90, 51, 20))
         self.fluxeMgCO3.setObjectName("fluxeMgCO3")
         self.addFluxeDataButton = QtWidgets.QPushButton(self.groupBox_9)
-        self.addFluxeDataButton.setGeometry(QtCore.QRect(340, 10, 81, 23))
+        self.addFluxeDataButton.setGeometry(QtCore.QRect(200, 20, 120, 23))
         self.addFluxeDataButton.setObjectName("addFluxeDataButton")
         self.addFluxeDataButton.clicked.connect(self.addFluxeDataButtonClicked)
         self.groupBox_10 = QtWidgets.QGroupBox(self.tab_3)
-        self.groupBox_10.setGeometry(QtCore.QRect(10, 280, 261, 141))
+        self.groupBox_10.setGeometry(QtCore.QRect(10, 270, 261, 141))
         self.groupBox_10.setObjectName("groupBox_10")
         self.label_23 = QtWidgets.QLabel(self.groupBox_10)
         self.label_23.setGeometry(QtCore.QRect(140, 20, 41, 20))
@@ -1231,7 +1352,7 @@ class Ui_AdminFom(object):
         self.modeSteelName.setGeometry(QtCore.QRect(180, 20, 61, 22))
         self.modeSteelName.setObjectName("modeSteelName")
         self.addModeButton = QtWidgets.QPushButton(self.groupBox_10)
-        self.addModeButton.setGeometry(QtCore.QRect(170, 110, 71, 23))
+        self.addModeButton.setGeometry(QtCore.QRect(140, 100, 120, 23))
         self.addModeButton.setObjectName("addModeButton")
         self.addModeButton.clicked.connect(self.addMode)
         self.modeCastSteel = QtWidgets.QComboBox(self.groupBox_10)
@@ -1262,7 +1383,7 @@ class Ui_AdminFom(object):
         self.label_28.setFont(font)
         self.label_28.setObjectName("label_28")
         self.groupBox_11 = QtWidgets.QGroupBox(self.tab_3)
-        self.groupBox_11.setGeometry(QtCore.QRect(280, 280, 161, 141))
+        self.groupBox_11.setGeometry(QtCore.QRect(280, 270, 161, 141))
         font = QtGui.QFont()
         font.setBold(False)
         font.setWeight(50)
@@ -1302,7 +1423,7 @@ class Ui_AdminFom(object):
         self.tip_flyusa_label.setGeometry(QtCore.QRect(10, 20, 71, 16))
         self.tip_flyusa_label.setObjectName("tip_flyusa_label")
         self.exportButton = QtWidgets.QPushButton(self.tab_3)
-        self.exportButton.setGeometry(QtCore.QRect(370, 30, 75, 23))
+        self.exportButton.setGeometry(QtCore.QRect(320, 30, 100, 25))
         self.exportButton.setObjectName("exportButton")
         self.exportButton.clicked.connect(self.exportData)
         self.Factory.addTab(self.tab_3, "")
@@ -1324,13 +1445,13 @@ class Ui_AdminFom(object):
         self.showTableForScenario.setObjectName("showTableForScenario")
         self.showTableForScenario.clicked.connect(self.showScenario)
         self.tableWidgetFactory_2 = QtWidgets.QTableWidget(self.tab)
-        self.tableWidgetFactory_2.setGeometry(QtCore.QRect(10, 40, 761, 231))
+        self.tableWidgetFactory_2.setGeometry(QtCore.QRect(10, 40, 761, 280))
         self.tableWidgetFactory_2.setObjectName("tableWidgetFactory_2")
         self.tableWidgetFactory_2.setColumnCount(0)
         self.tableWidgetFactory_2.setRowCount(0)
         self.tableWidgetFactory_2.cellClicked.connect(self.onCellClicked)
         self.groupBox_13 = QtWidgets.QGroupBox(self.tab)
-        self.groupBox_13.setGeometry(QtCore.QRect(10, 280, 761, 271))
+        self.groupBox_13.setGeometry(QtCore.QRect(10, 330, 761, 300))
         self.groupBox_13.setObjectName("groupBox_13")
         self.addScenarioButton_2 = QtWidgets.QPushButton(self.groupBox_13)
         self.addScenarioButton_2.setGeometry(QtCore.QRect(680, 20, 71, 23))
@@ -1353,10 +1474,10 @@ class Ui_AdminFom(object):
         self.label_42.setObjectName("label_42")
         self.scenarioTask = QtWidgets.QPlainTextEdit(self.groupBox_13)
         self.scenarioTask.setEnabled(True)
-        self.scenarioTask.setGeometry(QtCore.QRect(10, 70, 421, 181))
+        self.scenarioTask.setGeometry(QtCore.QRect(10, 70, 421, 210))
         self.scenarioTask.setObjectName("scenarioTask")
         self.groupBox_15 = QtWidgets.QGroupBox(self.groupBox_13)
-        self.groupBox_15.setGeometry(QtCore.QRect(450, 70, 301, 181))
+        self.groupBox_15.setGeometry(QtCore.QRect(450, 70, 301, 210))
         self.groupBox_15.setObjectName("groupBox_15")
         self.MinSteelTempLimit = QtWidgets.QLineEdit(self.groupBox_15)
         self.MinSteelTempLimit.setGeometry(QtCore.QRect(160, 30, 131, 20))
@@ -1463,7 +1584,7 @@ class Ui_AdminFom(object):
         self.showTableForUsers.setObjectName("showTableForUsers")
         self.showTableForUsers.clicked.connect(self.showTableForUsersClick)
         self.tableWidgetUsers = QtWidgets.QTableWidget(self.tab_4)
-        self.tableWidgetUsers.setGeometry(QtCore.QRect(10, 60, 521, 481))
+        self.tableWidgetUsers.setGeometry(QtCore.QRect(10, 60, 521, 591))
         self.tableWidgetUsers.setObjectName("tableWidgetUsers")
         self.tableWidgetUsers.setColumnCount(0)
         self.tableWidgetUsers.setRowCount(0)
@@ -1518,16 +1639,16 @@ class Ui_AdminFom(object):
         self.UserRoleUpdate.addItem("")
         self.verticalLayout_3.addWidget(self.UserRoleUpdate)
         self.SQLQuery = QtWidgets.QLineEdit(self.tab_4)
-        self.SQLQuery.setGeometry(QtCore.QRect(540, 520, 161, 21))
+        self.SQLQuery.setGeometry(QtCore.QRect(540, 580, 161, 21))
         self.SQLQuery.setObjectName("SQLQuery")
         self.executeSqlbutton = QtWidgets.QPushButton(self.tab_4)
-        self.executeSqlbutton.setGeometry(QtCore.QRect(710, 520, 71, 23))
+        self.executeSqlbutton.setGeometry(QtCore.QRect(710, 580, 71, 23))
         self.executeSqlbutton.setObjectName("executeSqlbutton")
         self.executeSqlbutton.clicked.connect(self.executeSqlQuery)
         self.Factory.addTab(self.tab_4, "")
         AdminFom.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(AdminFom)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 798, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1050, 21))
         self.menubar.setObjectName("menubar")
         self.menu = QtWidgets.QMenu(self.menubar)
         self.menu.setObjectName("menu")
