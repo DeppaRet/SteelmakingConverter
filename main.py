@@ -1,7 +1,41 @@
+import os, site, sys
+
+# Chromium sandbox can cause hard native crashes on some Windows configs.
+# --no-sandbox disables it; must be set before any Qt import.
+os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
+
+# Add user-level Qt5/bin to DLL search path BEFORE any PyQt5 imports so that
+# PyQtWebEngine DLLs (installed to user AppData) are found on Windows.
+if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+    _qt_dll_dirs: list[str] = []
+    try:
+        _qt_dll_dirs.append(site.getusersitepackages())
+    except Exception:
+        pass
+    try:
+        _qt_dll_dirs.extend(site.getsitepackages())
+    except Exception:
+        pass
+    for _sp in _qt_dll_dirs:
+        _d = os.path.join(_sp, "PyQt5", "Qt5", "bin")
+        if os.path.isdir(_d):
+            try:
+                os.add_dll_directory(_d)
+            except OSError:
+                pass
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox, QLineEdit, QGraphicsDropShadowEffect
 from PyQt5.QtGui import QLinearGradient, QPalette, QBrush, QColor, QFont
 from PyQt5.QtCore import Qt, QRect, QPoint
+
+# QtWebEngineWidgets MUST be imported before QCoreApplication is created.
+# Do it here (before QApplication in __main__) so OperForm can use it safely.
+try:
+    from PyQt5.QtWebEngineWidgets import QWebEngineView as _  # noqa: F401
+    del _
+except Exception:
+    pass
 import AdminForm
 import OperForm
 import DeveloperForm
@@ -281,6 +315,8 @@ class Ui_LoginForm(object):
 if __name__ == "__main__":
     import sys
 
+    # QtWebEngineWidgets requires this attribute to be set before QApplication
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     app = QtWidgets.QApplication(sys.argv)
     LoginForm = QtWidgets.QMainWindow()
     ui = Ui_LoginForm()
