@@ -12,6 +12,12 @@ from configparser import ConfigParser
 
 import config
 
+try:
+    from converter3d.widget import ConverterWidget, WEBENGINE_AVAILABLE
+except ImportError:
+    WEBENGINE_AVAILABLE = False
+    ConverterWidget = None
+
 metalChargeCalcked = False
 tableCalcked = False
 slagCalcked = False
@@ -618,6 +624,14 @@ class Ui_OperatorForm(object):
             self.ChemSilicon.setText(str(round(chemSilicon,3)))
             global metalChargeCalcked
             metalChargeCalcked = True
+            if getattr(self, 'converter3d', None):
+                self.converter3d.update_state({
+                    'state':      'charged',
+                    'metalMass':  round(totalWeightValue, 1),
+                    'metalLevel': min(1.0, totalWeightValue / 430.0) * 0.62,
+                    'slagMass':   0,
+                    'slagLevel':  0,
+                })
 
         except Exception as err:  # mc.Error
             msg = QMessageBox()
@@ -937,6 +951,16 @@ class Ui_OperatorForm(object):
             self.SlagOthersPerc.setText(str(round(slagOthers/slagWeight*100, 3)))
             global slagCalcked
             slagCalcked = True
+            if getattr(self, 'converter3d', None):
+                metal_mass = float(self.MetalCharge.text())
+                self.converter3d.update_state({
+                    'state':     'blowing',
+                    'slagMass':  round(slagWeight, 1),
+                    'slagLevel': min(1.0, slagWeight / 80.0),
+                    'metalMass': round(metal_mass, 1),
+                    'metalLevel': min(1.0, metal_mass / 430.0) * 0.62,
+                    'temperature': 1500,
+                })
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -979,6 +1003,10 @@ class Ui_OperatorForm(object):
             self.ExcessBlast.setText(str(round(excessBlast, 3)))
             global blastCalcked
             blastCalcked = True
+            if getattr(self, 'converter3d', None):
+                self.converter3d.update_state({
+                    'blastFlow': round(totalBlastConsumptionM3, 0),
+                })
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -1282,6 +1310,11 @@ class Ui_OperatorForm(object):
 
             global heatBalanceCalcked
             heatBalanceCalcked = True
+            if getattr(self, 'converter3d', None):
+                # Only update temperature; tapping starts after getRecomendation
+                self.converter3d.update_state({
+                    'temperature': round(SteelTemperature, 0),
+                })
         except Exception as err:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -1680,6 +1713,11 @@ class Ui_OperatorForm(object):
                 self.recomendation.setPlainText("Используется оптимальный расход флюсов\n")
             if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
+            if getattr(self, 'converter3d', None):
+                self.converter3d.update_state({
+                    'state':       'complete',
+                    'temperature': steelTemperature,
+                })
         except Exception as err:
             s = 0
 
@@ -1809,8 +1847,8 @@ class Ui_OperatorForm(object):
             }
             QLineEdit:focus   { border: 2px solid #00c8f0; }
             QLineEdit[readOnly="true"] {
-                background: rgba(0,200,240,0.06); border: 1px solid rgba(0,200,240,0.15);
-                color: #9abfcc;
+                background: rgba(0,200,240,0.09); border: 1px solid rgba(0,200,240,0.22);
+                color: #c4dfe8;
             }
             QComboBox {
                 background: rgba(0,0,0,0.42); border: 1px solid rgba(0,200,240,0.28);
@@ -1858,8 +1896,8 @@ class Ui_OperatorForm(object):
                     stop:0 #00c8f0, stop:1 #0090b8); border-radius: 4px;
             }
             QPlainTextEdit, QTextEdit {
-                background: rgba(0,0,0,0.40); border: 1px solid rgba(0,200,240,0.28);
-                border-radius: 5px; color: #d8d8d8; padding: 4px; font-size: 11px;
+                background: #0f111a; border: 1px solid rgba(0,200,240,0.32);
+                border-radius: 5px; color: #d8ecf8; padding: 4px; font-size: 10pt;
             }
             QScrollBar:vertical {
                 background: rgba(0,0,0,0.28); width: 8px; border-radius: 4px;
@@ -1882,41 +1920,70 @@ class Ui_OperatorForm(object):
                 color: #d8d8d8; border: 1px solid rgba(0,200,240,0.18); border-radius: 6px;
                 font-size: 11px;
             }
-            QTableWidget::item { padding: 4px; color: #d8d8d8; }
+            QTableWidget::item { padding: 2px 4px; color: #d8d8d8; }
             QTableWidget::item:selected {
                 background: rgba(0,200,240,0.28); color: #ffffff;
             }
             QHeaderView { background: rgba(0,0,0,0.38); }
             QHeaderView::section {
                 background: rgba(0,200,240,0.22); color: #ffffff;
-                padding: 5px; border: none; font-weight: bold; font-size: 11px;
+                padding: 3px 4px; border: none; font-weight: bold; font-size: 10px;
             }
             QTableWidget QTableCornerButton::section {
                 background: rgba(0,200,240,0.22); border: none;
             }
             QSplitter::handle { background: rgba(0,200,240,0.18); }
-            QScrollArea { border: none; background: transparent; }
+            QScrollArea { border: none; background: #181828; }
+            QScrollArea > QWidget { background: transparent; }
+            QScrollArea > QWidget > QWidget { background: transparent; }
         """)
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE LED TIMER
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _on_window_destroyed(self):
+        """Stop timer and thread when the QMainWindow is destroyed."""
+        try:
+            self._led_timer.stop()
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'thread') and self.thread.isRunning():
+                self.thread.quit()
+                self.thread.wait(500)
+        except Exception:
+            pass
+
     def _start_indicator_timer(self):
-        self._led_timer = QtCore.QTimer()
+        # Parent the timer to centralwidget so Qt stops/destroys it automatically
+        # when the window is closed, preventing stale callbacks on deleted widgets.
+        self._led_timer = QtCore.QTimer(self.centralwidget)
         self._led_timer.timeout.connect(self._refresh_stage_leds)
         self._led_timer.start(300)
 
     def _refresh_stage_leds(self):
+        # Detect deox completion: DeoxidationBalance table has cell (0,0) filled
+        try:
+            _item = self.DeoxidationBalance.item(0, 0)
+            _deox_done = bool(_item and _item.text().strip())
+        except Exception:
+            _deox_done = False
+        # Detect recommendation completion: recommendation text is not empty
+        try:
+            _rec_done = bool(self.recomendation.toPlainText().strip())
+        except Exception:
+            _rec_done = False
+
         flag_map = {
-            "metalCharge": metalChargeCalcked,
+            "metalCharge":  metalChargeCalcked,
             "table":        tableCalcked,
             "slag":         slagCalcked,
             "blast":        blastCalcked,
             "matBalance":   materialBalanceCalcked,
             "heatBalance":  heatBalanceCalcked,
-            "deox":         heatBalanceCalcked,
-            "recomendation": heatBalanceCalcked,
+            "deox":         _deox_done,
+            "recomendation": _rec_done,
         }
         for key, flag in flag_map.items():
             if key in self._stage_leds:
@@ -1946,9 +2013,20 @@ class Ui_OperatorForm(object):
     # ─────────────────────────────────────────────────────────────────────────
 
     def setupUi(self, OperatorForm):
+        # Reset module-level calc flags so a fresh session starts with clean state
+        global metalChargeCalcked, tableCalcked, slagCalcked, blastCalcked
+        global materialBalanceCalcked, heatBalanceCalcked
+        metalChargeCalcked = tableCalcked = slagCalcked = blastCalcked = False
+        materialBalanceCalcked = heatBalanceCalcked = False
+
+        # Store window reference; connect destroyed signal so the timer is
+        # stopped even if Qt tears down the window before Python GC runs.
+        self._oper_form = OperatorForm
+        OperatorForm.destroyed.connect(self._on_window_destroyed)
+
         OperatorForm.setObjectName("OperatorForm")
-        OperatorForm.resize(1340, 860)
-        OperatorForm.setMinimumSize(QtCore.QSize(1050, 700))
+        OperatorForm.resize(1650, 860)
+        OperatorForm.setMinimumSize(QtCore.QSize(1280, 700))
 
         winIcon = QtGui.QIcon()
         winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -2040,6 +2118,7 @@ class Ui_OperatorForm(object):
 
         def _ind_frame(label_txt, obj_name, border_color, text_color):
             fr = QtWidgets.QFrame()
+            fr.setFixedSize(175, 44)
             fr.setStyleSheet(
                 f"QFrame {{ background: rgba(0,0,0,0.45); "
                 f"border: 1px solid rgba({border_color},0.5); border-radius: 5px; }}")
@@ -2047,16 +2126,17 @@ class Ui_OperatorForm(object):
             fh.setContentsMargins(8, 2, 8, 2)
             fh.setSpacing(4)
             cap = QtWidgets.QLabel(label_txt)
+            cap.setFixedWidth(42)
             cap.setStyleSheet(f"color: rgba({border_color},0.85); font-size: 9px; font-weight: bold; border: none;")
             val = QtWidgets.QLineEdit()
             val.setObjectName(obj_name)
             val.setReadOnly(True)
             val.setText("\u2014")
             val.setAlignment(QtCore.Qt.AlignCenter)
-            val.setMinimumWidth(72)
+            val.setFixedWidth(100)
             val.setStyleSheet(
                 f"QLineEdit {{ background: transparent; border: none; "
-                f"color: {text_color}; font-size: 19px; font-weight: bold; }}")
+                f"color: {text_color}; font-size: 20px; font-weight: bold; }}")
             fh.addWidget(cap)
             fh.addWidget(val)
             return fr, val
@@ -2086,6 +2166,7 @@ class Ui_OperatorForm(object):
         left_scroll.setMinimumWidth(265)
 
         lw = QtWidgets.QWidget()
+        lw.setAutoFillBackground(False)
         ll = QtWidgets.QVBoxLayout(lw)
         ll.setContentsMargins(8, 8, 6, 8)
         ll.setSpacing(5)
@@ -2336,16 +2417,10 @@ class Ui_OperatorForm(object):
         # ────────────────────────────────────────────────────────────────────
         cw = QtWidgets.QWidget()
         cw.setObjectName("center_widget")
-        cw.setMinimumWidth(220)
+        cw.setMinimumWidth(230)
         cv = QtWidgets.QVBoxLayout(cw)
-        cv.setContentsMargins(6, 8, 6, 8)
+        cv.setContentsMargins(10, 10, 10, 10)
         cv.setSpacing(5)
-
-        # Converter diagram
-        self.converterDiagram = ConverterDiagram()
-        self.converterDiagram.setMinimumHeight(130)
-        self.converterDiagram.setMaximumHeight(165)
-        cv.addWidget(self.converterDiagram)
 
         # Scenario task
         self.label_29 = _lbl("label_29")
@@ -2353,32 +2428,42 @@ class Ui_OperatorForm(object):
         self.ScenarioTask = QtWidgets.QPlainTextEdit()
         self.ScenarioTask.setReadOnly(True)
         self.ScenarioTask.setObjectName("ScenarioTask")
-        self.ScenarioTask.setMaximumHeight(55)
+        self.ScenarioTask.setMinimumHeight(50)
+        self.ScenarioTask.setMaximumHeight(80)
+        self.ScenarioTask.setStyleSheet(
+            "QPlainTextEdit { background: #0f111a; border: 1px solid rgba(0,200,240,0.32); "
+            "border-radius: 4px; color: #d8ecf8; font-size: 10pt; padding: 4px; }")
         cv.addWidget(self.ScenarioTask)
 
         # Scenario load progress
         self.scenarioProgress = QtWidgets.QProgressBar()
         self.scenarioProgress.setObjectName("scenarioProgress")
         self.scenarioProgress.setValue(0)
-        self.scenarioProgress.setMaximumHeight(13)
+        self.scenarioProgress.setFixedHeight(12)
         cv.addWidget(self.scenarioProgress)
 
         sep = QtWidgets.QFrame()
         sep.setFrameShape(QtWidgets.QFrame.HLine)
-        sep.setStyleSheet("color: rgba(0,200,240,0.25);")
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("QFrame { color: rgba(0,200,240,0.25); background: rgba(0,200,240,0.25); }")
         cv.addWidget(sep)
 
         seq_title = QtWidgets.QLabel(
             "\u041f\u041e\u0421\u041b\u0415\u0414\u041e\u0412\u0410\u0422\u0415\u041b\u042c\u041d\u041e\u0421\u0422\u042c  \u0420\u0410\u0421\u0427\u0401\u0422\u041e\u0412")
         seq_title.setAlignment(QtCore.Qt.AlignCenter)
+        seq_title.setFixedHeight(16)
         seq_title.setStyleSheet(
-            "color: rgba(0,200,240,0.65); font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+            "color: rgba(0,200,240,0.70); font-size: 9px; font-weight: bold; letter-spacing: 1px;")
         cv.addWidget(seq_title)
 
         self._stage_leds = {}
 
-        def _stage_row(num, label_text, connect_fn, led_key, btn_attr):
-            row = QtWidgets.QHBoxLayout()
+        def _stage_row(num, label_text, connect_fn, led_key, btn_attr,
+                       guard_fn=None, guard_label=""):
+            wrapper = QtWidgets.QWidget()
+            wrapper.setFixedHeight(28)
+            row = QtWidgets.QHBoxLayout(wrapper)
+            row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(5)
             num_lbl = QtWidgets.QLabel(str(num))
             num_lbl.setFixedSize(20, 20)
@@ -2396,31 +2481,65 @@ class Ui_OperatorForm(object):
             calc_btn.setIcon(_icon("Pictures/calculate.ico"))
             calc_btn.setIconSize(QtCore.QSize(20, 20))
             calc_btn.setFlat(True)
-            calc_btn.setFixedSize(28, 26)
-            calc_btn.clicked.connect(connect_fn)
+            calc_btn.setFixedSize(28, 24)
+
+            def _make_guarded(fn, gf, gl):
+                def _on_click():
+                    if gf is None or gf():
+                        fn()
+                    else:
+                        QtWidgets.QMessageBox.warning(
+                            None,
+                            "Предыдущий этап не выполнен",
+                            f"Сначала завершите этап:\n«{gl}»")
+                return _on_click
+
+            calc_btn.clicked.connect(_make_guarded(connect_fn, guard_fn, guard_label))
             setattr(self, btn_attr, calc_btn)
             row.addWidget(num_lbl)
             row.addWidget(led)
             row.addWidget(stg_lbl, 1)
             row.addWidget(calc_btn)
-            return row
+            return wrapper
 
-        cv.addLayout(_stage_row(1, "\u041c\u0435\u0442\u0430\u043b\u043b\u043e\u0448\u0438\u0445\u0442\u0430",
-                                 self.calcMetalChargeClicked, "metalCharge", "MetalChargeCalc"))
-        cv.addLayout(_stage_row(2, "\u0422\u0430\u0431\u043b. \u043e\u043a\u0438\u0441\u043b\u0435\u043d\u0438\u044f",
-                                 self.calcTableClick, "table", "CalcTable"))
-        cv.addLayout(_stage_row(3, "\u0420\u0430\u0441\u0447\u0451\u0442 \u0448\u043b\u0430\u043a\u0430",
-                                 self.slagCalcClicked, "slag", "SlagCalc"))
-        cv.addLayout(_stage_row(4, "\u0420\u0430\u0441\u0447\u0451\u0442 \u0434\u0443\u0442\u044c\u044f",
-                                 self.blastCalcClicked, "blast", "BlastCalc"))
-        cv.addLayout(_stage_row(5, "\u041c\u0430\u0442\u0435\u0440. \u0431\u0430\u043b\u0430\u043d\u0441",
-                                 self.MaterialBalanceCalcClicked, "matBalance", "MaterialBalanceCalc"))
-        cv.addLayout(_stage_row(6, "\u0422\u0435\u043f\u043b. \u0431\u0430\u043b\u0430\u043d\u0441",
-                                 self.HeatBalanceCalcClicked, "heatBalance", "HeatBalanceCalc"))
-        cv.addLayout(_stage_row(7, "\u0420\u0430\u0441\u043a\u0438\u0441\u043b\u0435\u043d\u0438\u0435",
-                                 self.deoxCalc, "deox", "SteelDeoxidationCalc"))
-        cv.addLayout(_stage_row(8, "\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0430\u0446\u0438\u0438",
-                                 self.getRecomendation, "recomendation", "RecomendationCalc"))
+        cv.addWidget(_stage_row(
+            1, "Металлошихта",
+            self.calcMetalChargeClicked, "metalCharge", "MetalChargeCalc"))
+        cv.addWidget(_stage_row(
+            2, "Табл. окисления",
+            self.calcTableClick, "table", "CalcTable",
+            guard_fn=lambda: metalChargeCalcked,
+            guard_label="Металлошихта"))
+        cv.addWidget(_stage_row(
+            3, "Расчёт шлака",
+            self.slagCalcClicked, "slag", "SlagCalc",
+            guard_fn=lambda: tableCalcked,
+            guard_label="Табл. окисления"))
+        cv.addWidget(_stage_row(
+            4, "Расчёт дутья",
+            self.blastCalcClicked, "blast", "BlastCalc",
+            guard_fn=lambda: slagCalcked,
+            guard_label="Расчёт шлака"))
+        cv.addWidget(_stage_row(
+            5, "Матер. баланс",
+            self.MaterialBalanceCalcClicked, "matBalance", "MaterialBalanceCalc",
+            guard_fn=lambda: blastCalcked,
+            guard_label="Расчёт дутья"))
+        cv.addWidget(_stage_row(
+            6, "Тепл. баланс",
+            self.HeatBalanceCalcClicked, "heatBalance", "HeatBalanceCalc",
+            guard_fn=lambda: materialBalanceCalcked,
+            guard_label="Матер. баланс"))
+        cv.addWidget(_stage_row(
+            7, "Раскисление",
+            self.deoxCalc, "deox", "SteelDeoxidationCalc",
+            guard_fn=lambda: heatBalanceCalcked,
+            guard_label="Тепл. баланс"))
+        cv.addWidget(_stage_row(
+            8, "Рекомендации",
+            self.getRecomendation, "recomendation", "RecomendationCalc",
+            guard_fn=lambda: heatBalanceCalcked,
+            guard_label="Тепл. баланс"))
 
         cv.addSpacing(4)
         self.GetResExample = QtWidgets.QPushButton(
@@ -2441,6 +2560,7 @@ class Ui_OperatorForm(object):
         right_scroll.setMinimumWidth(270)
 
         rw = QtWidgets.QWidget()
+        rw.setAutoFillBackground(False)
         rl = QtWidgets.QVBoxLayout(rw)
         rl.setContentsMargins(6, 8, 8, 8)
         rl.setSpacing(5)
@@ -2521,7 +2641,7 @@ class Ui_OperatorForm(object):
         self.SteelChemResult.setVerticalHeaderItem(0, QtWidgets.QTableWidgetItem())
         for c in range(5):
             self.SteelChemResult.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.SteelChemResult.horizontalHeader().setStretchLastSection(True)
+        self.SteelChemResult.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.SteelChemResult.setMaximumHeight(62)
         _dark_table(self.SteelChemResult)
         g12v.addWidget(self.SteelChemResult)
@@ -2534,7 +2654,7 @@ class Ui_OperatorForm(object):
         self.SlagChemResult.setVerticalHeaderItem(0, QtWidgets.QTableWidgetItem())
         for c in range(5):
             self.SlagChemResult.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.SlagChemResult.horizontalHeader().setStretchLastSection(True)
+        self.SlagChemResult.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.SlagChemResult.setMaximumHeight(62)
         _dark_table(self.SlagChemResult)
         g12v.addWidget(self.SlagChemResult)
@@ -2542,7 +2662,128 @@ class Ui_OperatorForm(object):
         res_v.addWidget(self.groupBox_12)
         rl.addWidget(res_grp)
 
-        # ── Шлак ──────────────────────────────────────────────────────────
+        # ── Дутьё ─────────────────────────────────────────────────────────
+        self.raschet_dutya_group_box = QtWidgets.QGroupBox()
+        self.raschet_dutya_group_box.setObjectName("raschet_dutya_group_box")
+        rdg = QtWidgets.QGridLayout(self.raschet_dutya_group_box)
+        rdg.setSpacing(4)
+        rdg.setColumnStretch(1, 1)
+        self.TotalOxygenDemandBlastLabel    = _lbl("TotalOxygenDemandBlastLabel")
+        self.TotalConsumptionOfBlastKgLabel = _lbl("TotalConsumptionOfBlastKgLabel")
+        self.ExcessBlastLabel               = _lbl("ExcessBlastLabel")
+        self.TotalConsumptionOfBlastM3Label = _lbl("TotalConsumptionOfBlastM3Label")
+        self.TotalOxygenDemandBlast    = _ro_edit("TotalOxygenDemandBlast")
+        self.TotalConsumptionOfBlastKg = _ro_edit("TotalConsumptionOfBlastKg")
+        self.ExcessBlast               = _ro_edit("ExcessBlast")
+        self.TotalConsumptionOfBlastM3 = _ro_edit("TotalConsumptionOfBlastM3")
+        for r, (lbl, wdg) in enumerate([
+                (self.TotalOxygenDemandBlastLabel,    self.TotalOxygenDemandBlast),
+                (self.TotalConsumptionOfBlastKgLabel, self.TotalConsumptionOfBlastKg),
+                (self.ExcessBlastLabel,               self.ExcessBlast),
+                (self.TotalConsumptionOfBlastM3Label, self.TotalConsumptionOfBlastM3)]):
+            rdg.addWidget(lbl, r, 0)
+            rdg.addWidget(wdg, r, 1)
+        self.changeSetings = QtWidgets.QPushButton()
+        self.changeSetings.setObjectName("changeSetings")
+        self.changeSetings.setFlat(True)
+        rdg.addWidget(self.changeSetings, 4, 0, 1, 2)
+        rl.addWidget(self.raschet_dutya_group_box)
+        rl.addStretch()
+
+        right_scroll.setWidget(rw)
+        main_splitter.addWidget(right_scroll)
+
+        # ────────────────────────────────────────────────────────────────────
+        # 3D CONVERTER PANEL
+        # ────────────────────────────────────────────────────────────────────
+        if ConverterWidget is not None:
+            self.converter3d = ConverterWidget()
+            main_splitter.addWidget(self.converter3d)
+            main_splitter.setSizes([315, 195, 252, 398])
+        else:
+            self.converter3d = None
+            main_splitter.setSizes([315, 215, 310])
+
+        main_layout.addWidget(main_splitter, stretch=1)
+
+        # ════════════════════════════════════════════════════════════════════
+        # BOTTOM DETAIL TABS
+        # ════════════════════════════════════════════════════════════════════
+        self.tabWidget = QtWidgets.QTabWidget()
+        self.tabWidget.setObjectName("tabWidget")
+        self.tabWidget.setMinimumHeight(300)
+        self.tabWidget.setMaximumHeight(300)
+
+        # ── tab_7  Справка ────────────────────────────────────────────────
+        self.tab_7 = QtWidgets.QWidget()
+        self.tab_7.setObjectName("tab_7")
+        t7l = QtWidgets.QVBoxLayout(self.tab_7)
+        t7l.setContentsMargins(10, 8, 10, 8)
+        t7l.setSpacing(8)
+
+        stages_lbl = QtWidgets.QLabel(
+            "<b style='color:#00c8f0;'>Порядок расчётов:</b><br>"
+            "1. <b>Металлошихта</b> — вычисление масс шихты<br>"
+            "2. <b>Табл. окисления</b> — расход O₂ по элементам<br>"
+            "3. <b>Расчёт шлака</b> — флюсы, состав шлака<br>"
+            "4. <b>Расчёт дутья</b> — кислород, интенсивность<br>"
+            "5. <b>Мат. баланс</b> — приход/расход материалов<br>"
+            "6. <b>Тепл. баланс</b> — температура выхода стали<br>"
+            "7. <b>Раскисление</b> — ферросплавы, выход металла<br>"
+            "8. <b>Рекомендации</b> — режим продувки, MgO"
+        )
+        stages_lbl.setTextFormat(QtCore.Qt.RichText)
+        stages_lbl.setWordWrap(True)
+        stages_lbl.setStyleSheet("color: #c0d0d8; font-size: 11px;")
+        stages_lbl.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        t7l.addWidget(stages_lbl, 1)
+
+        hints_lbl = QtWidgets.QLabel(
+            "<b style='color:#00c8f0;'>Ограничения:</b> "
+            "Мин. T стали, содержание C и P — см. левую панель.<br>"
+            "<b style='color:#00c8f0;'>LED:</b> "
+            "<span style='color:#00e855;'>●</span> рассчитан &nbsp; "
+            "<span style='color:#3a3a5a;'>●</span> ещё не выполнен"
+        )
+        hints_lbl.setTextFormat(QtCore.Qt.RichText)
+        hints_lbl.setWordWrap(True)
+        hints_lbl.setStyleSheet("color: #9ab0bc; font-size: 10px;")
+        t7l.addWidget(hints_lbl, 0)
+
+        self.tabWidget.addTab(self.tab_7, "")
+
+        # ── tab  Металлошихта (oxidation table) ──────────────────────────
+        self.tab = QtWidgets.QWidget()
+        self.tab.setObjectName("tab")
+        tab_layout = QtWidgets.QVBoxLayout(self.tab)
+        tab_layout.setContentsMargins(5, 5, 5, 5)
+        self.groupBox_9 = QtWidgets.QGroupBox()
+        self.groupBox_9.setObjectName("groupBox_9")
+        gb9_h = QtWidgets.QHBoxLayout(self.groupBox_9)
+        gb9_h.setSpacing(5)
+        self.OxidationTable = QtWidgets.QTableWidget()
+        self.OxidationTable.setObjectName("OxidationTable")
+        self.OxidationTable.setColumnCount(8)
+        self.OxidationTable.setRowCount(6)
+        self.OxidationTable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.OxidationTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.OxidationTable.verticalHeader().setDefaultSectionSize(22)
+        for r in range(6):
+            self.OxidationTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
+        for c in range(8):
+            self.OxidationTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
+        _dark_table(self.OxidationTable)
+        gb9_h.addWidget(self.OxidationTable)
+        tab_layout.addWidget(self.groupBox_9)
+        self.tabWidget.addTab(self.tab, "")
+
+        # ── tab_2  Шлак ───────────────────────────────────────────────────
+        self.tab_2 = QtWidgets.QWidget()
+        self.tab_2.setObjectName("tab_2")
+        t2l = QtWidgets.QVBoxLayout(self.tab_2)
+        t2l.setContentsMargins(6, 6, 6, 6)
+        t2l.setSpacing(5)
+
         self.shlak_group_box = QtWidgets.QGroupBox()
         self.shlak_group_box.setObjectName("shlak_group_box")
         shl_v = QtWidgets.QVBoxLayout(self.shlak_group_box)
@@ -2601,123 +2842,7 @@ class Ui_OperatorForm(object):
             hssv_g.addWidget(wdg, r, 1)
         shl_cols.addWidget(self.him_sostav_shlaka_v_procentah_group_box, 1)
         shl_v.addLayout(shl_cols)
-        rl.addWidget(self.shlak_group_box)
-
-        # ── Дутьё ─────────────────────────────────────────────────────────
-        self.raschet_dutya_group_box = QtWidgets.QGroupBox()
-        self.raschet_dutya_group_box.setObjectName("raschet_dutya_group_box")
-        rdg = QtWidgets.QGridLayout(self.raschet_dutya_group_box)
-        rdg.setSpacing(4)
-        rdg.setColumnStretch(1, 1)
-        self.TotalOxygenDemandBlastLabel    = _lbl("TotalOxygenDemandBlastLabel")
-        self.TotalConsumptionOfBlastKgLabel = _lbl("TotalConsumptionOfBlastKgLabel")
-        self.ExcessBlastLabel               = _lbl("ExcessBlastLabel")
-        self.TotalConsumptionOfBlastM3Label = _lbl("TotalConsumptionOfBlastM3Label")
-        self.TotalOxygenDemandBlast    = _ro_edit("TotalOxygenDemandBlast")
-        self.TotalConsumptionOfBlastKg = _ro_edit("TotalConsumptionOfBlastKg")
-        self.ExcessBlast               = _ro_edit("ExcessBlast")
-        self.TotalConsumptionOfBlastM3 = _ro_edit("TotalConsumptionOfBlastM3")
-        for r, (lbl, wdg) in enumerate([
-                (self.TotalOxygenDemandBlastLabel,    self.TotalOxygenDemandBlast),
-                (self.TotalConsumptionOfBlastKgLabel, self.TotalConsumptionOfBlastKg),
-                (self.ExcessBlastLabel,               self.ExcessBlast),
-                (self.TotalConsumptionOfBlastM3Label, self.TotalConsumptionOfBlastM3)]):
-            rdg.addWidget(lbl, r, 0)
-            rdg.addWidget(wdg, r, 1)
-        self.changeSetings = QtWidgets.QPushButton()
-        self.changeSetings.setObjectName("changeSetings")
-        self.changeSetings.setFlat(True)
-        rdg.addWidget(self.changeSetings, 4, 0, 1, 2)
-        rl.addWidget(self.raschet_dutya_group_box)
-
-        # ── Рекомендации ──────────────────────────────────────────────────
-        rec_grp = QtWidgets.QGroupBox()
-        rec_grp.setObjectName("rec_grp")
-        rec_v = QtWidgets.QVBoxLayout(rec_grp)
-        rec_v.setContentsMargins(5, 5, 5, 5)
-        rec_v.setSpacing(4)
-        self.label_56 = _lbl("label_56")
-        self.label_56.setStyleSheet(
-            "color: #00c8f0; font-size: 11px; font-weight: bold;")
-        rec_v.addWidget(self.label_56)
-        self.recomendation = QtWidgets.QPlainTextEdit()
-        self.recomendation.setObjectName("recomendation")
-        self.recomendation.setReadOnly(True)
-        self.recomendation.setMaximumHeight(75)
-        self.recomendation.setStyleSheet(
-            "QPlainTextEdit { background: rgba(0,40,10,0.35); "
-            "border: 1px solid rgba(0,255,100,0.25); color: #a0e8a0; font-size: 11px; }")
-        rec_v.addWidget(self.recomendation)
-        mgo_g = QtWidgets.QGridLayout()
-        mgo_g.setSpacing(4)
-        mgo_g.setColumnStretch(1, 1)
-        self.label_48 = _lbl("label_48"); self.limit_MgO        = QtWidgets.QLineEdit(); self.limit_MgO.setObjectName("limit_MgO")
-        self.label_49 = _lbl("label_49"); self.content_MgO      = QtWidgets.QLineEdit(); self.content_MgO.setObjectName("content_MgO")
-        self.label_50 = _lbl("label_50"); self.unsaturation_MgO = QtWidgets.QLineEdit(); self.unsaturation_MgO.setObjectName("unsaturation_MgO")
-        self.label_53 = _lbl("label_53"); self.steel_temp       = QtWidgets.QLineEdit(); self.steel_temp.setObjectName("steel_temp")
-        self.label_54 = _lbl("label_54"); self.slag_basicity    = QtWidgets.QLineEdit(); self.slag_basicity.setObjectName("slag_basicity")
-        self.label_55 = _lbl("label_55"); self.lining_weight_loss= QtWidgets.QLineEdit(); self.lining_weight_loss.setObjectName("lining_weight_loss")
-        for r, (lbl, wdg) in enumerate([
-                (self.label_48, self.limit_MgO),
-                (self.label_49, self.content_MgO),
-                (self.label_50, self.unsaturation_MgO),
-                (self.label_53, self.steel_temp),
-                (self.label_54, self.slag_basicity),
-                (self.label_55, self.lining_weight_loss)]):
-            mgo_g.addWidget(lbl, r, 0)
-            mgo_g.addWidget(wdg, r, 1)
-        rec_v.addLayout(mgo_g)
-        rl.addWidget(rec_grp)
-        rl.addStretch()
-
-        right_scroll.setWidget(rw)
-        main_splitter.addWidget(right_scroll)
-
-        main_splitter.setSizes([285, 235, 310])
-        main_layout.addWidget(main_splitter, stretch=1)
-
-        # ════════════════════════════════════════════════════════════════════
-        # BOTTOM DETAIL TABS
-        # ════════════════════════════════════════════════════════════════════
-        self.tabWidget = QtWidgets.QTabWidget()
-        self.tabWidget.setObjectName("tabWidget")
-        self.tabWidget.setMaximumHeight(290)
-        self.tabWidget.setMinimumHeight(150)
-
-        # ── tab_7  Сценарий (stub) ────────────────────────────────────────
-        self.tab_7 = QtWidgets.QWidget()
-        self.tab_7.setObjectName("tab_7")
-        self.tabWidget.addTab(self.tab_7, "")
-
-        # ── tab  Металлошихта (oxidation table) ──────────────────────────
-        self.tab = QtWidgets.QWidget()
-        self.tab.setObjectName("tab")
-        tab_layout = QtWidgets.QVBoxLayout(self.tab)
-        tab_layout.setContentsMargins(5, 5, 5, 5)
-        self.groupBox_9 = QtWidgets.QGroupBox()
-        self.groupBox_9.setObjectName("groupBox_9")
-        gb9_h = QtWidgets.QHBoxLayout(self.groupBox_9)
-        gb9_h.setSpacing(5)
-        self.OxidationTable = QtWidgets.QTableWidget()
-        self.OxidationTable.setObjectName("OxidationTable")
-        self.OxidationTable.setColumnCount(8)
-        self.OxidationTable.setRowCount(6)
-        self.OxidationTable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.OxidationTable.horizontalHeader().setDefaultSectionSize(88)
-        self.OxidationTable.horizontalHeader().setStretchLastSection(True)
-        self.OxidationTable.verticalHeader().setDefaultSectionSize(24)
-        for r in range(6):
-            self.OxidationTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
-        for c in range(8):
-            self.OxidationTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        _dark_table(self.OxidationTable)
-        gb9_h.addWidget(self.OxidationTable)
-        tab_layout.addWidget(self.groupBox_9)
-        self.tabWidget.addTab(self.tab, "")
-
-        # ── tab_2  Шлак (stub — widgets in right panel) ──────────────────
-        self.tab_2 = QtWidgets.QWidget()
-        self.tab_2.setObjectName("tab_2")
+        t2l.addWidget(self.shlak_group_box, 1)
         self.tabWidget.addTab(self.tab_2, "")
 
         # ── tab_3  Материальный баланс ────────────────────────────────────
@@ -2751,7 +2876,7 @@ class Ui_OperatorForm(object):
         self.IncomingData.setRowCount(0)
         self.IncomingData.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.IncomingData.setHorizontalHeaderItem(1, QtWidgets.QTableWidgetItem())
-        self.IncomingData.horizontalHeader().setStretchLastSection(True)
+        self.IncomingData.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.IncomingData)
         mid3.addWidget(self.IncomingData, 1)
 
@@ -2761,15 +2886,18 @@ class Ui_OperatorForm(object):
         self.OutputData.setRowCount(0)
         self.OutputData.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.OutputData.setHorizontalHeaderItem(1, QtWidgets.QTableWidgetItem())
-        self.OutputData.horizontalHeader().setStretchLastSection(True)
+        self.OutputData.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.OutputData)
         mid3.addWidget(self.OutputData, 1)
 
         self.OutputDataGroupBox = QtWidgets.QGroupBox()
         self.OutputDataGroupBox.setObjectName("OutputDataGroupBox")
         odgb_v = QtWidgets.QVBoxLayout(self.OutputDataGroupBox)
+        odgb_v.setContentsMargins(5, 5, 5, 5)
+        odgb_v.setSpacing(3)
         odgb_g = QtWidgets.QGridLayout()
-        odgb_g.setSpacing(4)
+        odgb_g.setSpacing(3)
+        odgb_g.setColumnMinimumWidth(0, 155)
         odgb_g.setColumnStretch(1, 1)
         self.MassOfOxidizedImpuritiesLabel  = _lbl("MassOfOxidizedImpuritiesLabel")
         self.MassOfOxidizedImpurities       = _ro_edit("MassOfOxidizedImpurities")
@@ -2784,6 +2912,8 @@ class Ui_OperatorForm(object):
                 (self.MassOfOxidesPassingIntoSlagLabel,self.MassOfOxidesPassingIntoSlag),
                 (self.LossWithCarryOverLabel,           self.LossWithCarryOver),
                 (self.DustLossLabel,                    self.DustLoss)]):
+            lbl.setWordWrap(False)
+            lbl.setStyleSheet("font-size: 10px; color: #b8c8d0;")
             odgb_g.addWidget(lbl, r, 0)
             odgb_g.addWidget(wdg, r, 1)
         odgb_v.addLayout(odgb_g)
@@ -2791,13 +2921,14 @@ class Ui_OperatorForm(object):
         self.OutputDataTable.setObjectName("OutputDataTable")
         self.OutputDataTable.setColumnCount(3)
         self.OutputDataTable.setRowCount(7)
+        self.OutputDataTable.verticalHeader().setDefaultSectionSize(20)
         for r in range(7):
             self.OutputDataTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
         for c in range(3):
             self.OutputDataTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.OutputDataTable.horizontalHeader().setStretchLastSection(True)
+        self.OutputDataTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.OutputDataTable)
-        odgb_v.addWidget(self.OutputDataTable)
+        odgb_v.addWidget(self.OutputDataTable, 1)
         mid3.addWidget(self.OutputDataGroupBox, 1)
         t3l.addLayout(mid3)
         self.tabWidget.addTab(self.tab_3, "")
@@ -2806,23 +2937,42 @@ class Ui_OperatorForm(object):
         self.tab_4 = QtWidgets.QWidget()
         self.tab_4.setObjectName("tab_4")
         t4l = QtWidgets.QVBoxLayout(self.tab_4)
-        t4l.setContentsMargins(5, 5, 5, 5)
-        t4l.setSpacing(4)
+        t4l.setContentsMargins(0, 0, 0, 0)
+        t4l.setSpacing(0)
+
+        # Scroll area for content that may exceed tab height
+        t4_scroll = QtWidgets.QScrollArea()
+        t4_scroll.setWidgetResizable(True)
+        t4_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        t4_inner = QtWidgets.QWidget()
+        t4_inner_v = QtWidgets.QVBoxLayout(t4_inner)
+        t4_inner_v.setContentsMargins(5, 5, 5, 5)
+        t4_inner_v.setSpacing(4)
         heat_top = QtWidgets.QHBoxLayout()
         heat_top.setSpacing(5)
+
+        def _heat_lbl(obj_name):
+            lbl = QtWidgets.QLabel()
+            lbl.setObjectName(obj_name)
+            lbl.setWordWrap(False)
+            lbl.setStyleSheet("font-size: 10px; color: #b8c8d0;")
+            return lbl
 
         self.prihodnie_statii_group_box_2 = QtWidgets.QGroupBox()
         self.prihodnie_statii_group_box_2.setObjectName("prihodnie_statii_group_box_2")
         ps_v = QtWidgets.QVBoxLayout(self.prihodnie_statii_group_box_2)
+        ps_v.setContentsMargins(5, 5, 5, 5)
+        ps_v.setSpacing(3)
         ps_g = QtWidgets.QGridLayout()
         ps_g.setSpacing(3)
+        ps_g.setColumnMinimumWidth(0, 130)
         ps_g.setColumnStretch(1, 1)
-        self.phizicheskoe_teplo_zhidkovo_chuguna_label_2     = _lbl("phizicheskoe_teplo_zhidkovo_chuguna_label_2")
-        self.teplovoi_effect_reakcii_okisleniya_label_2      = _lbl("teplovoi_effect_reakcii_okisleniya_label_2")
-        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2 = _lbl("himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2")
-        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2= _lbl("teplovoi_effect_reakcii_shlakoobrazovaniya_label_2")
-        self.teplo_ot_dozhiganiya_co_label_2                 = _lbl("teplo_ot_dozhiganiya_co_label_2")
-        self.obshii_prihod_tepla_label_2                     = _lbl("obshii_prihod_tepla_label_2")
+        self.phizicheskoe_teplo_zhidkovo_chuguna_label_2     = _heat_lbl("phizicheskoe_teplo_zhidkovo_chuguna_label_2")
+        self.teplovoi_effect_reakcii_okisleniya_label_2      = _heat_lbl("teplovoi_effect_reakcii_okisleniya_label_2")
+        self.himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2 = _heat_lbl("himicheskoe_teplo_ot_obrazovaniya_oksidov_label_2")
+        self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2= _heat_lbl("teplovoi_effect_reakcii_shlakoobrazovaniya_label_2")
+        self.teplo_ot_dozhiganiya_co_label_2                 = _heat_lbl("teplo_ot_dozhiganiya_co_label_2")
+        self.obshii_prihod_tepla_label_2                     = _heat_lbl("obshii_prihod_tepla_label_2")
         self.CastPhysHeat     = _ro_edit("CastPhysHeat")
         self.ThermalReactEffect = _ro_edit("ThermalReactEffect")
         self.ChemHeatOxyd     = _ro_edit("ChemHeatOxyd")
@@ -2843,30 +2993,34 @@ class Ui_OperatorForm(object):
         self.IncomingHeatTable.setObjectName("IncomingHeatTable")
         self.IncomingHeatTable.setColumnCount(1)
         self.IncomingHeatTable.setRowCount(6)
+        self.IncomingHeatTable.verticalHeader().setDefaultSectionSize(20)
         for r in range(6):
             self.IncomingHeatTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
         for c in range(2):
             self.IncomingHeatTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.IncomingHeatTable.horizontalHeader().setStretchLastSection(True)
+        self.IncomingHeatTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.IncomingHeatTable)
-        ps_v.addWidget(self.IncomingHeatTable)
+        ps_v.addWidget(self.IncomingHeatTable, 1)
         heat_top.addWidget(self.prihodnie_statii_group_box_2, 1)
 
         self.rashodnie_statii_group_box_2 = QtWidgets.QGroupBox()
         self.rashodnie_statii_group_box_2.setObjectName("rashodnie_statii_group_box_2")
         rs_v = QtWidgets.QVBoxLayout(self.rashodnie_statii_group_box_2)
+        rs_v.setContentsMargins(5, 5, 5, 5)
+        rs_v.setSpacing(3)
         rs_g = QtWidgets.QGridLayout()
         rs_g.setSpacing(3)
+        rs_g.setColumnMinimumWidth(0, 130)
         rs_g.setColumnStretch(1, 1)
-        self.phizicheskoe_teplo_zhidkovo_metalla_label_2   = _lbl("phizicheskoe_teplo_zhidkovo_metalla_label_2")
-        self.phizicheskoe_teplo_shlaka_label_2             = _lbl("phizicheskoe_teplo_shlaka_label_2")
-        self.phizicheskoe_teplo_othodyashih_gazov_label_2  = _lbl("phizicheskoe_teplo_othodyashih_gazov_label_2")
-        self.HeatConsDecompos_label                        = _lbl("HeatConsDecompos_label")
-        self.poteri_tepla_s_vynosami_i_vybrosami_label_2   = _lbl("poteri_tepla_s_vynosami_i_vybrosami_label_2")
-        self.HeatDustForm_label                            = _lbl("HeatDustForm_label")
-        self.teplo_na_razlozhenie_karbonatov_label_2       = _lbl("teplo_na_razlozhenie_karbonatov_label_2")
-        self.teplovie_poteri_label_2                       = _lbl("teplovie_poteri_label_2")
-        self.obshii_rashod_tepla_label_2                   = _lbl("obshii_rashod_tepla_label_2")
+        self.phizicheskoe_teplo_zhidkovo_metalla_label_2   = _heat_lbl("phizicheskoe_teplo_zhidkovo_metalla_label_2")
+        self.phizicheskoe_teplo_shlaka_label_2             = _heat_lbl("phizicheskoe_teplo_shlaka_label_2")
+        self.phizicheskoe_teplo_othodyashih_gazov_label_2  = _heat_lbl("phizicheskoe_teplo_othodyashih_gazov_label_2")
+        self.HeatConsDecompos_label                        = _heat_lbl("HeatConsDecompos_label")
+        self.poteri_tepla_s_vynosami_i_vybrosami_label_2   = _heat_lbl("poteri_tepla_s_vynosami_i_vybrosami_label_2")
+        self.HeatDustForm_label                            = _heat_lbl("HeatDustForm_label")
+        self.teplo_na_razlozhenie_karbonatov_label_2       = _heat_lbl("teplo_na_razlozhenie_karbonatov_label_2")
+        self.teplovie_poteri_label_2                       = _heat_lbl("teplovie_poteri_label_2")
+        self.obshii_rashod_tepla_label_2                   = _heat_lbl("obshii_rashod_tepla_label_2")
         self.PhysHeatLiquidSteel = _ro_edit("PhysHeatLiquidSteel")
         self.PhysHeatSlag        = _ro_edit("PhysHeatSlag")
         self.PhysHeatOutGas      = _ro_edit("PhysHeatOutGas")
@@ -2893,15 +3047,18 @@ class Ui_OperatorForm(object):
         self.OutputHeatTable.setObjectName("OutputHeatTable")
         self.OutputHeatTable.setColumnCount(1)
         self.OutputHeatTable.setRowCount(9)
+        self.OutputHeatTable.verticalHeader().setDefaultSectionSize(20)
         for r in range(9):
             self.OutputHeatTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
         for c in range(2):
             self.OutputHeatTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.OutputHeatTable.horizontalHeader().setStretchLastSection(True)
+        self.OutputHeatTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.OutputHeatTable)
-        rs_v.addWidget(self.OutputHeatTable)
+        rs_v.addWidget(self.OutputHeatTable, 1)
         heat_top.addWidget(self.rashodnie_statii_group_box_2, 1)
-        t4l.addLayout(heat_top)
+        t4_inner_v.addLayout(heat_top)
+        t4_scroll.setWidget(t4_inner)
+        t4l.addWidget(t4_scroll)
         self.tabWidget.addTab(self.tab_4, "")
 
         # ── tab_5  Раскисление ────────────────────────────────────────────
@@ -2948,7 +3105,7 @@ class Ui_OperatorForm(object):
         self.ChemEmission.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         for c in range(6):
             self.ChemEmission.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.ChemEmission.horizontalHeader().setStretchLastSection(True)
+        self.ChemEmission.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.ChemEmission.setMaximumHeight(75)
         _dark_table(self.ChemEmission)
         t5l.addWidget(self.ChemEmission)
@@ -2965,16 +3122,62 @@ class Ui_OperatorForm(object):
             self.DeoxidationBalance.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
         for c in range(10):
             self.DeoxidationBalance.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
-        self.DeoxidationBalance.horizontalHeader().setDefaultSectionSize(78)
-        self.DeoxidationBalance.horizontalHeader().setStretchLastSection(True)
+        self.DeoxidationBalance.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.DeoxidationBalance)
         t5l.addWidget(self.DeoxidationBalance, 1)
         self.tabWidget.addTab(self.tab_5, "")
 
-        # ── tab_6  Рекомендации (stub — content in right panel) ──────────
+        # ── tab_6  Рекомендации ───────────────────────────────────────────
         self.tab_6 = QtWidgets.QWidget()
         self.tab_6.setObjectName("tab_6")
+        t6l = QtWidgets.QVBoxLayout(self.tab_6)
+        t6l.setContentsMargins(8, 6, 8, 6)
+        t6l.setSpacing(6)
+        self.label_56 = _lbl("label_56")
+        self.label_56.setStyleSheet("color: #00c8f0; font-size: 11px; font-weight: bold;")
+        t6l.addWidget(self.label_56)
+        self.recomendation = QtWidgets.QPlainTextEdit()
+        self.recomendation.setObjectName("recomendation")
+        self.recomendation.setReadOnly(True)
+        self.recomendation.setStyleSheet(
+            "QPlainTextEdit { background: rgba(0,40,10,0.45); "
+            "border: 1px solid rgba(0,255,100,0.30); color: #a0e8a0; font-size: 11px; }")
+        t6l.addWidget(self.recomendation, 1)
+
+        mgo_cols = QtWidgets.QHBoxLayout()
+        mgo_cols.setSpacing(20)
+        mgo_left = QtWidgets.QGridLayout()
+        mgo_left.setSpacing(4)
+        mgo_left.setColumnStretch(1, 1)
+        mgo_right = QtWidgets.QGridLayout()
+        mgo_right.setSpacing(4)
+        mgo_right.setColumnStretch(1, 1)
+        self.label_48 = _lbl("label_48"); self.limit_MgO         = QtWidgets.QLineEdit(); self.limit_MgO.setObjectName("limit_MgO")
+        self.label_49 = _lbl("label_49"); self.content_MgO       = QtWidgets.QLineEdit(); self.content_MgO.setObjectName("content_MgO")
+        self.label_50 = _lbl("label_50"); self.unsaturation_MgO  = QtWidgets.QLineEdit(); self.unsaturation_MgO.setObjectName("unsaturation_MgO")
+        self.label_53 = _lbl("label_53"); self.steel_temp        = QtWidgets.QLineEdit(); self.steel_temp.setObjectName("steel_temp")
+        self.label_54 = _lbl("label_54"); self.slag_basicity     = QtWidgets.QLineEdit(); self.slag_basicity.setObjectName("slag_basicity")
+        self.label_55 = _lbl("label_55"); self.lining_weight_loss= QtWidgets.QLineEdit(); self.lining_weight_loss.setObjectName("lining_weight_loss")
+        for r, (lbl, wdg) in enumerate([
+                (self.label_48, self.limit_MgO),
+                (self.label_49, self.content_MgO),
+                (self.label_50, self.unsaturation_MgO)]):
+            mgo_left.addWidget(lbl, r, 0); mgo_left.addWidget(wdg, r, 1)
+        for r, (lbl, wdg) in enumerate([
+                (self.label_53, self.steel_temp),
+                (self.label_54, self.slag_basicity),
+                (self.label_55, self.lining_weight_loss)]):
+            mgo_right.addWidget(lbl, r, 0); mgo_right.addWidget(wdg, r, 1)
+        mgo_cols.addLayout(mgo_left, 1)
+        mgo_cols.addLayout(mgo_right, 1)
+        t6l.addLayout(mgo_cols)
         self.tabWidget.addTab(self.tab_6, "")
+
+        _sp_exp = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        for _tab_page in (self.tab_7, self.tab, self.tab_2,
+                          self.tab_3, self.tab_4, self.tab_5, self.tab_6):
+            _tab_page.setSizePolicy(_sp_exp)
 
         main_layout.addWidget(self.tabWidget)
 
@@ -3044,7 +3247,7 @@ class Ui_OperatorForm(object):
         self.label_32.setText(_t("OperatorForm", "Мин. температура стали [℃]:"))
         self.label_33.setText(_t("OperatorForm", "Содержание P в стали [%масс]:"))
         self.label_34.setText(_t("OperatorForm", "Содержание C в стали [%масс]:"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Сценарий"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Схема"))
 
         # ── Default values ────────────────────────────────────────────────
         self.steelCarbon.setText("0.085");   self.steelSerum.setText("0.04")
@@ -3127,7 +3330,7 @@ class Ui_OperatorForm(object):
         self.OxidationTable.setSortingEnabled(False)
         self.OxidationTable.setSortingEnabled(__sortingEnabled)
         self.groupBox_11.setTitle(_t("OperatorForm", "Выбрать параметры из базы данных"))
-        self.label_23.setText(_t("OperatorForm", "Сценарий:"))
+        self.label_23.setText(_t("OperatorForm", "Марка стали:"))
         self.groupBox_13.setTitle(_t("OperatorForm", "Конвертер"))
         self.label_28.setText(_t("OperatorForm", "Высота, м:"))
         self.label_30.setText(_t("OperatorForm", "Диаметр, м:"))
@@ -3348,7 +3551,7 @@ class Ui_OperatorForm(object):
         self.AddUser.setText(_t("OperatorForm", "Добавить пользователя"))
         self.AddDbData.setText(_t("OperatorForm", "Добавить данные в бд"))
         # ── Tab text for bottom detail tabs ──────────────────────────────
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Сценарий"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Схема"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab),   _t("OperatorForm", "Окисление"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _t("OperatorForm", "Шлак"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _t("OperatorForm", "Мат. баланс"))
