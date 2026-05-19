@@ -5,6 +5,11 @@ from PyQt5.QtWidgets import QTableWidgetItem
 from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtCore import Qt
 
+import app_theme
+from theme_settings import manager, get_theme
+from theme_toggle import ThemeToggle
+
+
 class Ui_Form(object):
 
     def showChoosenTable(self):
@@ -356,79 +361,53 @@ class Ui_Form(object):
             mycursor.close()
             DB.close()
 
+    def refresh_theme(self):
+        theme = get_theme()
+        if hasattr(self, '_dev_form') and self._dev_form:
+            self._dev_form.setPalette(app_theme.palette(theme))
+            t = app_theme.tokens(theme)
+            self._dev_form.setStyleSheet(f"""
+                QWidget {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 {t['gradient_start']}, stop:1 {t['gradient_end']});
+                }}
+                QLabel {{ color: {t['text']}; background: transparent; }}
+                QGroupBox {{
+                    color: {t['accent2']}; font-weight: bold;
+                    border: 1px solid {t['group_border']};
+                    border-radius: 8px; margin-top: 10px; padding: 5px;
+                    background: {t['panel_bg']};
+                }}
+                QLineEdit, QComboBox {{
+                    background: {t['input_bg']};
+                    border: 1px solid {t['input_border']};
+                    border-radius: 4px; color: {t['text']};
+                }}
+                {app_theme.pushbutton_rules(t)}
+                QTableWidget {{
+                    background: {t['table_bg']}; color: {t['text']};
+                    gridline-color: {t['input_border']};
+                }}
+                QHeaderView::section {{
+                    background: {t['table_header']}; color: {t['text']};
+                }}
+            """)
+        if hasattr(self, 'theme_toggle'):
+            self.theme_toggle.sync_from_settings()
+        root = getattr(self, '_dev_form', None)
+        if root:
+            for tbl in root.findChildren(QtWidgets.QTableWidget):
+                tbl.setStyleSheet(app_theme.table_style(theme))
+                tbl.setPalette(app_theme.palette(theme))
+
     def setupUi(self, Form):
+        self._dev_form = Form
         Form.setObjectName("Form")
         Form.resize(1000, 620)
         Form.setMinimumSize(800, 500)
 
-        _palette = QPalette()
-        _palette.setColor(QPalette.Window, QColor(25, 25, 35))
-        _palette.setColor(QPalette.WindowText, QColor(224, 224, 224))
-        _palette.setColor(QPalette.Base, QColor(35, 35, 50))
-        _palette.setColor(QPalette.AlternateBase, QColor(45, 45, 60))
-        _palette.setColor(QPalette.Text, QColor(224, 224, 224))
-        _palette.setColor(QPalette.Button, QColor(45, 45, 60))
-        _palette.setColor(QPalette.ButtonText, QColor(224, 224, 224))
-        _palette.setColor(QPalette.Highlight, QColor(0, 212, 255))
-        _palette.setColor(QPalette.HighlightedText, QColor(25, 25, 35))
-        Form.setPalette(_palette)
-
-        _STYLE = """
-            QWidget {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
-            }
-            QLabel { color: #e0e0e0; background: transparent; }
-            QGroupBox {
-                color: #00d4ff; font-weight: bold;
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 8px; margin-top: 10px; padding: 5px;
-                background: rgba(0, 0, 0, 0.2);
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
-            QLineEdit {
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 4px; padding: 3px 6px; color: #ffffff;
-            }
-            QLineEdit:focus { border: 2px solid #00d4ff; }
-            QComboBox {
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 6px; padding: 4px 6px; color: #ffffff;
-            }
-            QComboBox:hover { border: 1px solid #00d4ff; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView { background: #1a1a2e; color: #ffffff; selection-background-color: #00d4ff; }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
-                color: #1a1a2e; border: none; border-radius: 6px;
-                padding: 5px 14px; font-weight: bold; font-size: 11px; min-height: 24px;
-            }
-            QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9); }
-            QPushButton:pressed { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa); }
-            QTableWidget {
-                background: rgba(0, 0, 0, 0.3);
-                alternate-background-color: rgba(255,255,255,0.05);
-                gridline-color: rgba(0,212,255,0.2); color: #e0e0e0;
-                border: 1px solid rgba(0,212,255,0.2); border-radius: 8px;
-            }
-            QTableWidget::item { padding: 5px; color: #e0e0e0; }
-            QTableWidget::item:selected { background: rgba(0,212,255,0.3); color: #ffffff; }
-            QHeaderView::section {
-                background: rgba(0,212,255,0.25); color: #ffffff;
-                padding: 6px; border: none; font-weight: bold;
-            }
-            QScrollBar:vertical { background: rgba(0,0,0,0.3); width: 10px; border-radius: 5px; }
-            QScrollBar::handle:vertical { background: rgba(0,212,255,0.5); border-radius: 4px; min-height: 20px; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal { background: rgba(0,0,0,0.3); height: 10px; border-radius: 5px; }
-            QScrollBar::handle:horizontal { background: rgba(0,212,255,0.5); border-radius: 4px; min-width: 20px; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-        """
-        Form.setStyleSheet(_STYLE)
-
         # Central widget + root layout
-        _central = QtWidgets.QWidget(Form)
+        _central = QtWidgets.QWidget()
         root_hbox = QtWidgets.QHBoxLayout(_central)
         root_hbox.setContentsMargins(8, 8, 8, 8)
         root_hbox.setSpacing(8)
@@ -652,20 +631,38 @@ class Ui_Form(object):
         right_scroll.setWidget(right_w)
         root_hbox.addWidget(right_scroll, stretch=1)
 
-        # Attach centralwidget to Form (works for both QMainWindow and QWidget)
+        self.menu_view = QtWidgets.QMenu(Form)
+        self.theme_toggle = ThemeToggle()
+        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        toggle_action = QtWidgets.QWidgetAction(Form)
+        toggle_action.setDefaultWidget(self.theme_toggle)
+        self.menu_view.addAction(toggle_action)
+        menubar = QtWidgets.QMenuBar(Form)
+        menubar.addMenu(self.menu_view)
+
         if hasattr(Form, 'setCentralWidget'):
-            Form.setCentralWidget(_central)
+            wrapper = QtWidgets.QWidget()
+            outer = QtWidgets.QVBoxLayout(wrapper)
+            outer.setContentsMargins(0, 0, 0, 0)
+            outer.addWidget(menubar)
+            outer.addWidget(_central)
+            Form.setCentralWidget(wrapper)
         else:
             _outer = QtWidgets.QVBoxLayout(Form)
             _outer.setContentsMargins(0, 0, 0, 0)
+            _outer.addWidget(menubar)
             _outer.addWidget(_central)
+
+        manager().theme_changed.connect(lambda _t: self.refresh_theme())
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
+        self.refresh_theme()
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Добро пожаловать, разработчик модели"))
+        self.menu_view.setTitle(_translate("Form", "Вид"))
         self.label.setText(_translate("Form", "Таблица:"))
         self.choosenTable.setItemText(0, _translate("Form", "Режимы"))
         self.choosenTable.setItemText(1, _translate("Form", "Сталь"))

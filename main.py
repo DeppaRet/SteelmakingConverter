@@ -1,41 +1,19 @@
-import os, site, sys
+import os
+import sys
 
-# Chromium sandbox can cause hard native crashes on some Windows configs.
-# --no-sandbox disables it; must be set before any Qt import.
-os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox")
+from converter3d.qt_bootstrap import bootstrap_qt
 
-# Add user-level Qt5/bin to DLL search path BEFORE any PyQt5 imports so that
-# PyQtWebEngine DLLs (installed to user AppData) are found on Windows.
-if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-    _qt_dll_dirs: list[str] = []
-    try:
-        _qt_dll_dirs.append(site.getusersitepackages())
-    except Exception:
-        pass
-    try:
-        _qt_dll_dirs.extend(site.getsitepackages())
-    except Exception:
-        pass
-    for _sp in _qt_dll_dirs:
-        _d = os.path.join(_sp, "PyQt5", "Qt5", "bin")
-        if os.path.isdir(_d):
-            try:
-                os.add_dll_directory(_d)
-            except OSError:
-                pass
+bootstrap_qt()
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+# Required before QtWebEngine import AND before QApplication.
+QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
+
 from PyQt5.QtWidgets import QMessageBox, QLineEdit, QGraphicsDropShadowEffect
 from PyQt5.QtGui import QLinearGradient, QPalette, QBrush, QColor, QFont
 from PyQt5.QtCore import Qt, QRect, QPoint
 
-# QtWebEngineWidgets MUST be imported before QCoreApplication is created.
-# Do it here (before QApplication in __main__) so OperForm can use it safely.
-try:
-    from PyQt5.QtWebEngineWidgets import QWebEngineView as _  # noqa: F401
-    del _
-except Exception:
-    pass
 import AdminForm
 import OperForm
 import DeveloperForm
@@ -43,6 +21,9 @@ import mysql.connector as mc
 import hashAuth, connSettings
 from configparser import ConfigParser
 import config
+import app_theme
+from theme_settings import manager, get_theme
+from theme_toggle import ThemeToggle
 
 DBhost = "localhost"
 DBlogin = "root"
@@ -64,6 +45,27 @@ parser = ConfigParser()
 #     config.write(f)
 
 class Ui_LoginForm(object):
+    def refresh_theme(self):
+        theme = get_theme()
+        styles = app_theme.login_styles(theme)
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            app_theme.apply_to_application(app, theme)
+        if hasattr(self, '_login_form') and self._login_form:
+            self._login_form.setPalette(app_theme.palette(theme))
+        self.centralwidget.setStyleSheet(styles["central"])
+        self.titleLabel.setStyleSheet(styles["title"])
+        self.iconLabel.setStyleSheet(styles["icon"])
+        self.formContainer.setStyleSheet(styles["form_panel"])
+        self.loginLabel.setStyleSheet(styles["label"])
+        self.passwordLabel.setStyleSheet(styles["label"])
+        self.LoginLine.setStyleSheet(styles["line_edit"])
+        self.PasswordLine.setStyleSheet(styles["line_edit"])
+        self.loginButton.setStyleSheet(styles["primary_btn"])
+        self.SettingsButton.setStyleSheet(styles["settings_btn"])
+        if hasattr(self, "theme_toggle"):
+            self.theme_toggle.sync_from_settings()
+
     def getSettings(self):
         parser.read('dev.ini')
         global DBhost
@@ -104,6 +106,7 @@ class Ui_LoginForm(object):
                 msg.setText("Внимание")
                 msg.setInformativeText('Неверный логин или пароль')
                 msg.setWindowTitle("Ошибка")
+                app_theme.style_message_box(msg)
                 msg.exec_()
 
             elif result == 1:
@@ -138,117 +141,64 @@ class Ui_LoginForm(object):
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные или настройки подключения!")
             # msg.setInformativeText("Error: {0}".format(err))
+            app_theme.style_message_box(msg)
             msg.exec_()
 
     def openSettings(self):
-        self.window = QtWidgets.QDialog()
-        # self.window.setWindowModality(QtCore.Qt.WindowModal)
-        self.ui = connSettings.Ui_ConnectionSettings()
-        self.ui.setupUi(self.window)
-        self.window.exec_()
+        parent = getattr(self, "_login_form", None)
+        dlg = QtWidgets.QDialog(parent)
+        dlg.setWindowModality(Qt.WindowModal)
+        ui = connSettings.Ui_ConnectionSettings()
+        ui.setupUi(dlg)
+        dlg.exec_()
+        self.refresh_theme()
 
     # ---------------------------- Interface ----------------------------
     def setupUi(self, LoginForm):
         LoginForm.setObjectName("LoginForm")
         LoginForm.setFixedSize(420, 340)
-        
+        self._login_form = LoginForm
+
         winIcon = QtGui.QIcon()
         winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         LoginForm.setWindowIcon(winIcon)
 
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(25, 25, 35))
-        LoginForm.setPalette(palette)
-
         self.centralwidget = QtWidgets.QWidget(LoginForm)
         self.centralwidget.setObjectName("centralwidget")
-        self.centralwidget.setStyleSheet("""
-            QWidget#centralwidget {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
-                border-radius: 15px;
-            }
-            QLabel {
-                color: #e0e0e0;
-            }
-        """)
 
         self.titleLabel = QtWidgets.QLabel(self.centralwidget)
         self.titleLabel.setGeometry(0, 15, 420, 30)
         self.titleLabel.setAlignment(Qt.AlignCenter)
         titleFont = QFont("Segoe UI", 14, QFont.Bold)
         self.titleLabel.setFont(titleFont)
-        self.titleLabel.setStyleSheet("color: #00d4ff; background: transparent;")
 
         self.iconLabel = QtWidgets.QLabel(self.centralwidget)
         self.iconLabel.setGeometry(155, 50, 110, 80)
         self.iconLabel.setAlignment(Qt.AlignCenter)
         self.iconLabel.setPixmap(QtGui.QPixmap("Pictures/steel_ico.png").scaled(70, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        self.iconLabel.setStyleSheet("background: #e8e8e8; border-radius: 12px; border: 2px solid #00d4ff; padding: 5px;")
 
         self.formContainer = QtWidgets.QWidget(self.centralwidget)
+        self.formContainer.setObjectName("loginFormPanel")
         self.formContainer.setGeometry(40, 145, 340, 140)
-        self.formContainer.setStyleSheet("""
-            QWidget {
-                background: rgba(0, 0, 0, 0.3);
-                border-radius: 12px;
-                border: 1px solid rgba(0, 212, 255, 0.2);
-            }
-        """)
 
         self.loginLabel = QtWidgets.QLabel(self.formContainer)
         self.loginLabel.setGeometry(25, 20, 70, 25)
         loginLabelFont = QFont("Segoe UI", 11, QFont.Bold)
         self.loginLabel.setFont(loginLabelFont)
-        self.loginLabel.setStyleSheet("color: #ffffff; background: transparent;")
 
         self.LoginLine = QtWidgets.QLineEdit(self.formContainer)
         self.LoginLine.setGeometry(100, 15, 215, 35)
         self.LoginLine.setFont(QFont("Segoe UI", 11))
-        self.LoginLine.setStyleSheet("""
-            QLineEdit {
-                background: rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 8px;
-                padding: 5px 12px;
-                color: #ffffff;
-                selection-background-color: #00d4ff;
-            }
-            QLineEdit:focus {
-                border: 2px solid #00d4ff;
-                background: rgba(0, 212, 255, 0.1);
-            }
-            QLineEdit::placeholder {
-                color: rgba(255, 255, 255, 0.4);
-            }
-        """)
         self.LoginLine.setPlaceholderText("Введите логин")
 
         self.passwordLabel = QtWidgets.QLabel(self.formContainer)
         self.passwordLabel.setGeometry(25, 60, 70, 25)
         self.passwordLabel.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        self.passwordLabel.setStyleSheet("color: #ffffff; background: transparent;")
 
         self.PasswordLine = QtWidgets.QLineEdit(self.formContainer)
         self.PasswordLine.setGeometry(100, 55, 215, 35)
         self.PasswordLine.setFont(QFont("Segoe UI", 11))
         self.PasswordLine.setEchoMode(QLineEdit.Password)
-        self.PasswordLine.setStyleSheet("""
-            QLineEdit {
-                background: rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 8px;
-                padding: 5px 12px;
-                color: #ffffff;
-                selection-background-color: #00d4ff;
-            }
-            QLineEdit:focus {
-                border: 2px solid #00d4ff;
-                background: rgba(0, 212, 255, 0.1);
-            }
-            QLineEdit::placeholder {
-                color: rgba(255, 255, 255, 0.4);
-            }
-        """)
         self.PasswordLine.setPlaceholderText("Введите пароль")
 
         self.loginButton = QtWidgets.QPushButton(self.formContainer)
@@ -256,21 +206,6 @@ class Ui_LoginForm(object):
         self.loginButton.setCursor(Qt.PointingHandCursor)
         self.loginButton.setFont(QFont("Segoe UI", 11, QFont.Bold))
         self.loginButton.setText("Войти")
-        self.loginButton.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
-                color: #1a1a2e;
-                border: none;
-                border-radius: 8px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa);
-            }
-        """)
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(15)
         shadow.setColor(QColor(0, 212, 255, 80))
@@ -279,28 +214,24 @@ class Ui_LoginForm(object):
         self.loginButton.clicked.connect(self.LoginButtonClick)
 
         self.SettingsButton = QtWidgets.QPushButton(self.centralwidget)
-        self.SettingsButton.setGeometry(385, 295, 30, 20)
+        self.SettingsButton.setGeometry(268, 295, 30, 24)
         self.SettingsButton.setText("")
         self.SettingsButton.setCursor(Qt.PointingHandCursor)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("Pictures/png-transparent-settings-gear-icon-gear-configuration-set-up-thumbnail.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.SettingsButton.setIcon(icon)
-        self.SettingsButton.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-            }
-            QPushButton:hover {
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 4px;
-            }
-        """)
         self.SettingsButton.clicked.connect(self.openSettings)
+
+        self.theme_toggle = ThemeToggle(self.centralwidget)
+        self.theme_toggle.setGeometry(300, 293, 76, 28)
+        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
 
         LoginForm.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(LoginForm)
         QtCore.QMetaObject.connectSlotsByName(LoginForm)
+        self.refresh_theme()
+        manager().theme_changed.connect(lambda _t: self.refresh_theme())
 
     def retranslateUi(self, LoginForm):
         _translate = QtCore.QCoreApplication.translate
@@ -315,9 +246,17 @@ class Ui_LoginForm(object):
 if __name__ == "__main__":
     import sys
 
-    # QtWebEngineWidgets requires this attribute to be set before QApplication
-    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     app = QtWidgets.QApplication(sys.argv)
+    theme = get_theme()
+    app_theme.apply_to_application(app, theme)
+    manager().theme_changed.connect(
+        lambda t: app_theme.apply_to_application(app, t)
+    )
+    try:
+        from converter3d.visual_style import set_ui_theme
+        set_ui_theme(theme)
+    except ImportError:
+        pass
     LoginForm = QtWidgets.QMainWindow()
     ui = Ui_LoginForm()
     ui.setupUi(LoginForm)
