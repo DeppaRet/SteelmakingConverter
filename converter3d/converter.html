@@ -105,7 +105,7 @@
       <div class="metric-value" id="m-temp">—</div>
     </div>
     <div class="metric">
-      <div class="metric-label">O2, m&#179;</div>
+      <div class="metric-label">O2, м³/мин</div>
       <div class="metric-value" id="m-blast">—</div>
     </div>
   </div>
@@ -126,7 +126,10 @@ var converterState = {
   slagMass:    0,
   slagLevel:   0,
   blastFlow:   0,
-  temperature: 1400
+  temperature: 1400,
+  lanceHeight: 0,
+  penetrationDepth: 0,
+  reactionZoneActive: false
 };
 
 var syncScene = null;
@@ -1002,10 +1005,13 @@ function initScene() {
   var LANCE_MIN_TIP_Y  = 0.42;
   var LANCE_REST_Y     = 4.8;
 
-  function lanceTargetY(mH, slH, isBlowing) {
+  function lanceTargetY(mH, slH, isBlowing, lanceHeightM) {
     if (!isBlowing) return LANCE_REST_Y;
     var metalTopY = mH > 0.015 ? (METAL_FLOOR_Y + mH) : 1.0;
     var bathTopY  = (slH > 0.008 && mH > 0.015) ? metalTopY + slH : metalTopY;
+    if (lanceHeightM > 0) {
+      return bathTopY + lanceHeightM + LANCE_TIP_OFFSET;
+    }
     var tipY = Math.max(LANCE_MIN_TIP_Y, bathTopY - LANCE_SUBMERGE);
     return tipY + LANCE_TIP_OFFSET;
   }
@@ -1060,6 +1066,22 @@ function initScene() {
   );
   guideRing.position.y = 0;  // will be repositioned
   scene.add(guideRing);
+
+  // Полупрозрачная «лунка» (глубина внедрения струи)
+  var pitCone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.14, 0.55, 14),
+    new THREE.MeshBasicMaterial({
+      color: 0xff9922, transparent: true, opacity: 0.32,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    })
+  );
+  pitCone.rotation.x = Math.PI;
+  pitCone.position.y = -2.55;
+  pitCone.visible = false;
+  lanceGroup.add(pitCone);
+
+  var reactionLight = new THREE.PointLight(0xffcc88, 0, 2.8, 1.6);
+  scene.add(reactionLight);
 
   // ── Spark / smoke / blow particles ────────────────────────
   var N_SPARK = 120;
@@ -1230,7 +1252,7 @@ function initScene() {
       }
     }
 
-    targetLanceY = lanceTargetY(mH, slH, isBlowing);
+    targetLanceY = lanceTargetY(mH, slH, isBlowing, s.lanceHeight || 0);
 
     // Glow
     targetGlow = mH * (isBlowing ? 3.0 : 0.9);
@@ -1312,6 +1334,24 @@ function initScene() {
     lanceLight.position.copy(lanceGroup.position);
     lanceLight.position.y -= 2.30;
     lanceLight.intensity = isBlowing ? 1.8 : 0;
+
+    var penD = converterState.penetrationDepth || 0;
+    var tipWorldY = lanceGroup.position.y - 2.30;
+    if (isBlowing && penD > 0.02) {
+      pitCone.visible = true;
+      var pitH = Math.min(1.2, Math.max(0.08, penD));
+      pitCone.scale.set(1, pitH / 0.55, 1);
+      pitCone.position.y = -2.30 - pitH * 0.5;
+    } else {
+      pitCone.visible = false;
+    }
+
+    if (converterState.reactionZoneActive && isBlowing && penD > 0) {
+      reactionLight.position.set(0, tipWorldY - penD * 0.35, 0);
+      reactionLight.intensity += (2.4 - reactionLight.intensity) * 0.08;
+    } else {
+      reactionLight.intensity += (0 - reactionLight.intensity) * 0.12;
+    }
 
     // Sparks from lance tip
     var showSpark = isBlowing && metalBody.visible;

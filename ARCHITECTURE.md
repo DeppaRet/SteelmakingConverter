@@ -1,178 +1,527 @@
 # Steelmaking Converter — Архитектура
 
 Десктопное PyQt5-приложение для обучения операторов управлению сталеплавильным конвертером.
-Роль-ориентированная навигация, расчётный движок плавки, MySQL-backend.
+Роль-ориентированная навигация, пошаговый расчётный движок плавки, 3D-визуализация процесса, единая система тем, MySQL-backend.
 
-**3 роли пользователей · 3 MySQL-базы данных · 8 модулей Python · 6 Qt .ui-форм**
+**3 роли · 3 БД MySQL · ~15 модулей Python · 8 Qt .ui-форм · 8 этапов расчёта**
 
 ---
 
-## Поток авторизации
+## Общая схема
 
-| Шаг | Описание |
-|-----|----------|
-| Запуск | `main.py` → `QApplication` → `Ui_LoginForm.setupUi()` |
-| Ввод данных | Пользователь вводит логин и пароль |
-| Хэширование | `hashAuth.Hash.getHash(password)` → MD5 |
-| Проверка роли | `SELECT Roles_idRoles FROM users WHERE Login=… AND Password=…` |
-| Роль 1 | Открыть `AdminForm.Ui_AdminFom` |
-| Роль 2 | Открыть `OperForm.Ui_OperatorForm` |
-| Роль 3 | Открыть `DeveloperForm.Ui_Form` |
-| Настройки | `SettingsButton` → `connSettings.Ui_ConnectionSettings` (`dev.ini`) |
+```mermaid
+flowchart TB
+    subgraph entry [Точка входа]
+        main["main.py"]
+        bootstrap["converter3d/qt_bootstrap.py"]
+        theme["theme_settings + app_theme + theme_toggle"]
+    end
+
+    subgraph auth [Авторизация]
+        login["Ui_LoginForm"]
+        hash["hashAuth.py"]
+        ini["dev.ini"]
+    end
+
+    subgraph roles [Роли]
+        admin["AdminForm.py"]
+        oper["OperForm.py"]
+        dev["DeveloperForm.py"]
+    end
+
+    subgraph calc [Расчётный движок]
+        worker["WorkerThread"]
+        stages["8 этапов расчёта"]
+        flags["Флаги *Calcked"]
+    end
+
+    subgraph viz [Визуализация]
+        conv3d["converter3d/"]
+        web["Three.js / WebEngine"]
+        gl["OpenGL fallback"]
+        paint["QPainter fallback"]
+    end
+
+    subgraph db [MySQL]
+        users_db["users_db"]
+        regimdata["regimdata"]
+        ferroalloydb["ferroalloydb"]
+    end
+
+    main --> bootstrap
+    main --> theme
+    main --> login
+    login --> hash
+    login --> ini
+    login -->|role 1| admin
+    login -->|role 2| oper
+    login -->|role 3| dev
+    oper --> worker
+    worker --> stages
+    stages --> flags
+    oper --> conv3d
+    conv3d --> web
+    conv3d --> gl
+    conv3d --> paint
+    admin --> db
+    oper --> db
+    dev --> db
+```
+
+---
+
+## Поток запуска и авторизации
+
+| Шаг | Компонент | Описание |
+|-----|-----------|----------|
+| 1 | `converter3d/qt_bootstrap.py` | Подготовка путей к Qt/PyQt (vendor, DLL на Windows) до импорта виджетов |
+| 2 | `main.py` | `QApplication`, `AA_ShareOpenGLContexts` для WebEngine, загрузка темы из `dev.ini` |
+| 3 | `Ui_LoginForm.setupUi()` | Экран входа, переключатель темы `ThemeToggle` |
+| 4 | `hashAuth.Hash.getHash()` | MD5-хэш пароля |
+| 5 | `users_db.users` | `SELECT Roles_idRoles WHERE Login=… AND Password=…` |
+| 6 | Роль 1 | `AdminForm.Ui_AdminFom` — администрирование |
+| 7 | Роль 2 | `OperForm.Ui_OperatorForm` — симулятор плавки |
+| 8 | Роль 3 | `DeveloperForm.Ui_Form` — справочники модели |
+| 9 | Настройки | `connSettings.Ui_ConnectionSettings` → редактирование `dev.ini` |
 
 ---
 
 ## Модули программы
 
+### Ядро приложения
+
+| Файл | Класс / объект | Назначение |
+|------|----------------|------------|
+| `main.py` | `Ui_LoginForm` | Точка входа, авторизация, маршрутизация по ролям |
+| `config.py` | `UserLogin` | Глобальная переменная — логин текущей сессии |
+| `hashAuth.py` | `Hash.getHash()` | MD5-хэширование пароля |
+| `connSettings.py` | `Ui_ConnectionSettings` | Диалог настроек MySQL, тест соединения |
+| `AboutForm.py` | `Ui_Dialog` | Диалог «О программе» |
+| `createini.py` | — | Служебный скрипт создания/теста `dev.ini` |
+| `build_code.py` | — | Вспомогательный скрипт сборки |
+| `neuro.py` | *(закомментировано)* | Заготовка Keras Sequential (20→17 параметров), отключена |
+
+### Формы по ролям
+
 | Файл | Класс | Роль | Описание |
 |------|-------|------|----------|
-| `main.py` | `Ui_LoginForm` | Точка входа | Экран авторизации. Читает `dev.ini`, подключается к `users_db`, определяет роль и открывает нужную форму. |
-| `AdminForm.py` | `Ui_AdminFom` | Роль 1 — Администратор | Управление пользователями (`users_db`) и справочными данными (`regimdata`). Экспорт таблиц в Excel через pandas. |
-| `OperForm.py` | `Ui_OperatorForm` | Роль 2 — Оператор | Симулятор конвертерной плавки. Загрузка сценария, ввод параметров шихты, расчёт шлака / дутья / теплового и материального балансов. Асинхронные запросы через `WorkerThread(QThread)`. |
-| `DeveloperForm.py` | `Ui_Form` | Роль 3 — Разработчик модели | Просмотр и редактирование справочных таблиц `regimdata`: режимы, стали, чугун, лом, флюсы, сценарии. |
-| `connSettings.py` | `Ui_ConnectionSettings` | Настройки подключения | Диалог конфигурации MySQL (хост, порт, логин, пароль). Читает и сохраняет `dev.ini`. Кнопка теста соединения. |
-| `AboutForm.py` | `Ui_Dialog` | О программе | Информационный диалог с описанием продукта и автором. |
-| `hashAuth.py` | `Hash` | Аутентификация | Хэширование пароля через MD5 (`hashlib`) перед сравнением с БД. |
-| `neuro.py` | *(закомментировано)* | Нейросетевой модуль | Заготовка Sequential-модели Keras (2 скрытых слоя по 128, ReLU). Вход — 20 параметров плавки, выход — 17 параметров металла и шлака. Отключён. |
+| `AdminForm.py` | `Ui_AdminFom` | Администратор | Пользователи, справочники `regimdata`, сценарии, экспорт в Excel |
+| `OperForm.py` | `Ui_OperatorForm` | Оператор | Симулятор плавки: сценарии, 8 этапов расчёта, 3D-панель, протокол обучения |
+| `DeveloperForm.py` | `Ui_Form` | Разработчик | Просмотр и редактирование таблиц `regimdata` |
+
+### Система тем
+
+| Файл | Назначение |
+|------|------------|
+| `theme_settings.py` | `ThemeManager` — чтение/запись темы (`dark`/`light`) в `[AppSettings]` секции `dev.ini`, сигнал `theme_changed` |
+| `theme_toggle.py` | Виджет-переключатель светлой/тёмной темы |
+| `app_theme.py` | Централизованные QSS-стили, палитры, токены для всех форм (login, operator, admin, developer, tables, message boxes) |
+| `control_inputs.py` | `ControlInputsPanel` — ручные крутилки дутья/фурмы, пресеты JSON, сигнал `controls_changed` |
+
+### 3D-визуализация (`converter3d/`)
+
+| Файл | Назначение |
+|------|------------|
+| `widget.py` | Фабрика `create_converter_widget()` — выбор бэкенда, единый API `update_state(dict)` |
+| `converter.html` + `three.min.js` | Three.js-сцена (основной рендер через Qt WebEngine) |
+| `opengl_widget.py` | OpenGL-рендер (fallback) |
+| `visual_style.py` | Цветовые пресеты 3D-сцены под UI-тему |
+| `qt_bootstrap.py` | Bootstrap PyQt/WebEngine на Windows |
+
+**Приоритет бэкендов:** WebEngine (Three.js) → OpenGL → QPainter (чистый PyQt5).
 
 ---
 
-## Слой GUI
+## Интерфейс формы оператора (OperForm)
 
-Файлы `GUI/*.ui` — проекты Qt Designer. Из них генерируются `file*.py` через `pyuic5`.
-Бизнес-логика живёт в основных модулях (`AdminForm.py`, `OperForm.py` и т.д.), которые переопределяют сгенерированные классы.
+Трёхколоночный layout (`QSplitter`):
 
-| Авто-генерированный файл | Источник / назначение |
-|--------------------------|-----------------------|
-| `fileAdmin.py` | Авто-генерация из `GUI/AdminForm.ui` (pyuic5) |
-| `fileConn.py` | Авто-генерация из `GUI/ConnectionSettings.ui` |
-| `filenameconverted.py` | Авто-генерация (предположительно `OperForm.ui`) |
+| Панель | Содержимое |
+|--------|------------|
+| Левая | Ввод данных: чугун, лом, целевая сталь, флюсы, ферросплав, сценарий |
+| Центр | Панель «Управляющие воздействия» + последовательность расчётов (8 этапов с LED-индикаторами) + 3D-конвертер (в сплиттере) |
+| Правая | Мониторинг: температура, перегрев, KPI, рекомендации, протокол |
+
+**Особенности UI:**
+- Кнопки этапов защищены guard-логикой — нельзя перейти к следующему этапу без завершения предыдущего
+- LED-индикаторы обновляются таймером `_refresh_stage_leds()` каждые 300 мс
+- Кнопка «ЗАПУСТИТЬ ВСЕ ЭТАПЫ» → `GetScenarioExample()` → `WorkerThread` → `run_calculations()`
+- Стили через `app_theme.py`, переключение темы без перезапуска
 
 ---
 
 ## Базы данных MySQL
 
 ### users_db
-- `users` (Login, Password, Roles_idRoles)
-- `userroles` (idRoles, RoleName)
+- `users` — Login, Password, Roles_idRoles
+- `userroles` — idRoles, RoleName
 
 ### regimdata
-- `mode` (idMode, ModeName, …)
-- `steeldata` + `steelcomposition` (C, S, P, Si)
-- `caststeeldata` + `caststeelcomposition` (чугун: масса, T, C/S/P/Si/Mn)
-- `scrapdata` + `scrapcomposition` (лом: масса, C/S/P/Si/Mn)
-- `fluxedata` + `fluxecomposition` (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3)
-- `scenario` (ScanrioName, ScenarioTask, лимиты C/P/T, mode_idMode)
-- `v_combined_data` (представление — сводные данные режима)
+- `mode` — режимы плавки (ссылки на сталь, лом, чугун)
+- `steeldata` + `steelcomposition` — марки стали (C, S, P, Si, Mn)
+- `caststeeldata` + `caststeelcomposition` — чугун (масса, T, состав)
+- `scrapdata` + `scrapcomposition` — лом (масса, состав)
+- `fluxedata` + `fluxecomposition` — флюсы (CaO, SiO2, MgO, Fe2O3, FeO, MnO, Al2O3, CaCO3, MgCO3)
+- `fluxedata_has_mode` — связь флюсов с режимами и их массы
+- `scenario` — ScanrioName, ScenarioTask, лимиты C/P/T, mode_idMode
+- `v_combined_data` — представление со сводными данными режима
 
 ### ferroalloydb
-- `ferroalloy` (Name, состав)
+- `ferroalloy` — Name, химический состав ферросплавов
 
 ---
 
-## Конфигурация и состояние
+## Конфигурация
 
-| Файл / объект | Назначение |
-|---------------|------------|
-| `dev.ini` | Хранит хост, логин, пароль MySQL. Читается через `configparser`. |
-| `config.py` → `UserLogin` | Глобальная переменная с логином текущей сессии. |
-| `createini.py` | Служебный скрипт для создания / тестирования `dev.ini` (не в продакшне). |
-| `build_code.py` | Вспомогательный скрипт сборки. |
-| `Data from programm.xlsx` | Экспорт таблицы режимов (AdminForm → pandas → openpyxl). |
-| `Scenario.xlsx` | Экспорт таблицы сценариев (AdminForm → pandas → openpyxl). |
+Файл `dev.ini`:
 
----
+```ini
+[DBsettings]
+dbhost = localhost
+login = root
+password = root
 
-## Расчётный движок (OperForm) — обзор этапов
+[AppSettings]
+theme = dark
+```
 
-Форма оператора реализует пошаговый расчёт плавки. Каждый этап защищён флагом (`*Calcked`).
-Тяжёлые операции с БД вынесены в `WorkerThread(QThread)` с сигналами `progress` / `result_scenario` / `result_mode` / `error`.
-
-| Этап | Флаг | Описание |
-|------|------|----------|
-| Металлошихта | `metalChargeCalcked` | Расчёт масс чугуна и лома, состава шихты по C/Si/Mn/P/S |
-| Таблица флюсов | `tableCalcked` | До 16 объектов `FluxeComposition` с составами CaO/SiO2/MgO/… |
-| Шлак | `slagCalcked` | Расчёт состава и массы шлака |
-| Дутьё | `blastCalcked` | Расчёт параметров кислородного дутья |
-| Материальный баланс | `materialBalanceCalcked` | Сводный баланс масс входа и выхода |
-| Тепловой баланс | `heatBalanceCalcked` | Тепловой баланс плавки |
+| Объект | Назначение |
+|--------|------------|
+| `dev.ini` → `[DBsettings]` | Параметры подключения к MySQL |
+| `dev.ini` → `[AppSettings]` | Тема интерфейса (`dark` / `light`) |
+| `config.UserLogin` | Логин текущего пользователя в runtime |
+| Глобальные флаги в `OperForm.py` | `metalChargeCalcked`, `tableCalcked`, `slagCalcked`, `blastCalcked`, `materialBalanceCalcked`, `heatBalanceCalcked` |
+| `Protokol`, `step` | Накопленный текст протокола обучения и номер шага |
+| `listOfNamesForClass[16]` | Массив объектов `FluxeComposition` для расчёта флюсов |
 
 ---
 
-## Функции OperForm.py — детальное описание
+## Связь расчётов с 3D-визуализацией
 
-Класс `WorkerThread(QThread)` и класс `Ui_OperatorForm`.
-Все расчётные функции выполняются последовательно: каждая проверяет флаг предыдущего этапа и при необходимости запускает его автоматически.
+| Этап расчёта | `update_state()` ключи |
+|--------------|------------------------|
+| `calcMetalChargeClicked` | `state='charged'`, `metalMass`, `metalLevel`, `slagMass=0` |
+| `slagCalcClicked` | `state='blowing'`, `slagMass`, `slagLevel`, `temperature=1500` |
+| `blastCalcClicked` / панель управления | `blastFlow` (м³/мин), `lanceHeight`, `penetrationDepth`, `reactionZoneActive` |
+| `HeatBalanceCalcClicked` | `temperature` (расчётная T стали) |
+| `getRecomendation` | `state='complete'`, `temperature` |
 
-### WorkerThread — фоновый поток
+---
 
-| Метод | Сигналы | Описание |
-|-------|---------|----------|
-| `__init__(scenario, db_host, db_login, db_pass)` | — | Сохраняет параметры подключения и имя сценария. |
-| `run()` | `progress(int)`, `result_scenario(str×4)`, `result_mode(str)`, `error(str)` | Выполняет два SQL-запроса к `regimdata`: загружает задание и лимиты (C, P, T) сценария, затем имя режима. Шаги прогресса: 0→10→40→70→90→100%. |
+## Слой GUI (Qt Designer)
 
-### Инициализация и загрузка данных
+Файлы `GUI/*.ui` — макеты Qt Designer. Генерируются через `pyuic5` в `file*.py`.
+Основная бизнес-логика и UI формы оператора реализованы **программно** в `OperForm.py` (без `.ui`).
 
-| Метод | Флаг/зависимость | Описание |
-|-------|-----------------|----------|
-| `getSettings()` | — | Читает `dev.ini` через `ConfigParser` и записывает `DBhost` / `DBlogin` / `DBpass` в глобальные переменные модуля. |
-| `getModes()` | — | Загружает список сценариев (`regimdata.scenario`), режимов (`regimdata.mode`) и ферросплавов (`ferroalloydb.ferroalloy`) в соответствующие ComboBox-ы при старте формы. |
-| `GetScenario()` | — | Ручная (синхронная) загрузка выбранного сценария: задание, лимиты C/P/T, имя режима → вызывает `chooseMods()`. |
-| `GetScenarioExample()` | — | Устаревший вариант `GetScenario` (код закомментирован). Не используется. |
-| `update_progress(value)` | slot ← `WorkerThread.progress` | Обновляет `QProgressBar scenarioProgress`. |
-| `update_scenario(task, carbon, phosphor, temp)` | slot ← `WorkerThread.result_scenario` | Заполняет поля задания сценария и числовых лимитов. |
-| `update_mode(mode)` | slot ← `WorkerThread.result_mode` | Устанавливает текущий режим в `ModeComboBox`. |
-| `show_error(error)` | slot ← `WorkerThread.error` | Показывает `QMessageBox` с описанием ошибки потока. |
-| `run_calculations()` | — | Оркестратор: последовательно вызывает `chooseMods` → `calcMetalChargeClicked` → `calcTableClick` → `slagCalcClicked` → `blastCalcClicked` → `MaterialBalanceCalcClicked` → `HeatBalanceCalcClicked` → `AddFeroBtnClicked` → `deoxCalc` → `getRecomendation`, затем сбрасывает `Protokol` и `step`. |
-| `chooseMods()` | — | По имени режима из БД загружает: состав стали-цели (C/S/P/Si/Mn), данные чугуна (масса, T, состав), данные лома (масса, состав). Вызывает `getFluxeInMode()`. |
-| `getFluxeInMode(modeId)` | — | Заполняет таблицу `FluxeTable` из связки `fluxedata_has_mode`: название флюса и его масса, привязанные к текущему режиму. |
-
-### Управление флюсами и ферросплавами
-
-| Метод | Описание |
-|-------|----------|
-| `getFluxes()` | Загружает все доступные флюсы из `regimdata.fluxedata` в ComboBox `FluxeType`. |
-| `AddFluxeButtonClicked()` | Добавляет строку с выбранным флюсом в `FluxeTable` (оператор задаёт массу вручную). |
-| `removeFluxeButtonClicked()` | Очищает `FluxeTable` (`setRowCount(0)`). |
-| `AddFeroBtnClicked()` | Загружает состав выбранного ферросплава из `ferroalloydb` и отображает в таблице `ChemEmission`. |
-| `removeFeroBtnClicked()` | Очищает таблицу `ChemEmission`. |
-
-### Расчётный движок — последовательность этапов
-
-| Метод | Флаг | Что вычисляет |
-|-------|------|---------------|
-| `calcMetalChargeClicked()` | `metalChargeCalcked` | Масса металлошихты = m_чугун + m_лом. Средневзвешенный химический состав шихты по C, S, Si, P, Mn. |
-| `calcTableClick()` | `tableCalcked` | Таблица окисления (`OxidationTable`, 6 строк × 8 столбцов): содержание элементов до и после продувки, убыль C/Si/Mn/P/S, расход O₂ (кг и м³) на каждый элемент, суммарные оксиды. Степени удаления Mn/P/S зависят от содержания C в стали-цели (три диапазона). Si принимается = 0 после продувки. |
-| `slagCalcClicked()` | `slagCalcked` | Состав и масса шлака: SiO₂, CaO (учёт CaCO₃→CaO), MgO (учёт MgCO₃→MgO), Al₂O₃ — из флюсов; FeO = 20 + 0.218/C + 0.031/P; Fe₂O₃ = 4–9 в зависимости от %C. Полная масса шлака и процентный состав. |
-| `blastCalcClicked()` | `blastCalcked` | Суммарная потребность в кислороде = O₂ из `OxidationTable` + O₂ на FeO/Fe₂O₃ шлака + O₂ на дожигание CO − O₂ из FeO/Fe₂O₃ флюсов. Расход дутья в кг (чистота 99.5%) и м³; избыток дутья 8%. |
-| `MaterialBalanceCalcClicked()` | `materialBalanceCalcked` | Полный материальный баланс. Вход: чугун, лом, флюсы, дутьё. Выход: жидкий металл, шлак, газы (CO/CO₂ из реакций C + из разложения CaCO₃/MgCO₃), пыль (0.02% × G_шихты). Выход жидкого металла. Таблица `OutputDataTable` (газовый состав, м³). |
-| `HeatBalanceCalcClicked()` | `heatBalanceCalcked` | Полный тепловой баланс. Приход: физ. тепло чугуна (61.9+0.88T)×G, тепло реакций окисления (C→CO/CO₂, Si, Mn, P), тепло образования FeO/Fe₂O₃, тепло шлакообразования (CaO, SiO₂), дожигание CO. Расход: физ. тепло газов, разложение FeO×3707+Fe₂O₃×5278, выносы, пыль, карбонаты, потери 3%. Расчёт T стали и температуры перегрева (T_стали − (1539 − 80×%C)). |
-| `deoxCalc()` | `heatBalanceCalcked` | Раскисление. Растворимость MgO: A=0.256T−335, B=0.066T−85; lim\_MgO = (A−B×CaO/SiO₂)×0.075×FeO − 0.875. Износ футеровки. Расход ферросплава для обеспечения целевого %Mn в стали с учётом угара Mn (17.5–27.5% в зависимости от %C). Выход металла после раскисления. |
-| `recomendationCalc()` | `heatBalanceCalcked` | Проверяет, что ферросплав выбран. Основная логика рекомендаций вынесена в `getRecomendation()`. |
-
-### Вспомогательные и сервисные методы
-
-| Метод | Описание |
-|-------|----------|
-| `calcPhosphor()` | Вычисляет коэффициент распределения фосфора L_p = exp(22350/T + 2.5·ln(FeO) + 0.08·CaO − 16) с поправкой. Возвращает %P в стали = %P_шихты / L_p × 100. |
-| `getRecomendation()` | Вызывает `calcPhosphor()`, рассчитывает насыщение MgO и износ футеровки, основность шлака CaO/SiO₂. Если недосыщение MgO > 3 → рекомендует увеличить магнезиальный флюс на 50 кг. Вызывает `checkLimits()` если заданы лимиты сценария. |
-| `checkLimits()` | Сравнивает фактические C, T, P стали с лимитами сценария. При нарушении подсвечивает поля красным (QLineEdit stylesheet) и добавляет предупреждения в поле `recomendation`. |
-| `CheckConverterFunc()` | Проверяет отношение H/D конвертера: допустимый диапазон 1.17…2.1. При выходе за пределы — предупреждение о возможных выбросах. |
-| `stepResult()` | Формирует текстовый снимок текущего шага обучения (входные данные + результаты) и накапливает в глобальной переменной `Protokol`. Инкрементирует счётчик шагов. |
-| `saveResult()` | Открывает диалог `tkinter.filedialog.asksaveasfile` (txt/html), записывает в файл весь накопленный `Protokol`. |
-| `openAbout()` | Создаёт `QDialog` и открывает `AboutForm.Ui_Dialog`. |
-| `setupUi(OperatorForm)` | Генерирует весь интерфейс формы программно (вкладки, таблицы, поля, кнопки, стили). Не использует `.ui`-файл. |
-| `retranslateUi(OperatorForm)` | Устанавливает текстовые метки, вызывает `getSettings()` и `getModes()`. |
+| Сгенерированный файл | Источник |
+|----------------------|----------|
+| `fileAdmin.py` | `GUI/AdminForm.ui` |
+| `fileConn.py` | `GUI/ConnectionSettings.ui` |
+| `filenameconverted.py` | `GUI/OperForm.ui` (устаревший макет) |
 
 ---
 
 ## Ключевые зависимости
 
-| Библиотека | Назначение |
-|-----------|------------|
-| `PyQt5` | GUI-фреймворк, виджеты, потоки (QThread) |
-| `mysql-connector-python` | Подключение к MySQL, CRUD-запросы |
-| `pandas` + `openpyxl` | Экспорт таблиц в `.xlsx` |
-| `configparser` | Чтение / запись `dev.ini` |
-| `hashlib` (MD5) | Хэширование паролей при логине |
-| `TensorFlow / Keras` *(откл.)* | Нейросетевая модель — заготовка в `neuro.py` |
+| Пакет | Назначение |
+|-------|------------|
+| `PyQt5` | GUI, виджеты, потоки (`QThread`), `QPainter` |
+| `PyQtWebEngine` | 3D через Three.js (опционально, `requirements-3d.txt`) |
+| `PyOpenGL` | OpenGL fallback для 3D |
+| `mysql-connector-python` | Подключение к MySQL |
+| `pandas` + `openpyxl` | Экспорт таблиц в `.xlsx` (AdminForm) |
+| `configparser` | Чтение/запись `dev.ini` |
+| `hashlib` (MD5) | Хэширование паролей |
+| `TensorFlow / Keras` *(откл.)* | Заготовка в `neuro.py` |
+
+---
+
+# Функции, используемые в расчётах
+
+Все расчётные функции сосредоточены в `OperForm.py` (класс `Ui_OperatorForm`).
+Каждый этап проверяет флаг предыдущего и при необходимости вызывает его автоматически.
+Оркестратор полного цикла — `run_calculations()`.
+
+## Цепочка вызовов
+
+```
+GetScenarioExample()
+  └─ WorkerThread.run()          ← загрузка сценария из БД (async)
+       └─ run_calculations()
+            ├─ chooseMods()
+            ├─ calcMetalChargeClicked()      [1]
+            ├─ calcTableClick()              [2]
+            ├─ slagCalcClicked()             [3]
+            ├─ blastCalcClicked()            [4]
+            ├─ MaterialBalanceCalcClicked()  [5]
+            ├─ HeatBalanceCalcClicked()        [6]
+            ├─ AddFeroBtnClicked()           ← загрузка ферросплава (не расчёт)
+            ├─ deoxCalc()                    [7]
+            └─ getRecomendation()            [8]
+                 └─ calcPhosphor()
+                 └─ checkLimits()
+```
+
+---
+
+## 1. `calcMetalChargeClicked()` — металлошихта
+
+**Флаг:** `metalChargeCalcked`
+
+**Вход:** массы и составы чугуна и лома из полей формы.
+
+**Формулы:**
+- `G_шихты = m_чугун + m_лом`
+- Средневзвешенный состав каждого элемента:
+  `X_шихты = (X_чугун × m_чугун + X_лом × m_лом) / G_шихты`
+  для X ∈ {C, S, Si, P, Mn}
+
+**Выход:** поля `MetalCharge`, `ChemCarbon`, `ChemSerum`, `ChemPhosphor`, `ChemSilicon`, `ChemManganese`.
+
+**3D:** `state='charged'`, уровень металла пропорционален массе.
+
+---
+
+## 2. `calcTableClick()` — таблица окисления
+
+**Флаг:** `tableCalcked` · **Зависимость:** `metalChargeCalcked`
+
+**Вход:** химический состав шихты, целевой состав стали (`steelCarbon` и др.).
+
+**Логика (таблица `OxidationTable`, 6 строк × 8 столбцов):**
+
+| Строка | Содержание |
+|--------|------------|
+| 0 | Состав шихты до продувки (C, Si, Mn, P, S) |
+| 1 | Целевой состав стали после продувки |
+| 2 | Убыль элементов (C→90% CO + 10% CO₂; Si→0; Mn/P/S — частичное удаление) |
+| 3 | Расход O₂ на окисление (кг) |
+| 4 | Расход O₂ (м³, через 22.4/32) |
+| 5 | Суммарные оксиды, уходящие в шлак |
+
+**Степени удаления Mn/P/S** зависят от `%C` в целевой стали:
+
+| %C в стали | Mn удал. | P удал. | S удал. |
+|------------|----------|---------|---------|
+| ≤ 0.10 | 85% | 93% | 37% |
+| 0.10–0.25 | 77% | 87% | 43% |
+| > 0.25 | 73% | 83% | 47% |
+
+Кремний после продувки принимается равным 0.
+
+---
+
+## 3. `slagCalcClicked()` — расчёт шлака
+
+**Флаг:** `slagCalcked` · **Зависимость:** `tableCalcked`
+
+**Вход:** оксиды из строки 5 `OxidationTable`, состав и массы флюсов из `FluxeTable` (до 16 шт., класс `FluxeComposition`).
+
+**Формулы:**
+- CaO из флюсов: `CaO + CaCO₃ × 52/96`
+- MgO из флюсов: `MgO + MgCO₃ × 40/84`
+- SiO₂, Al₂O₃ — прямой вклад из флюсов
+- `%FeO = 20 + 0.218/C_стали + 0.031/P_стали`
+- `%Fe₂O₃`: 9 (< 0.1% C), 5 (0.1–0.25% C), 4 (> 0.25% C)
+- `G_шлака = (SiO₂ + CaO + MgO + Al₂O₃ + прочие) / (100 − FeO − Fe₂O₃) × 100`
+
+**Выход:** `SlagWeight`, массы и проценты компонентов шлака.
+
+**3D:** `state='blowing'`, уровни металла и шлака, T=1500°C.
+
+---
+
+## 4. `blastCalcClicked()` — расчёт дутья
+
+**Флаг:** `blastCalcked` · **Зависимость:** `slagCalcked`
+
+**Формулы:**
+- `O₂_общ = O₂_окисление (стр.3, col.7) × G_шихты / 100`
+- `O₂_железо = FeO_шлака × 16/72 + Fe₂O₃_шлака × 48/160`
+- `O₂_дожигание CO = CO_оксиды × G_шихты / 100 × 0.1 × 16/28`
+- `O₂_флюсы` — вычитается O₂ из FeO/Fe₂O₃ флюсов
+- `O₂_итого = O₂_общ + O₂_железо + O₂_дожигание − O₂_флюсы`
+- `G_дутья (кг) = O₂_итого × 1.01 × 100 / 99.5`
+- `V_дутья (м³) = G_дутья × 22.4/32`
+- Избыток дутья: 8%
+
+**Выход:** `TotalOxygenDemandBlast`, `TotalConsumptionOfBlastKg`, `TotalConsumptionOfBlastM3`, `ExcessBlast`.
+
+**3D:** `blastFlow`.
+
+---
+
+## 5. `MaterialBalanceCalcClicked()` — материальный баланс
+
+**Флаг:** `materialBalanceCalcked` · **Зависимость:** `blastCalcked`
+
+**Приход:**
+- Чугун, лом, флюсы, кислородное дутьё → таблица `IncomingData`
+
+**Расход:**
+- Масса окисленных примесей
+- Оксиды железа, уходящие в шлак
+- Потери с уносом: `0.02 × G_шихты`
+- Пыль: `0.00001 × 200 × 70 × V_газов (м³)`
+- Возврат металла из флюсов (`ReclaimedIronWeight`)
+
+**Газовый баланс** (`OutputDataTable`):
+- CO, CO₂ из реакций углерода
+- CO₂ из разложения CaCO₃ (× 44/96) и MgCO₃ (× 44/84)
+- Дожигание 10% CO → CO₂
+- Пересчёт в м³ (22.4/28 для CO, 22.4/44 для CO₂)
+
+**Выход жидкого металла:**
+```
+G_металл = G_шихты + G_возврат − (примеси + оксиды + унос + пыль)
+```
+→ поле `LiquidIronYield`.
+
+---
+
+## 6. `HeatBalanceCalcClicked()` — тепловой баланс
+
+**Флаг:** `heatBalanceCalcked` · **Зависимость:** `materialBalanceCalcked`
+
+### Приход тепла (`IncomingHeatTable`)
+
+| Статья | Формула |
+|--------|---------|
+| Физ. тепло чугуна | `(61.9 + 0.88 × T_чугун) × G_чугун × 1000` |
+| Тепло реакций окисления | `(14770×ΔC + 26970×ΔSi + 7000×ΔMn + 21730×ΔP) × G_шихты × 10` |
+| Тепло образования FeO/Fe₂O₃ | `3707 × FeO_шлака × 1000 + 5278 × Fe₂O₃_шлака × 1000` |
+| Тепло шлакообразования | `628 × CaO × 1000 + 1464 × SiO₂ × 1000` |
+| Дожигание CO | `101 × 100 × |CO_дожиг| × 1000 × 0.2` |
+
+### Расход тепла (`OutputHeatTable`)
+
+| Статья | Формула |
+|--------|---------|
+| Физ. тепло металла | `(54.8 + 0.84 × T_стали) × G_металл × 1000` |
+| Физ. тепло шлака | `(2.09 × T_стали − 1379) × G_шлака × 1000` |
+| Физ. тепло газов | `(1.32 × 2000 − 220) × (CO + CO₂)` |
+| Разложение FeO/Fe₂O₃ флюсов | `3707 × FeO_флюсов + 5278 × Fe₂O₃_флюсов` |
+| Потери с выноса | `(54.8 + 0.84 × 1550) × G_выноса` |
+| Пылеобразование | `(54.8 + 0.84 × 2000) × G_пыли` |
+| Разложение карбонатов | `4038 × (CaCO₃ + MgCO₃) × 1000` |
+| Тепловые потери | 3% от общего прихода |
+
+**Температура стали:**
+```
+T = (Q_приход − Q_расход_без_металла + 1379×G_шлака×1000 − 54.8×G_металл×1000)
+    / (0.84×G_металл×1000 + 2.09×G_шлака×1000)
+```
+
+**Перегрев:** `T_стали − (1539 − 80 × %C_целевой)`
+
+**Выход:** `LiquidSteelTemp`, `OverheatTemp`.
+
+**3D:** обновление `temperature`.
+
+---
+
+## 7. `deoxCalc()` — раскисление
+
+**Зависимость:** `heatBalanceCalcked`, выбранный ферросплав в `ChemEmission`.
+
+**Подрасчёты:**
+
+### Растворимость MgO и износ футеровки
+```
+A = 0.256 × T − 335
+B = 0.066 × T − 85
+lim_MgO = |(A − B × CaO/SiO₂) × 0.075 × FeO − 0.875|
+Износ = 4.112×10⁻⁶ × T × (lim_MgO × MgO_шлака)
+```
+
+### Расход ферросплава (Mn)
+Угар Mn (`umn`) зависит от остаточного %C:
+
+| %C | umn |
+|----|-----|
+| < 0.10 | 27.5% |
+| 0.10–0.25 | 25.0% |
+| > 0.25 | 17.5% |
+
+```
+G_феросплав = 100 × G_металл × 1000 × (Mn_цел − Mn_факт)
+              / (Mn_в_сплаве × (100 − umn))
+```
+
+### Баланс раскисления (`DeoxidationBalance`, 6 строк)
+1. Состав металла до раскисления (%)
+2. Массы элементов до раскисления (кг)
+3. Внесение из ферросплава (кг)
+4. Суммарные массы (кг)
+5. Оксиды от раскисления (кг)
+6. Итоговый химический состав стали (%)
+
+**Выход:** `SteelChemResult`, `SlagChemResult`, `SteelWeightRes`, `CO2ThrowRes`, вызов `stepResult()`.
+
+---
+
+## 8. `getRecomendation()` — рекомендации и контроль
+
+**Зависимость:** завершённый тепловой баланс.
+
+**Вызывает:** `calcPhosphor()`, `checkLimits()`.
+
+### `calcPhosphor()` — распределение фосфора
+```
+log Lp = 22350/T + 2.5×ln(FeO) + 0.08×CaO − 16
+Lp = 0.099 × exp(log Lp) + 30
+%P_стали = %P_шихты / Lp × 100
+```
+
+### Анализ шлака
+- Основность: `CaO / SiO₂`
+- Недосыщение MgO: `lim_MgO − MgO_факт`
+- Если недосыщение > 3 → рекомендация увеличить магнезиальный флюс на 50 кг
+
+### `checkLimits()` — проверка ограничений сценария
+Сравнивает фактические C, T, P стали с лимитами (`SteelCarbonLimit`, `MinSteelTempLimit`, `SteelPhosphorLimit`).
+При нарушении — подсветка полей красным и текст предупреждения в `recomendation`.
+
+**3D:** `state='complete'`.
+
+---
+
+## Вспомогательные функции (не расчётные, но участвуют в цикле)
+
+| Функция | Роль в расчётном цикле |
+|---------|------------------------|
+| `chooseMods()` | Загрузка из БД составов чугуна, лома, стали-цели и флюсов режима — подготовка входных данных |
+| `getFluxeInMode(modeId)` | Заполнение `FluxeTable` флюсами текущего режима |
+| `AddFeroBtnClicked()` | Загрузка состава ферросплава — обязательный вход для `deoxCalc()` |
+| `GetScenario()` / `GetScenarioExample()` | Загрузка задания и лимитов сценария; Example запускает полный автоматический расчёт |
+| `WorkerThread.run()` | Асинхронная загрузка сценария из БД перед `run_calculations()` |
+| `run_calculations()` | Оркестратор — последовательный вызов всех 8 этапов |
+| `CheckConverterFunc()` | Проверка геометрии конвертера: H/D ∈ [1.17 … 2.1] |
+| `stepResult()` | Фиксация результатов шага в протокол обучения |
+| `saveResult()` | Сохранение протокола в файл (.txt / .html) |
+
+---
+
+## Классы данных расчёта
+
+### `FluxeComposition`
+Хранит состав одного флюса для расчётов шлака и балансов:
+
+```
+name, fluxeCaO, fluxeSiO2, fluxeMgO, fluxeFe2O3, fluxeFeO,
+fluxeAl2O3, fluxeCaCO3, fluxeMgCO3, fluxeWeight
+```
+
+Массив `listOfNamesForClass` — до 16 экземпляров, заполняется в `slagCalcClicked()`.
+
+### Глобальные флаги этапов
+```python
+metalChargeCalcked = False
+tableCalcked = False
+slagCalcked = False
+blastCalcked = False
+materialBalanceCalcked = False
+heatBalanceCalcked = False
+```
+
+Сбрасываются при каждом новом `setupUi()`.

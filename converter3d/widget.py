@@ -12,7 +12,10 @@ Exported names:
   WEBENGINE_AVAILABLE   — bool, True when Three.js backend is used.
 
 Both backends expose the same public API:
-  update_state(dict)  — push new process data; keys documented below.
+  update_state(dict)  — push new process data; keys:
+    state, metalMass, metalLevel, slagMass, slagLevel, temperature,
+    blastFlow (m³/min), lanceHeight (m), penetrationDepth (m),
+    reactionZoneActive (bool).
 """
 
 import json
@@ -209,6 +212,9 @@ class _PainterConverterWidget(QWidget):
             'blastFlow':   0,
             'metalMass':   0,
             'slagMass':    0,
+            'lanceHeight': 0.0,
+            'penetrationDepth': 0.0,
+            'reactionZoneActive': False,
         }
         self._anim:   float = 0.0
         self._sparks: list  = []   # each: [nx, ny, vx, vy, life]
@@ -452,10 +458,28 @@ class _PainterConverterWidget(QWidget):
         # ── oxygen lance ──────────────────────────────────────────────────────
         lance_anim = math.sin(self._anim * 8) * 1.5 if is_blowing else 0
 
-        if is_blowing and s['metalLevel'] > 0:
+        lance_h = float(s.get('lanceHeight', 0) or 0)
+        if is_blowing and lance_h > 0 and s['metalLevel'] > 0:
+            tip_y = self._metal_y - lance_h * 22 + lance_anim
+        elif is_blowing and s['metalLevel'] > 0:
             tip_y = self._metal_y - 28 + lance_anim
         else:
             tip_y = y_top - 14 + lance_anim
+
+        pen_d = float(s.get('penetrationDepth', 0) or 0)
+        if is_blowing and pen_d > 0.02 and s['metalLevel'] > 0:
+            pit_h = min(40, max(6, pen_d * 22))
+            pit = QPainterPath()
+            pit.moveTo(cx - 6, tip_y)
+            pit.lineTo(cx, tip_y + pit_h)
+            pit.lineTo(cx + 6, tip_y)
+            pit.closeSubpath()
+            p.fillPath(pit, QBrush(QColor(255, 140, 40, 90)))
+            if s.get('reactionZoneActive'):
+                rg = QRadialGradient(cx, tip_y + pit_h * 0.4, pit_h)
+                rg.setColorAt(0, QColor(255, 200, 120, 120))
+                rg.setColorAt(1, QColor(0, 0, 0, 0))
+                p.fillPath(pit, QBrush(rg))
 
         top_y = tip_y - min(100, tip_y + 10)
         l_pen = QPen(QColor(140, 200, 255, 225))
@@ -513,7 +537,9 @@ class _PainterConverterWidget(QWidget):
         if s.get('temperature', 0) > 0 and s['state'] in ('blowing', 'complete'):
             parts.append(f"T {s['temperature']:.0f}°C")
         if s.get('blastFlow', 0) > 0:
-            parts.append(f"O₂ {s['blastFlow']:.0f}м³")
+            parts.append(f"O₂ {s['blastFlow']:.0f}м³/мин")
+        if s.get('lanceHeight', 0) > 0:
+            parts.append(f"Ф {s['lanceHeight']:.2f}м")
 
         if parts:
             p.setPen(QPen(QColor(0, 200, 240, 180)))

@@ -394,6 +394,9 @@ class ConverterGLWidget(QOpenGLWidget):
             'blastFlow':   0,
             'metalMass':   0,
             'slagMass':    0,
+            'lanceHeight': 0.0,
+            'penetrationDepth': 0.0,
+            'reactionZoneActive': False,
         }
         self._anim        = 0.0
         self._tilt        = 0.0

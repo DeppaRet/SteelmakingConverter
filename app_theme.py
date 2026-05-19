@@ -44,6 +44,11 @@ _TOKENS = {
         "card_border": "rgba(128,128,128,0.5)",
         "scroll_bg": "#181828",
         "btn_hover_flat": "rgba(0,200,240,0.14)",
+        "control_warn": "#e6a817",
+        "control_danger": "#e04040",
+        "control_computed": "#6a8a9a",
+        "control_dial_track": "rgba(0,200,240,0.22)",
+        "control_slider_groove": "rgba(0,0,0,0.35)",
     },
     THEME_LIGHT: {
         "accent": "#006494",
@@ -80,6 +85,11 @@ _TOKENS = {
         "card_border": "#a8bccf",
         "scroll_bg": "#e8eef5",
         "btn_hover_flat": "rgba(0,120,168,0.12)",
+        "control_warn": "#b8860b",
+        "control_danger": "#c03030",
+        "control_computed": "#6a7c8e",
+        "control_dial_track": "rgba(0,100,148,0.25)",
+        "control_slider_groove": "rgba(0,0,0,0.12)",
     },
 }
 
@@ -483,6 +493,102 @@ def admin_style(theme: str | None = None) -> str:
 
 def developer_style(theme: str | None = None) -> str:
     return operator_central_style(theme)
+
+
+def control_inputs_panel_qss(theme: str | None = None) -> str:
+    """QSS for operator control knobs (dials, sliders, range hints)."""
+    t = tokens(theme)
+    return f"""
+        QWidget#control_inputs_panel {{
+            background: transparent;
+        }}
+        QGroupBox#control_inputs_group {{
+            color: {t['accent']};
+            font-weight: bold;
+            font-size: 10px;
+            border: 1px solid {t['group_border']};
+            border-radius: 6px;
+            margin-top: 10px;
+            padding: 4px 6px 6px 6px;
+            background: {t['panel_bg']};
+        }}
+        QGroupBox#control_inputs_group > QWidget {{
+            background: transparent;
+        }}
+        QGroupBox#control_inputs_group::title {{
+            subcontrol-origin: margin; left: 8px; padding: 0 3px;
+        }}
+        QLabel.control_knob_title {{
+            color: {t['text_label']}; font-size: 9px; font-weight: bold;
+            background: transparent;
+            min-width: 0px;
+        }}
+        QLabel.control_knob_value {{
+            color: {t['accent']}; font-size: 9px; background: transparent;
+        }}
+        QFrame.control_knob_frame {{
+            min-width: 0px;
+            border: 1px solid {t['input_border']};
+            border-radius: 5px;
+            background: {t['input_bg']};
+            padding: 2px;
+        }}
+        QDoubleSpinBox.control_spin {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['text']};
+            font-size: 10px;
+            padding: 1px 3px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QDoubleSpinBox.control_spin_computed {{
+            background: {t['input_bg']};
+            border: 1px dashed {t['input_border']};
+            border-radius: 3px;
+            color: {t['control_computed']};
+            font-size: 10px;
+            font-style: italic;
+            padding: 1px 3px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QSlider::groove:horizontal {{
+            border: 1px solid {t['input_border']};
+            height: 5px;
+            background: {t['control_slider_groove']};
+            border-radius: 2px;
+        }}
+        QSlider::handle:horizontal {{
+            background: {t['accent']};
+            border: 1px solid {t['accent_dim']};
+            width: 12px;
+            margin: -5px 0;
+            border-radius: 6px;
+        }}
+        QDial {{
+            background: {t['control_dial_track']};
+            color: {t['accent']};
+        }}
+        QCheckBox.control_lock {{
+            color: {t['text_muted']}; font-size: 8px; spacing: 2px;
+        }}
+        QPushButton.control_tool_btn {{
+            background: transparent;
+            border: 1px solid {t['group_border']};
+            border-radius: 4px;
+            color: {t['text_muted']};
+            font-size: 9px;
+            padding: 2px 6px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QPushButton.control_tool_btn:hover {{
+            border-color: {t['accent']};
+            color: {t['accent']};
+        }}
+    """
 
 
 def converter_chrome_qss(theme: str | None = None) -> str:
