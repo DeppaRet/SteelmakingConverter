@@ -3,8 +3,8 @@ converter3d/widget.py
 Python-side wrapper for the BOF converter panel.
 
 Backend priority (chosen automatically):
-  1. OpenGL  (QOpenGLWidget + PyOpenGL) — true 3-D, mouse rotation, tapping.
-  2. WebEngine (Three.js via QWebEngineView) — if PyQtWebEngine loads cleanly.
+  1. WebEngine (Three.js via QWebEngineView) — PBR, full vessel, pour into ladle.
+  2. OpenGL  (QOpenGLWidget + PyOpenGL) — fallback if WebEngine unavailable.
   3. QPainter cross-section — pure PyQt5 fallback, zero extra dependencies.
 
 Exported names:
@@ -19,130 +19,163 @@ import json
 import math
 import os
 import random
-import site
 import sys
 
-from PyQt5.QtCore import QObject, QTimer, QUrl, Qt, pyqtSignal, pyqtSlot
+from converter3d.qt_bootstrap import bootstrap_qt
+
+bootstrap_qt()
+
+from PyQt5.QtCore import QTimer, QUrl, Qt
 from PyQt5.QtGui import (
     QBrush, QColor, QFont, QLinearGradient, QPainter, QPainterPath,
     QPen, QRadialGradient,
 )
-from PyQt5.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-# On Windows + Python ≥ 3.8, Qt5 DLLs that ship with user-level PyQtWebEngine
-# live in a non-standard location and won't be found by the default DLL loader
-# unless we add them explicitly before the import is attempted.
-if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-    _candidates: list[str] = []
+# QtWebEngine must be imported AFTER QApplication exists (see _lazy_import_webengine).
+_we_import_ok: bool | None = None
+
+_force_opengl = os.environ.get("CONVERTER_FORCE_OPENGL", "").strip().lower() in (
+    "1", "true", "yes",
+)
+
+
+def _lazy_import_webengine() -> bool:
+    """Import QtWebEngine once QApplication is running (Windows DLL + init order)."""
+    global _we_import_ok
+    if _we_import_ok is not None:
+        return _we_import_ok
     try:
-        _candidates.append(site.getusersitepackages())
-    except Exception:
-        pass
-    try:
-        _candidates.extend(site.getsitepackages())
-    except Exception:
-        pass
-    for _sp in _candidates:
-        _dll_dir = os.path.join(_sp, "PyQt5", "Qt5", "bin")
-        if os.path.isdir(_dll_dir):
-            try:
-                os.add_dll_directory(_dll_dir)
-            except OSError:
-                pass
-
-def _probe_webengine() -> bool:
-    """Spawn a child process that mirrors the main-process DLL environment.
-
-    We pass the exact same sys.path so that DLLs are loaded from the
-    same locations as in the main process.  This prevents false positives
-    from a 'cleaner' subprocess picking up different Qt DLLs.
-    """
-    import json
-    import subprocess
-
-    _PROBE = """\
-import sys, json, os
-sys.path[:] = json.loads(sys.argv[1])
-os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS","--no-sandbox")
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWebEngineWidgets import QWebEngineView as _W
-QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
-app = QtWidgets.QApplication([])
-w = _W()
-sys.stdout.write("OK")
-sys.stdout.flush()
-"""
-    try:
-        result = subprocess.run(
-            [sys.executable, "-c", _PROBE, json.dumps(sys.path)],
-            timeout=15,
-            capture_output=True,
-            text=True,
-            env=os.environ.copy(),
-        )
-        return result.returncode == 0 and "OK" in result.stdout
-    except Exception:
-        return False
+        from PyQt5.QtWidgets import QApplication
+        if QApplication.instance() is None:
+            _we_import_ok = False
+            return False
+        from PyQt5.QtWebEngineWidgets import QWebEngineView  # noqa: F401
+        _we_import_ok = True
+    except (ImportError, OSError):
+        _we_import_ok = False
+    return _we_import_ok
 
 
-try:
-    from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
-    from PyQt5.QtWebChannel import QWebChannel
-    _we_import_ok = True
-except (ImportError, OSError):
-    _we_import_ok = False
+def _webengine_requested() -> bool:
+    return not _force_opengl
 
-WEBENGINE_AVAILABLE: bool = _we_import_ok and _probe_webengine()
+
+# True when Three.js backend should be used (lazy import succeeds at widget creation).
+WEBENGINE_AVAILABLE: bool = _webengine_requested()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Backend A — Three.js via QWebEngineView
 # ══════════════════════════════════════════════════════════════════════════════
 
-class ConverterBridge(QObject):
-    """QObject exposed to JS via QWebChannel."""
-
-    stateChanged = pyqtSignal(str)
-
-    @pyqtSlot(str)
-    def on_ready(self, message: str) -> None:
-        pass
-
-
 class _WebEngineConverterWidget(QWidget):
-    """Three.js 3D panel (used when WebEngine is available)."""
+    """Three.js 3D panel (primary renderer — PBR, full vessel, fluid pour)."""
 
     def __init__(self, parent: QWidget = None) -> None:
         super().__init__(parent)
-        self.setMinimumWidth(260)
+        self.setMinimumWidth(340)
+        self._html_loaded = False
+        self._page_ready = False
+        self._pending_state: dict = {}
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._trigger_viewport_resize)
+
+        if not _lazy_import_webengine():
+            raise RuntimeError("QtWebEngine is not available")
+
+        from PyQt5.QtWebEngineWidgets import QWebEngineView
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._bridge = ConverterBridge()
-        self._view = QWebEngineView()
+        self._title = QLabel("3D конвертер")
+        self._title.setAlignment(Qt.AlignCenter)
+        self._title.setToolTip("ЛКМ — вращение, колесо мыши — масштаб")
+        layout.addWidget(self._title)
 
-        self._view.settings().setAttribute(
-            QWebEngineSettings.LocalContentCanAccessRemoteUrls, True
-        )
+        self._view = QWebEngineView(self)
+        self._view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._view.setFocusPolicy(Qt.StrongFocus)
+        self._view.loadFinished.connect(self._on_load_finished)
+        layout.addWidget(self._view, stretch=1)
 
-        self._channel = QWebChannel()
-        self._channel.registerObject("bridge", self._bridge)
-        self._view.page().setWebChannel(self._channel)
-
-        html_path = os.path.join(
+        self._html_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "converter.html"
         )
-        self._view.load(QUrl.fromLocalFile(html_path))
-        layout.addWidget(self._view)
+        self._apply_chrome_theme()
 
-    def update_state(self, state: dict) -> None:
+    def _apply_chrome_theme(self) -> None:
+        try:
+            import app_theme
+            from theme_settings import get_theme
+            theme = get_theme()
+            self._title.setStyleSheet(app_theme.converter_chrome_qss(theme))
+        except ImportError:
+            self._title.setStyleSheet(
+                "background:#12101a; color:#8fb8d8; "
+                "font:bold 10px 'Arial'; padding:3px 6px;"
+            )
+
+    def set_ui_theme(self, theme: str) -> None:
+        self._apply_chrome_theme()
+        if self._page_ready:
+            self._view.page().runJavaScript(
+                f"if(typeof applyUiTheme==='function')applyUiTheme('{theme}');"
+            )
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not self._html_loaded:
+            self._html_loaded = True
+            self._view.load(QUrl.fromLocalFile(self._html_path))
+        elif self._page_ready:
+            QTimer.singleShot(0, self._trigger_viewport_resize)
+
+    def _trigger_viewport_resize(self) -> None:
+        if self._page_ready:
+            self._view.page().runJavaScript(
+                "if(typeof bootstrapResize==='function')bootstrapResize();"
+                "else if(typeof resizeViewport==='function')resizeViewport();"
+            )
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._page_ready:
+            self._resize_timer.start(80)
+
+    def _on_load_finished(self, ok: bool) -> None:
+        self._page_ready = bool(ok)
+        if ok:
+            self._view.page().setZoomFactor(1.0)
+            try:
+                from theme_settings import get_theme
+                theme = get_theme()
+                self._view.page().runJavaScript(
+                    f"if(typeof applyUiTheme==='function')applyUiTheme('{theme}');"
+                )
+            except ImportError:
+                pass
+            self._view.page().runJavaScript(
+                "if(typeof bootstrapResize==='function')bootstrapResize();"
+                "else if(typeof resizeViewport==='function')resizeViewport();"
+            )
+            if self._pending_state:
+                self._push_state_to_js(self._pending_state)
+
+    def _push_state_to_js(self, state: dict) -> None:
+        if not self._page_ready:
+            return
         json_str = json.dumps(state)
-        self._bridge.stateChanged.emit(json_str)
         self._view.page().runJavaScript(
             f"if(typeof updateConverter!=='undefined')updateConverter({json_str});"
         )
+
+    def update_state(self, state: dict) -> None:
+        self._pending_state.update(state)
+        self._push_state_to_js(state)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -179,6 +212,12 @@ class _PainterConverterWidget(QWidget):
         }
         self._anim:   float = 0.0
         self._sparks: list  = []   # each: [nx, ny, vx, vy, life]
+        self._ui_theme = "dark"
+        try:
+            from theme_settings import get_theme
+            self._ui_theme = get_theme()
+        except ImportError:
+            pass
 
         timer = QTimer(self)
         timer.timeout.connect(self._tick)
@@ -189,6 +228,15 @@ class _PainterConverterWidget(QWidget):
         self._s.update(state)
         if state.get('state') == 'idle':
             self._sparks.clear()
+
+    def set_ui_theme(self, theme: str) -> None:
+        try:
+            from converter3d.visual_style import set_ui_theme as vs_set
+            vs_set(theme)
+        except ImportError:
+            pass
+        self._ui_theme = theme if theme == 'light' else 'dark'
+        self.update()
 
     # ── animation tick ────────────────────────────────────────────────────────
     def _tick(self) -> None:
@@ -237,9 +285,17 @@ class _PainterConverterWidget(QWidget):
         is_charged  = s['state'] in ('charged', 'blowing', 'complete')
 
         # ── background ───────────────────────────────────────────────────────
-        bg = QLinearGradient(0, 0, 0, h)
-        bg.setColorAt(0, QColor(10, 10, 24))
-        bg.setColorAt(1, QColor(16, 12, 28))
+        try:
+            from converter3d.visual_style import get_preset
+            preset = get_preset(self._ui_theme)
+            c0 = preset["hall_bg"]
+            bg = QLinearGradient(0, 0, 0, h)
+            bg.setColorAt(0, QColor(int(c0[0]*255), int(c0[1]*255), int(c0[2]*255)))
+            bg.setColorAt(1, QColor(int(c0[0]*255*0.9), int(c0[1]*255*0.9), int(c0[2]*255*1.05)))
+        except ImportError:
+            bg = QLinearGradient(0, 0, 0, h)
+            bg.setColorAt(0, QColor(10, 10, 24))
+            bg.setColorAt(1, QColor(16, 12, 28))
         p.fillRect(self.rect(), QBrush(bg))
 
         # ── geometry constants ───────────────────────────────────────────────
@@ -467,15 +523,52 @@ class _PainterConverterWidget(QWidget):
         p.end()
 
 
+def _wire_theme(widget: QWidget) -> QWidget:
+    try:
+        from theme_settings import manager, get_theme
+        from converter3d.visual_style import set_ui_theme as vs_set
+
+        vs_set(get_theme())
+
+        def _apply(theme: str) -> None:
+            if hasattr(widget, 'set_ui_theme'):
+                widget.set_ui_theme(theme)
+
+        manager().theme_changed.connect(_apply)
+    except ImportError:
+        pass
+    return widget
+
+
+def create_converter_widget(parent: QWidget = None) -> QWidget:
+    """Instantiate 3D panel with safe fallback (WebEngine → OpenGL → QPainter)."""
+    bootstrap_qt()
+    if _webengine_requested() and _lazy_import_webengine():
+        try:
+            return _wire_theme(_WebEngineConverterWidget(parent))
+        except Exception:
+            pass
+    try:
+        from converter3d.opengl_widget import ConverterGLPanel
+        return _wire_theme(ConverterGLPanel(parent))
+    except Exception:
+        return _wire_theme(_PainterConverterWidget(parent))
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# Public alias: pick the best available backend
-#   Priority: OpenGL  >  WebEngine  >  QPainter
+# Public alias: pick the best available backend class
+#   Priority: WebEngine (Three.js)  >  OpenGL  >  QPainter
+# Prefer create_converter_widget() — catches WebEngine runtime failures.
 # ══════════════════════════════════════════════════════════════════════════════
 
-try:
-    from converter3d.opengl_widget import ConverterGLPanel as ConverterWidget  # noqa: F401
-except Exception:
-    if WEBENGINE_AVAILABLE:
-        ConverterWidget = _WebEngineConverterWidget
-    else:
-        ConverterWidget = _PainterConverterWidget
+def _default_converter_class():
+    if _webengine_requested():
+        return _WebEngineConverterWidget
+    try:
+        from converter3d.opengl_widget import ConverterGLPanel
+        return ConverterGLPanel
+    except Exception:
+        return _PainterConverterWidget
+
+
+ConverterWidget = _default_converter_class()

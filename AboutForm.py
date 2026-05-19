@@ -1,14 +1,9 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPalette, QColor, QFont
+from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 
-
-DARK_STYLE = """
-    QDialog {
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
-    }
-    QLabel { color: #e0e0e0; }
-"""
+import app_theme
+from theme_settings import get_theme, manager
 
 
 class Ui_Dialog(object):
@@ -16,13 +11,7 @@ class Ui_Dialog(object):
         Dialog.setObjectName("Dialog")
         Dialog.resize(500, 220)
         Dialog.setMinimumSize(380, 160)
-
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(25, 25, 35))
-        palette.setColor(QPalette.WindowText, QColor(224, 224, 224))
-        palette.setColor(QPalette.Base, QColor(35, 35, 50))
-        Dialog.setPalette(palette)
-        Dialog.setStyleSheet(DARK_STYLE)
+        self._dialog = Dialog
 
         outer = QtWidgets.QVBoxLayout(Dialog)
         outer.setContentsMargins(28, 24, 28, 24)
@@ -31,12 +20,12 @@ class Ui_Dialog(object):
         title = QtWidgets.QLabel()
         title.setAlignment(Qt.AlignCenter)
         title.setFont(QFont("Segoe UI", 14, QFont.Bold))
-        title.setStyleSheet("color: #00d4ff; margin-bottom: 4px;")
+        self._title_label = title
         outer.addWidget(title)
 
         divider = QtWidgets.QFrame()
         divider.setFrameShape(QtWidgets.QFrame.HLine)
-        divider.setStyleSheet("color: rgba(0, 212, 255, 0.3);")
+        self._divider = divider
         outer.addWidget(divider)
 
         self.label = QtWidgets.QLabel()
@@ -46,9 +35,24 @@ class Ui_Dialog(object):
         self.label.setWordWrap(True)
         outer.addWidget(self.label)
 
-        self._title_label = title
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
+        self.refresh_theme()
+        manager().theme_changed.connect(lambda _t: self.refresh_theme())
+
+    def refresh_theme(self):
+        theme = get_theme()
+        t = app_theme.tokens(theme)
+        self._dialog.setPalette(app_theme.palette(theme))
+        self._dialog.setStyleSheet(app_theme.about_style(theme))
+        if hasattr(self, "_title_label"):
+            self._title_label.setStyleSheet(
+                f"color: {t['accent2']}; margin-bottom: 4px;")
+        if hasattr(self, "_divider"):
+            self._divider.setStyleSheet(
+                f"color: rgba(0, 120, 168, 0.3);")
+        if hasattr(self, "label"):
+            self.label.setStyleSheet(f"color: {t['text']};")
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate

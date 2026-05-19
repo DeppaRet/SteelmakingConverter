@@ -11,12 +11,15 @@ from tkinter import filedialog
 from configparser import ConfigParser
 
 import config
+import app_theme
+from theme_settings import manager, get_theme
+from theme_toggle import ThemeToggle
 
 try:
-    from converter3d.widget import ConverterWidget, WEBENGINE_AVAILABLE
+    from converter3d.widget import create_converter_widget, WEBENGINE_AVAILABLE
 except ImportError:
     WEBENGINE_AVAILABLE = False
-    ConverterWidget = None
+    create_converter_widget = None
 
 metalChargeCalcked = False
 tableCalcked = False
@@ -1738,10 +1741,10 @@ class Ui_OperatorForm(object):
     def checkLimits(self):
         try:
             problem = False
-            _dark_field = "QLineEdit { background: rgba(0,0,0,0.5); color: #e0e0e0; border: 1px solid rgba(0,212,255,0.2); border-radius: 4px; }"
-            self.SteelWeightRes.setStyleSheet(_dark_field)
-            self.resultSteelTemperature.setStyleSheet(_dark_field)
-            self.SlagWeightRes.setStyleSheet(_dark_field)
+            _field = app_theme.field_style(get_theme())
+            self.SteelWeightRes.setStyleSheet(_field)
+            self.resultSteelTemperature.setStyleSheet(_field)
+            self.SlagWeightRes.setStyleSheet(_field)
             checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
             actualSteelCarbon = float(self.DeoxidationBalance.item(0,0).text())
             actualSteelTemp = float(self.resultSteelTemperature.text())
@@ -1769,6 +1772,7 @@ class Ui_OperatorForm(object):
                 msg.setWindowTitle("Проверка Результата")
                 msg.setText("Внимание")
                 msg.setInformativeText(checkResult)
+                app_theme.style_message_box(msg)
                 msg.exec_()
             elif problem == False:
                 tmp = self.recomendation.toPlainText()
@@ -1783,6 +1787,7 @@ class Ui_OperatorForm(object):
             msg.setText("Внимание")
             msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
             # msg.setInformativeText("Error: {0}".format(err))
+            app_theme.style_message_box(msg)
             msg.exec_()
 
 
@@ -1790,153 +1795,113 @@ class Ui_OperatorForm(object):
     # STYLE SYSTEM
     # ─────────────────────────────────────────────────────────────────────────
 
-    def apply_styles(self, OperatorForm):
+    def apply_styles(self, OperatorForm, theme=None):
         """Apply SCADA-style industrial stylesheet to the main window."""
-        _palette = QtGui.QPalette()
-        _palette.setColor(QtGui.QPalette.Window,          QtGui.QColor(18, 18, 30))
-        _palette.setColor(QtGui.QPalette.WindowText,      QtGui.QColor(220, 220, 220))
-        _palette.setColor(QtGui.QPalette.Base,            QtGui.QColor(28, 28, 45))
-        _palette.setColor(QtGui.QPalette.AlternateBase,   QtGui.QColor(38, 38, 58))
-        _palette.setColor(QtGui.QPalette.Text,            QtGui.QColor(220, 220, 220))
-        _palette.setColor(QtGui.QPalette.Button,          QtGui.QColor(38, 38, 55))
-        _palette.setColor(QtGui.QPalette.ButtonText,      QtGui.QColor(220, 220, 220))
-        _palette.setColor(QtGui.QPalette.Highlight,       QtGui.QColor(0, 200, 240))
-        _palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(18, 18, 30))
-        OperatorForm.setPalette(_palette)
+        if theme is None:
+            theme = get_theme()
+        OperatorForm.setPalette(app_theme.palette(theme))
+        OperatorForm.setStyleSheet(app_theme.operator_main_style(theme))
 
-        OperatorForm.setStyleSheet("""
-            QMainWindow { background: #12121e; }
-            QMenuBar {
-                background: #0b0b18; color: #c0c0c0;
-                border-bottom: 1px solid rgba(0,200,240,0.35); padding: 2px 4px; font-size: 11px;
-            }
-            QMenuBar::item { background: transparent; padding: 5px 12px; border-radius: 4px; }
-            QMenuBar::item:selected { background: rgba(0,200,240,0.25); color: #00c8f0; }
-            QMenuBar::item:pressed  { background: rgba(0,200,240,0.45); color: #00c8f0; }
-            QMenu {
-                background: #0b0b18; color: #e0e0e0;
-                border: 1px solid rgba(0,200,240,0.35); border-radius: 6px; padding: 4px;
-            }
-            QMenu::item { padding: 6px 22px 6px 14px; border-radius: 4px; }
-            QMenu::item:selected { background: rgba(0,200,240,0.28); color: #00c8f0; }
-            QMenu::separator { height: 1px; background: rgba(0,200,240,0.2); margin: 4px 8px; }
-            QStatusBar {
-                background: #0b0b18; color: rgba(190,190,190,0.7);
-                border-top: 1px solid rgba(0,200,240,0.2); font-size: 10px;
-            }
-        """)
-
-    def _apply_central_styles(self):
+    def _apply_central_styles(self, theme=None):
         """Apply styles to the central widget and all child widgets."""
-        self.centralwidget.setStyleSheet("""
-            QWidget#centralwidget {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                    stop:0 #181828, stop:1 #14142a);
-            }
-            QLabel  { color: #d8d8d8; background: transparent; font-size: 11px; }
-            QGroupBox {
-                color: #00c8f0; font-weight: bold; font-size: 11px;
-                border: 1px solid rgba(0,200,240,0.30);
-                border-radius: 7px; margin-top: 11px; padding: 4px;
-                background: rgba(0,0,0,0.18);
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 9px; padding: 0 4px; }
-            QLineEdit {
-                background: rgba(0,0,0,0.42); border: 1px solid rgba(0,200,240,0.28);
-                border-radius: 4px; padding: 3px 6px; color: #f0f0f0; font-size: 11px;
-            }
-            QLineEdit:focus   { border: 2px solid #00c8f0; }
-            QLineEdit[readOnly="true"] {
-                background: rgba(0,200,240,0.09); border: 1px solid rgba(0,200,240,0.22);
-                color: #c4dfe8;
-            }
-            QComboBox {
-                background: rgba(0,0,0,0.42); border: 1px solid rgba(0,200,240,0.28);
-                border-radius: 5px; padding: 4px 6px; color: #f0f0f0; font-size: 11px;
-            }
-            QComboBox:hover { border: 1px solid #00c8f0; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView {
-                background: #181828; color: #f0f0f0;
-                selection-background-color: rgba(0,200,240,0.35);
-            }
-            QPushButton {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #00c8f0, stop:1 #0090b8);
-                color: #12121e; border: none; border-radius: 6px;
-                padding: 5px 14px; font-weight: bold; font-size: 11px; min-height: 26px;
-            }
-            QPushButton:hover   {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #20d8ff, stop:1 #00aad4);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #0090b8, stop:1 #006890);
-            }
-            QPushButton:flat { background: transparent; border: none; }
-            QPushButton:flat:hover { background: rgba(0,200,240,0.14); border-radius: 4px; }
-            QTabWidget::pane {
-                border: 1px solid rgba(0,200,240,0.28);
-                border-radius: 7px; background: rgba(0,0,0,0.18);
-            }
-            QTabBar::tab {
-                background: rgba(0,0,0,0.28); color: #8aaab8;
-                padding: 6px 16px; border: none;
-                border-radius: 5px 5px 0 0; margin-right: 2px; font-size: 11px;
-            }
-            QTabBar::tab:selected { background: rgba(0,200,240,0.28); color: #ffffff; }
-            QTabBar::tab:hover    { background: rgba(0,200,240,0.14); color: #00c8f0; }
-            QProgressBar {
-                border: 1px solid rgba(0,200,240,0.28); border-radius: 4px;
-                background: rgba(0,0,0,0.28); color: #ffffff; text-align: center; font-size: 9px;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #00c8f0, stop:1 #0090b8); border-radius: 4px;
-            }
-            QPlainTextEdit, QTextEdit {
-                background: #0f111a; border: 1px solid rgba(0,200,240,0.32);
-                border-radius: 5px; color: #d8ecf8; padding: 4px; font-size: 10pt;
-            }
-            QScrollBar:vertical {
-                background: rgba(0,0,0,0.28); width: 8px; border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(0,200,240,0.45); border-radius: 3px; min-height: 18px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal {
-                background: rgba(0,0,0,0.28); height: 8px; border-radius: 4px;
-            }
-            QScrollBar::handle:horizontal {
-                background: rgba(0,200,240,0.45); border-radius: 3px; min-width: 18px;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-            QTableWidget {
-                background: rgba(0,0,0,0.28);
-                alternate-background-color: rgba(255,255,255,0.04);
-                gridline-color: rgba(0,200,240,0.18);
-                color: #d8d8d8; border: 1px solid rgba(0,200,240,0.18); border-radius: 6px;
-                font-size: 11px;
-            }
-            QTableWidget::item { padding: 2px 4px; color: #d8d8d8; }
-            QTableWidget::item:selected {
-                background: rgba(0,200,240,0.28); color: #ffffff;
-            }
-            QHeaderView { background: rgba(0,0,0,0.38); }
-            QHeaderView::section {
-                background: rgba(0,200,240,0.22); color: #ffffff;
-                padding: 3px 4px; border: none; font-weight: bold; font-size: 10px;
-            }
-            QTableWidget QTableCornerButton::section {
-                background: rgba(0,200,240,0.22); border: none;
-            }
-            QSplitter::handle { background: rgba(0,200,240,0.18); }
-            QScrollArea { border: none; background: #181828; }
-            QScrollArea > QWidget { background: transparent; }
-            QScrollArea > QWidget > QWidget { background: transparent; }
-        """)
+        if theme is None:
+            theme = get_theme()
+        self.centralwidget.setStyleSheet(app_theme.operator_central_style(theme))
+
+    def refresh_theme(self):
+        theme = get_theme()
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            app_theme.apply_to_application(app, theme)
+        if hasattr(self, '_oper_form') and self._oper_form:
+            self.apply_styles(self._oper_form, theme)
+        if hasattr(self, 'centralwidget'):
+            self._apply_central_styles(theme)
+        ts = app_theme.table_style(theme)
+        for tbl in getattr(self, '_themed_tables', []):
+            tbl.setStyleSheet(ts)
+        if getattr(self, 'converter3d', None) and hasattr(self.converter3d, 'set_ui_theme'):
+            self.converter3d.set_ui_theme(theme)
+        if hasattr(self, '_header_frame'):
+            self._header_frame.setStyleSheet(app_theme.header_bar_style(theme))
+        if hasattr(self, '_title_lbl'):
+            self._title_lbl.setStyleSheet(app_theme.header_title_style(theme))
+        if hasattr(self, '_stages_lbl'):
+            self._stages_lbl.setText(app_theme.help_rich_html(theme))
+            self._stages_lbl.setStyleSheet(
+                f"color: {app_theme.tokens(theme)['text_label']}; font-size: 11px;")
+        if hasattr(self, '_hints_lbl'):
+            self._hints_lbl.setText(app_theme.hints_rich_html(theme))
+            self._hints_lbl.setStyleSheet(
+                f"color: {app_theme.tokens(theme)['text_label']}; font-size: 10px;")
+        for fr, cap, val, border, tcol in getattr(self, '_indicator_widgets', []):
+            fr.setStyleSheet(app_theme.indicator_card_style(theme, border))
+            cap.setStyleSheet(
+                f"color: {app_theme.tokens(theme)['text_muted']}; "
+                "font-size: 9px; font-weight: bold; border: none;")
+            val.setStyleSheet(
+                f"QLineEdit {{ background: transparent; border: none; "
+                f"color: {tcol}; font-size: 20px; font-weight: bold; }}")
+        if hasattr(self, 'theme_toggle'):
+            self.theme_toggle.sync_from_settings()
+        t = app_theme.tokens(theme)
+        pe = (
+            f"QPlainTextEdit {{ background: {t['table_bg']}; "
+            f"border: 1px solid {t['group_border']}; color: {t['text']}; "
+            "padding: 4px; font-size: 10pt; }"
+        )
+        if hasattr(self, "ScenarioTask"):
+            self.ScenarioTask.setStyleSheet(pe)
+        if hasattr(self, "recomendation"):
+            self.recomendation.setStyleSheet(app_theme.recommendation_style(theme))
+        if hasattr(self, "label_56"):
+            self.label_56.setStyleSheet(
+                f"color: {t['accent']}; font-size: 11px; font-weight: bold;")
+        if hasattr(self, "GetResExample"):
+            self.GetResExample.setMinimumHeight(28)
+            self.GetResExample.setMaximumHeight(28)
+            self.GetResExample.setStyleSheet(app_theme.primary_button_style(theme))
+
+        pal = app_theme.palette(theme)
+        if hasattr(self, "_left_scroll"):
+            app_theme.apply_scroll_panel(self._left_scroll, self._left_panel, theme)
+        if hasattr(self, "_right_scroll"):
+            app_theme.apply_scroll_panel(self._right_scroll, self._right_panel, theme)
+        if hasattr(self, "_center_panel"):
+            self._center_panel.setPalette(pal)
+            self._center_panel.setStyleSheet(app_theme.center_panel_style(theme))
+        ro_field = app_theme.read_only_field_style(theme)
+        for name in (
+            "CO2ThrowRes", "SteelWeightRes", "SlagWeightRes",
+            "resultSteelTemperature", "LiningWeightLoss",
+        ):
+            w = getattr(self, name, None)
+            if w is not None:
+                w.setStyleSheet(ro_field)
+        for fr, cap, val, border, tcol in getattr(self, "_result_kpi_frames", []):
+            fr.setStyleSheet(app_theme.indicator_card_style(theme, border))
+            cap.setStyleSheet(
+                f"color: {app_theme.tokens(theme)['text_muted']}; "
+                "font-size: 9px; border: none;")
+            val.setStyleSheet(
+                f"QLineEdit {{ background: transparent; border: none; "
+                f"color: {tcol}; font-size: 17px; font-weight: bold; "
+                f"font-family: 'Courier New'; }}")
+        ac = app_theme.html_accent(theme)
+        for num_lbl, stg_lbl in getattr(self, "_stage_style_widgets", []):
+            num_lbl.setStyleSheet(
+                f"QLabel {{ background: rgba(0,120,168,0.12); "
+                f"border: 1px solid {app_theme.tokens(theme)['group_border']}; "
+                f"border-radius: 10px; color: {ac}; "
+                "font-size: 10px; font-weight: bold; }}")
+            stg_lbl.setStyleSheet(
+                f"color: {app_theme.tokens(theme)['text_label']}; font-size: 11px;")
+        if hasattr(self, "tabWidget"):
+            self.tabWidget.setPalette(pal)
+        for scroll in self.centralwidget.findChildren(QtWidgets.QScrollArea):
+            if scroll not in (getattr(self, "_left_scroll", None),
+                              getattr(self, "_right_scroll", None)):
+                app_theme.apply_scroll_panel(scroll, scroll.widget(), theme)
 
     # ─────────────────────────────────────────────────────────────────────────
     # STAGE LED TIMER
@@ -2063,6 +2028,9 @@ class Ui_OperatorForm(object):
         def _icon_btn(path, w=28, h=28):
             btn = QtWidgets.QPushButton()
             btn.setFlat(True)
+            btn.setAutoDefault(False)
+            btn.setDefault(False)
+            btn.setFocusPolicy(QtCore.Qt.NoFocus)
             btn.setIcon(_icon(path))
             btn.setFixedSize(w, h)
             return btn
@@ -2092,62 +2060,48 @@ class Ui_OperatorForm(object):
         # ════════════════════════════════════════════════════════════════════
         # HEADER BAR
         # ════════════════════════════════════════════════════════════════════
-        header = QtWidgets.QFrame()
-        header.setObjectName("header_frame")
-        header.setFixedHeight(52)
-        header.setStyleSheet("""
-            QFrame#header_frame {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #0a0a18, stop:0.5 #181830, stop:1 #0a0a18);
-                border-bottom: 2px solid #00c8f0;
-            }
-            QLabel { font-family: 'Courier New', monospace; }
-        """)
-        hdr_h = QtWidgets.QHBoxLayout(header)
+        self._header_frame = QtWidgets.QFrame()
+        self._header_frame.setObjectName("header_frame")
+        self._header_frame.setFixedHeight(52)
+        hdr_h = QtWidgets.QHBoxLayout(self._header_frame)
         hdr_h.setContentsMargins(14, 4, 14, 4)
         hdr_h.setSpacing(10)
 
-        title_lbl = QtWidgets.QLabel(
+        self._title_lbl = QtWidgets.QLabel(
             "\u2699  \u041a\u041e\u041d\u0412\u0415\u0420\u0422\u0415\u0420\u041d\u0410\u042f "
             "\u041f\u041b\u0410\u0412\u041a\u0410  \u2014  \u041f\u0423\u041b\u042c\u0422 "
             "\u041e\u041f\u0415\u0420\u0410\u0422\u041e\u0420\u0410")
-        title_lbl.setStyleSheet(
-            "color: #00c8f0; font-size: 13px; font-weight: bold;")
-        hdr_h.addWidget(title_lbl)
+        hdr_h.addWidget(self._title_lbl)
         hdr_h.addStretch()
+
+        self._indicator_widgets = []
 
         def _ind_frame(label_txt, obj_name, border_color, text_color):
             fr = QtWidgets.QFrame()
             fr.setFixedSize(175, 44)
-            fr.setStyleSheet(
-                f"QFrame {{ background: rgba(0,0,0,0.45); "
-                f"border: 1px solid rgba({border_color},0.5); border-radius: 5px; }}")
             fh = QtWidgets.QHBoxLayout(fr)
             fh.setContentsMargins(8, 2, 8, 2)
             fh.setSpacing(4)
             cap = QtWidgets.QLabel(label_txt)
             cap.setFixedWidth(42)
-            cap.setStyleSheet(f"color: rgba({border_color},0.85); font-size: 9px; font-weight: bold; border: none;")
             val = QtWidgets.QLineEdit()
             val.setObjectName(obj_name)
             val.setReadOnly(True)
             val.setText("\u2014")
             val.setAlignment(QtCore.Qt.AlignCenter)
             val.setFixedWidth(100)
-            val.setStyleSheet(
-                f"QLineEdit {{ background: transparent; border: none; "
-                f"color: {text_color}; font-size: 20px; font-weight: bold; }}")
             fh.addWidget(cap)
             fh.addWidget(val)
+            self._indicator_widgets.append((fr, cap, val, border_color, text_color))
             return fr, val
 
         fr_t, self.ind_Temp     = _ind_frame("T [°C]", "ind_Temp",     "255,120,0",  "#ff6820")
-        fr_c, self.ind_Carbon   = _ind_frame("C [%]",  "ind_Carbon",   "0,200,240",  "#00d8ff")
-        fr_p, self.ind_Phosphor = _ind_frame("P [%]",  "ind_Phosphor", "0,255,136",  "#00ff88")
+        fr_c, self.ind_Carbon   = _ind_frame("C [%]",  "ind_Carbon",   "0,120,168",  "#0078b8")
+        fr_p, self.ind_Phosphor = _ind_frame("P [%]",  "ind_Phosphor", "0,140,90",   "#00885a")
         hdr_h.addWidget(fr_t)
         hdr_h.addWidget(fr_c)
         hdr_h.addWidget(fr_p)
-        main_layout.addWidget(header)
+        main_layout.addWidget(self._header_frame)
 
         # ════════════════════════════════════════════════════════════════════
         # MAIN SPLITTER  (Left | Center | Right)
@@ -2160,13 +2114,14 @@ class Ui_OperatorForm(object):
         # ────────────────────────────────────────────────────────────────────
         # LEFT PANEL — INPUT ZONE
         # ────────────────────────────────────────────────────────────────────
-        left_scroll = QtWidgets.QScrollArea()
-        left_scroll.setWidgetResizable(True)
-        left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        left_scroll.setMinimumWidth(265)
+        self._left_scroll = QtWidgets.QScrollArea()
+        self._left_scroll.setWidgetResizable(True)
+        self._left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self._left_scroll.setMinimumWidth(265)
 
-        lw = QtWidgets.QWidget()
-        lw.setAutoFillBackground(False)
+        self._left_panel = QtWidgets.QWidget()
+        lw = self._left_panel
+        lw.setAutoFillBackground(True)
         ll = QtWidgets.QVBoxLayout(lw)
         ll.setContentsMargins(8, 8, 6, 8)
         ll.setSpacing(5)
@@ -2409,15 +2364,17 @@ class Ui_OperatorForm(object):
         ll.addWidget(self.groupBox_10)
 
         ll.addStretch()
-        left_scroll.setWidget(lw)
-        main_splitter.addWidget(left_scroll)
+        self._left_scroll.setWidget(lw)
+        main_splitter.addWidget(self._left_scroll)
 
         # ────────────────────────────────────────────────────────────────────
         # CENTER PANEL — PROCESS FLOW
         # ────────────────────────────────────────────────────────────────────
-        cw = QtWidgets.QWidget()
+        self._center_panel = QtWidgets.QWidget()
+        cw = self._center_panel
         cw.setObjectName("center_widget")
         cw.setMinimumWidth(230)
+        cw.setAutoFillBackground(True)
         cv = QtWidgets.QVBoxLayout(cw)
         cv.setContentsMargins(10, 10, 10, 10)
         cv.setSpacing(5)
@@ -2430,9 +2387,6 @@ class Ui_OperatorForm(object):
         self.ScenarioTask.setObjectName("ScenarioTask")
         self.ScenarioTask.setMinimumHeight(50)
         self.ScenarioTask.setMaximumHeight(80)
-        self.ScenarioTask.setStyleSheet(
-            "QPlainTextEdit { background: #0f111a; border: 1px solid rgba(0,200,240,0.32); "
-            "border-radius: 4px; color: #d8ecf8; font-size: 10pt; padding: 4px; }")
         cv.addWidget(self.ScenarioTask)
 
         # Scenario load progress
@@ -2457,6 +2411,7 @@ class Ui_OperatorForm(object):
         cv.addWidget(seq_title)
 
         self._stage_leds = {}
+        self._stage_style_widgets = []
 
         def _stage_row(num, label_text, connect_fn, led_key, btn_attr,
                        guard_fn=None, guard_label=""):
@@ -2468,19 +2423,17 @@ class Ui_OperatorForm(object):
             num_lbl = QtWidgets.QLabel(str(num))
             num_lbl.setFixedSize(20, 20)
             num_lbl.setAlignment(QtCore.Qt.AlignCenter)
-            num_lbl.setStyleSheet(
-                "QLabel { background: rgba(0,200,240,0.10); "
-                "border: 1px solid rgba(0,200,240,0.28); "
-                "border-radius: 10px; color: #00c8f0; "
-                "font-size: 10px; font-weight: bold; }")
             led = _led()
             self._stage_leds[led_key] = led
             stg_lbl = QtWidgets.QLabel(label_text)
-            stg_lbl.setStyleSheet("color: #b0bec8; font-size: 11px;")
+            self._stage_style_widgets.append((num_lbl, stg_lbl))
             calc_btn = QtWidgets.QPushButton()
             calc_btn.setIcon(_icon("Pictures/calculate.ico"))
             calc_btn.setIconSize(QtCore.QSize(20, 20))
             calc_btn.setFlat(True)
+            calc_btn.setAutoDefault(False)
+            calc_btn.setDefault(False)
+            calc_btn.setFocusPolicy(QtCore.Qt.NoFocus)
             calc_btn.setFixedSize(28, 24)
 
             def _make_guarded(fn, gf, gl):
@@ -2545,7 +2498,8 @@ class Ui_OperatorForm(object):
         self.GetResExample = QtWidgets.QPushButton(
             "\u25ba  \u0417\u0410\u041f\u0423\u0421\u0422\u0418\u0422\u042c  \u0412\u0421\u0415  \u042d\u0422\u0410\u041f\u042b")
         self.GetResExample.setObjectName("GetResExample")
-        self.GetResExample.setMinimumHeight(32)
+        self.GetResExample.setMinimumHeight(28)
+        self.GetResExample.setMaximumHeight(28)
         self.GetResExample.clicked.connect(self.GetScenarioExample)
         cv.addWidget(self.GetResExample)
         cv.addStretch()
@@ -2554,13 +2508,15 @@ class Ui_OperatorForm(object):
         # ────────────────────────────────────────────────────────────────────
         # RIGHT PANEL — MONITORING
         # ────────────────────────────────────────────────────────────────────
-        right_scroll = QtWidgets.QScrollArea()
-        right_scroll.setWidgetResizable(True)
-        right_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        right_scroll.setMinimumWidth(270)
+        self._right_scroll = QtWidgets.QScrollArea()
+        self._right_scroll.setWidgetResizable(True)
+        self._right_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self._right_scroll.setMinimumWidth(270)
 
-        rw = QtWidgets.QWidget()
-        rw.setAutoFillBackground(False)
+        self._right_panel = QtWidgets.QWidget()
+        rw = self._right_panel
+        rw.setAutoFillBackground(True)
+        self._result_kpi_frames = []
         rl = QtWidgets.QVBoxLayout(rw)
         rl.setContentsMargins(6, 8, 8, 8)
         rl.setSpacing(5)
@@ -2577,21 +2533,14 @@ class Ui_OperatorForm(object):
 
         def _big_result_frame(label_txt, border_rgb, text_color, obj_name):
             fr = QtWidgets.QFrame()
-            fr.setStyleSheet(
-                f"QFrame {{ background: rgba(0,0,0,0.40); "
-                f"border: 1px solid rgba({border_rgb},0.35); border-radius: 5px; }}")
             fv = QtWidgets.QVBoxLayout(fr)
             fv.setContentsMargins(6, 3, 6, 3)
             cap = QtWidgets.QLabel(label_txt)
-            cap.setStyleSheet(f"color: rgba({border_rgb},0.75); font-size: 9px; border: none;")
             val = _ro_edit(obj_name)
             val.setAlignment(QtCore.Qt.AlignCenter)
-            val.setStyleSheet(
-                f"QLineEdit {{ background: transparent; border: none; "
-                f"color: {text_color}; font-size: 17px; font-weight: bold; "
-                f"font-family: 'Courier New'; }}")
             fv.addWidget(cap)
             fv.addWidget(val)
+            self._result_kpi_frames.append((fr, cap, val, border_rgb, text_color))
             return fr, val
 
         fr_lt, self.LiquidSteelTemp = _big_result_frame(
@@ -2690,14 +2639,14 @@ class Ui_OperatorForm(object):
         rl.addWidget(self.raschet_dutya_group_box)
         rl.addStretch()
 
-        right_scroll.setWidget(rw)
-        main_splitter.addWidget(right_scroll)
+        self._right_scroll.setWidget(rw)
+        main_splitter.addWidget(self._right_scroll)
 
         # ────────────────────────────────────────────────────────────────────
         # 3D CONVERTER PANEL
         # ────────────────────────────────────────────────────────────────────
-        if ConverterWidget is not None:
-            self.converter3d = ConverterWidget()
+        if create_converter_widget is not None:
+            self.converter3d = create_converter_widget()
             main_splitter.addWidget(self.converter3d)
             main_splitter.setSizes([315, 195, 252, 398])
         else:
@@ -2721,34 +2670,16 @@ class Ui_OperatorForm(object):
         t7l.setContentsMargins(10, 8, 10, 8)
         t7l.setSpacing(8)
 
-        stages_lbl = QtWidgets.QLabel(
-            "<b style='color:#00c8f0;'>Порядок расчётов:</b><br>"
-            "1. <b>Металлошихта</b> — вычисление масс шихты<br>"
-            "2. <b>Табл. окисления</b> — расход O₂ по элементам<br>"
-            "3. <b>Расчёт шлака</b> — флюсы, состав шлака<br>"
-            "4. <b>Расчёт дутья</b> — кислород, интенсивность<br>"
-            "5. <b>Мат. баланс</b> — приход/расход материалов<br>"
-            "6. <b>Тепл. баланс</b> — температура выхода стали<br>"
-            "7. <b>Раскисление</b> — ферросплавы, выход металла<br>"
-            "8. <b>Рекомендации</b> — режим продувки, MgO"
-        )
-        stages_lbl.setTextFormat(QtCore.Qt.RichText)
-        stages_lbl.setWordWrap(True)
-        stages_lbl.setStyleSheet("color: #c0d0d8; font-size: 11px;")
-        stages_lbl.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
-        t7l.addWidget(stages_lbl, 1)
+        self._stages_lbl = QtWidgets.QLabel()
+        self._stages_lbl.setTextFormat(QtCore.Qt.RichText)
+        self._stages_lbl.setWordWrap(True)
+        self._stages_lbl.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        t7l.addWidget(self._stages_lbl, 1)
 
-        hints_lbl = QtWidgets.QLabel(
-            "<b style='color:#00c8f0;'>Ограничения:</b> "
-            "Мин. T стали, содержание C и P — см. левую панель.<br>"
-            "<b style='color:#00c8f0;'>LED:</b> "
-            "<span style='color:#00e855;'>●</span> рассчитан &nbsp; "
-            "<span style='color:#3a3a5a;'>●</span> ещё не выполнен"
-        )
-        hints_lbl.setTextFormat(QtCore.Qt.RichText)
-        hints_lbl.setWordWrap(True)
-        hints_lbl.setStyleSheet("color: #9ab0bc; font-size: 10px;")
-        t7l.addWidget(hints_lbl, 0)
+        self._hints_lbl = QtWidgets.QLabel()
+        self._hints_lbl.setTextFormat(QtCore.Qt.RichText)
+        self._hints_lbl.setWordWrap(True)
+        t7l.addWidget(self._hints_lbl, 0)
 
         self.tabWidget.addTab(self.tab_7, "")
 
@@ -3134,14 +3065,10 @@ class Ui_OperatorForm(object):
         t6l.setContentsMargins(8, 6, 8, 6)
         t6l.setSpacing(6)
         self.label_56 = _lbl("label_56")
-        self.label_56.setStyleSheet("color: #00c8f0; font-size: 11px; font-weight: bold;")
         t6l.addWidget(self.label_56)
         self.recomendation = QtWidgets.QPlainTextEdit()
         self.recomendation.setObjectName("recomendation")
         self.recomendation.setReadOnly(True)
-        self.recomendation.setStyleSheet(
-            "QPlainTextEdit { background: rgba(0,40,10,0.45); "
-            "border: 1px solid rgba(0,255,100,0.30); color: #a0e8a0; font-size: 11px; }")
         t6l.addWidget(self.recomendation, 1)
 
         mgo_cols = QtWidgets.QHBoxLayout()
@@ -3215,9 +3142,20 @@ class Ui_OperatorForm(object):
         self.Help.addAction(self.about)
         self.Administrate.addAction(self.AddUser)
         self.Administrate.addAction(self.AddDbData)
+        self.ViewMenu = QtWidgets.QMenu(self.menubar)
+        self.ViewMenu.setObjectName("ViewMenu")
+        self.theme_toggle = ThemeToggle()
+        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        toggle_action = QtWidgets.QWidgetAction(OperatorForm)
+        toggle_action.setDefaultWidget(self.theme_toggle)
+        self.ViewMenu.addAction(toggle_action)
+
         self.menubar.addAction(self.Menu.menuAction())
         self.menubar.addAction(self.Administrate.menuAction())
+        self.menubar.addAction(self.ViewMenu.menuAction())
         self.menubar.addAction(self.Help.menuAction())
+
+        manager().theme_changed.connect(lambda _t: self.refresh_theme())
 
         self.Exit.setShortcut("Ctrl+Q")
         self.Exit.triggered.connect(OperatorForm.close)
@@ -3227,12 +3165,19 @@ class Ui_OperatorForm(object):
         self.retranslateUi(OperatorForm)
         QtCore.QMetaObject.connectSlotsByName(OperatorForm)
 
-        for _tbl in (self.OxidationTable, self.FluxeTable,
-                     self.IncomingData, self.OutputData, self.OutputDataTable,
-                     self.IncomingHeatTable, self.OutputHeatTable,
-                     self.ChemEmission, self.DeoxidationBalance,
-                     self.SteelChemResult, self.SlagChemResult):
+        self._themed_tables = [
+            self.OxidationTable, self.FluxeTable,
+            self.IncomingData, self.OutputData, self.OutputDataTable,
+            self.IncomingHeatTable, self.OutputHeatTable,
+            self.ChemEmission, self.DeoxidationBalance,
+            self.SteelChemResult, self.SlagChemResult,
+        ]
+        for _tbl in self._themed_tables:
             _dark_table(_tbl)
+            _tbl.setStyleSheet(app_theme.table_style(get_theme()))
+        if self.converter3d and hasattr(self.converter3d, 'set_ui_theme'):
+            self.converter3d.set_ui_theme(get_theme())
+        self.refresh_theme()
     def retranslateUi(self, OperatorForm):
         _t = QtCore.QCoreApplication.translate
         OperatorForm.setWindowTitle(_t("OperatorForm", "Процесс плавки стали — Пульт оператора"))
@@ -3542,6 +3487,7 @@ class Ui_OperatorForm(object):
         self.label_56.setText(_t("OperatorForm", "Рекомендация:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), _t("OperatorForm", "Рекомендации"))
         self.Menu.setTitle(_t("OperatorForm", "Файл"))
+        self.ViewMenu.setTitle(_t("OperatorForm", "Вид"))
         self.Help.setTitle(_t("OperatorForm", "Справка"))
         self.Administrate.setTitle(_t("OperatorForm", "Администрирование"))
         self.about.setText(_t("OperatorForm", "О программе"))
@@ -3572,7 +3518,10 @@ class Ui_OperatorForm(object):
 
 if __name__ == "__main__":
     import sys
+    from theme_settings import get_theme
+
     app = QtWidgets.QApplication(sys.argv)
+    app_theme.apply_to_application(app, get_theme())
     OperatorForm = QtWidgets.QMainWindow()
     ui = Ui_OperatorForm()
     ui.setupUi(OperatorForm)

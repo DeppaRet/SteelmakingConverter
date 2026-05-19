@@ -9,6 +9,10 @@ import hashAuth
 from configparser import ConfigParser
 import pandas as pd
 
+import app_theme
+from theme_settings import manager, get_theme
+from theme_toggle import ThemeToggle
+
 DBhost = "localhost"
 DBlogin = "root"
 DBpass = "root"
@@ -961,7 +965,43 @@ class Ui_AdminFom(object):
         self.ui.setupUi(self.window)
         self.window.show()
 
+    def refresh_theme(self):
+        theme = get_theme()
+        pal = app_theme.palette(theme)
+        content_style = app_theme.admin_central_style(theme)
+        root = getattr(self, "_admin_form", None)
+
+        if root is not None:
+            root.setPalette(pal)
+            root.setStyleSheet(app_theme.operator_main_style(theme))
+
+        shells = []
+        if hasattr(self, "centralwidget"):
+            shells.append(self.centralwidget)
+        if hasattr(self, "Factory"):
+            shells.append(self.Factory)
+            for i in range(self.Factory.count()):
+                tab = self.Factory.widget(i)
+                if tab is not None:
+                    shells.append(tab)
+
+        for widget in shells:
+            widget.setAttribute(Qt.WA_StyledBackground, True)
+            widget.setAutoFillBackground(True)
+            widget.setPalette(pal)
+            widget.setStyleSheet(content_style)
+
+        if root is not None:
+            app_theme.apply_admin_content_styles(root, theme)
+            root.style().unpolish(root)
+            root.style().polish(root)
+            root.update()
+
+        if hasattr(self, "theme_toggle"):
+            self.theme_toggle.sync_from_settings()
+
     def setupUi(self, AdminFom):
+        self._admin_form = AdminFom
         AdminFom.setObjectName("AdminFom")
         AdminFom.resize(1150, 750)
         AdminFom.setMinimumSize(900, 600)
@@ -969,180 +1009,8 @@ class Ui_AdminFom(object):
         winIcon.addPixmap(QtGui.QPixmap("Pictures/steel_ico.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         AdminFom.setWindowIcon(winIcon)
 
-        AdminFom.setStyleSheet("""
-            QMainWindow { background: #13131f; }
-            QMenuBar {
-                background: #0d0d1a;
-                color: #c8c8c8;
-                border-bottom: 1px solid rgba(0, 212, 255, 0.35);
-                padding: 2px 4px;
-                font-size: 11px;
-            }
-            QMenuBar::item {
-                background: transparent;
-                padding: 5px 12px;
-                border-radius: 4px;
-            }
-            QMenuBar::item:selected {
-                background: rgba(0, 212, 255, 0.25);
-                color: #00d4ff;
-            }
-            QMenuBar::item:pressed {
-                background: rgba(0, 212, 255, 0.45);
-                color: #00d4ff;
-            }
-            QMenu {
-                background: #0d0d1a;
-                color: #e0e0e0;
-                border: 1px solid rgba(0, 212, 255, 0.35);
-                border-radius: 6px;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 6px 22px 6px 14px;
-                border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background: rgba(0, 212, 255, 0.28);
-                color: #00d4ff;
-            }
-            QMenu::separator {
-                height: 1px;
-                background: rgba(0, 212, 255, 0.2);
-                margin: 4px 8px;
-            }
-            QStatusBar {
-                background: #0d0d1a;
-                color: rgba(200, 200, 200, 0.7);
-                border-top: 1px solid rgba(0, 212, 255, 0.2);
-                font-size: 10px;
-            }
-        """)
-
-        palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(25, 25, 35))
-        palette.setColor(QPalette.WindowText, QColor(224, 224, 224))
-        palette.setColor(QPalette.Base, QColor(35, 35, 50))
-        palette.setColor(QPalette.AlternateBase, QColor(45, 45, 60))
-        palette.setColor(QPalette.ToolTipBase, QColor(0, 212, 255))
-        palette.setColor(QPalette.ToolTipText, QColor(25, 25, 35))
-        palette.setColor(QPalette.Text, QColor(224, 224, 224))
-        palette.setColor(QPalette.Button, QColor(45, 45, 60))
-        palette.setColor(QPalette.ButtonText, QColor(224, 224, 224))
-        palette.setColor(QPalette.Highlight, QColor(0, 212, 255))
-        palette.setColor(QPalette.HighlightedText, QColor(25, 25, 35))
-        AdminFom.setPalette(palette)
-
         self.centralwidget = QtWidgets.QWidget(AdminFom)
         self.centralwidget.setObjectName("centralwidget")
-        self.centralwidget.setStyleSheet("""
-            QWidget#centralwidget {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1a2e, stop:1 #16213e);
-            }
-            QLabel { color: #e0e0e0; }
-            QGroupBox {
-                color: #00d4ff;
-                font-weight: bold;
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 5px;
-                background: rgba(0, 0, 0, 0.2);
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-            }
-            QLineEdit, QPlainTextEdit {
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 4px;
-                padding: 3px 6px;
-                color: #ffffff;
-            }
-            QLineEdit:focus, QPlainTextEdit:focus {
-                border: 2px solid #00d4ff;
-            }
-            QComboBox {
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 6px;
-                padding: 4px 6px;
-                color: #ffffff;
-            }
-            QComboBox:hover { border: 1px solid #00d4ff; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView {
-                background: #1a1a2e;
-                color: #ffffff;
-                selection-background-color: #00d4ff;
-            }
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00d4ff, stop:1 #0099cc);
-                color: #1a1a2e;
-                border: none;
-                border-radius: 6px;
-                padding: 5px 14px;
-                font-weight: bold;
-                font-size: 11px;
-                min-height: 24px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #00e5ff, stop:1 #00b8d9);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0099cc, stop:1 #0077aa);
-            }
-            QTableWidget {
-                background: rgba(0, 0, 0, 0.3);
-                alternate-background-color: rgba(255, 255, 255, 0.05);
-                gridline-color: rgba(0, 212, 255, 0.2);
-                color: #e0e0e0;
-                border: 1px solid rgba(0, 212, 255, 0.2);
-                border-radius: 8px;
-            }
-            QTableWidget::item { padding: 5px; color: #e0e0e0; }
-            QTableWidget::item:selected { background: rgba(0, 212, 255, 0.3); color: #ffffff; }
-            QHeaderView { background: rgba(0, 0, 0, 0.4); }
-            QHeaderView::section {
-                background: rgba(0, 212, 255, 0.25);
-                color: #ffffff;
-                padding: 6px;
-                border: none;
-                font-weight: bold;
-            }
-            QTableWidget QTableCornerButton::section { background: rgba(0, 212, 255, 0.25); border: none; }
-            QTabWidget::pane {
-                border: 1px solid rgba(0, 212, 255, 0.3);
-                border-radius: 8px;
-                background: rgba(0, 0, 0, 0.2);
-            }
-            QTabBar::tab {
-                background: rgba(0, 0, 0, 0.3);
-                color: #e0e0e0;
-                padding: 6px 12px;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                margin-right: 2px;
-                font-size: 11px;
-                min-width: 150px;
-            }
-            QTabBar::tab:selected { background: rgba(0, 212, 255, 0.3); color: #00d4ff; font-weight: bold; }
-            QTabBar::tab:hover { background: rgba(0, 212, 255, 0.15); }
-            QScrollBar:vertical { background: rgba(0, 0, 0, 0.3); width: 10px; border-radius: 5px; }
-            QScrollBar::handle:vertical { background: rgba(0, 212, 255, 0.5); border-radius: 4px; min-height: 20px; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-            QScrollBar:horizontal { background: rgba(0, 0, 0, 0.3); height: 10px; border-radius: 5px; }
-            QScrollBar::handle:horizontal { background: rgba(0, 212, 255, 0.5); border-radius: 4px; min-width: 20px; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
-            QMenuBar { background: rgba(0, 0, 0, 0.5); color: #e0e0e0; }
-            QMenuBar::item:selected { background: rgba(0, 212, 255, 0.3); }
-            QMenu { background: #1a1a2e; color: #e0e0e0; border: 1px solid rgba(0, 212, 255, 0.3); }
-            QMenu::item:selected { background: rgba(0, 212, 255, 0.3); }
-            QStatusBar { background: rgba(0, 0, 0, 0.5); color: #e0e0e0; }
-            QScrollArea { background: transparent; border: none; }
-        """)
 
         central_layout = QtWidgets.QVBoxLayout(self.centralwidget)
         central_layout.setContentsMargins(0, 0, 0, 0)
@@ -1784,12 +1652,29 @@ class Ui_AdminFom(object):
 
         self.menu.addAction(self.exit)
         self.menu_2.addAction(self.about)
+        self.menu_view = QtWidgets.QMenu(self.menubar)
+        self.theme_toggle = ThemeToggle()
+        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        toggle_action = QtWidgets.QWidgetAction(AdminFom)
+        toggle_action.setDefaultWidget(self.theme_toggle)
+        self.menu_view.addAction(toggle_action)
         self.menubar.addAction(self.menu.menuAction())
         self.menubar.addAction(self.menu_2.menuAction())
+        self.menubar.addAction(self.menu_view.menuAction())
+
+        manager().theme_changed.connect(lambda _t: self.refresh_theme())
 
         self.retranslateUi(AdminFom)
         self.Factory.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(AdminFom)
+
+        def _on_show(event):
+            QtWidgets.QMainWindow.showEvent(AdminFom, event)
+            self.refresh_theme()
+
+        AdminFom.showEvent = _on_show
+        self.refresh_theme()
+        QtCore.QTimer.singleShot(0, self.refresh_theme)
 
     def retranslateUi(self, AdminFom):
         _translate = QtCore.QCoreApplication.translate
@@ -1914,6 +1799,7 @@ class Ui_AdminFom(object):
         # Menu
         self.menu.setTitle(_translate("AdminFom", "Файл"))
         self.menu_2.setTitle(_translate("AdminFom", "Справка"))
+        self.menu_view.setTitle(_translate("AdminFom", "Вид"))
         self.exit.setText(_translate("AdminFom", "Выход"))
         self.about.setText(_translate("AdminFom", "О программе"))
 
@@ -1929,7 +1815,10 @@ class Ui_AdminFom(object):
 
 if __name__ == "__main__":
     import sys
+    from theme_settings import get_theme
+
     app = QtWidgets.QApplication(sys.argv)
+    app_theme.apply_to_application(app, get_theme())
     AdminFom = QtWidgets.QMainWindow()
     ui = Ui_AdminFom()
     ui.setupUi(AdminFom)

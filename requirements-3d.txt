@@ -1,0 +1,9 @@
+# 3D converter (Three.js via Qt WebEngine)
+# Recommended on Windows (avoids mixed site-packages + ICU crash under Cyrillic profile):
+#   pip install -r requirements-3d.txt --target vendor/pyqt
+PyQt5>=5.15.9
+PyQtWebEngine>=5.15.6
+PyQtWebEngine-Qt5>=5.15.2
+
+# OpenGL fallback (optional)
+PyOpenGL>=3.1.6

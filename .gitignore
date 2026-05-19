@@ -112,3 +112,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Bundled PyQt5 + WebEngine for Three.js (pip --target vendor/pyqt)
+vendor/pyqt/
+converter3d/webengine_runtime/
