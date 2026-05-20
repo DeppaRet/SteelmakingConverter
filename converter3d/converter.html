@@ -129,8 +129,16 @@ var converterState = {
   temperature: 1400,
   lanceHeight: 0,
   penetrationDepth: 0,
-  reactionZoneActive: false
+  reactionZoneActive: false,
+  foamDelta:   0,
+  phi:         0,
+  phiAlarm:    false
 };
+var H_FREE_BOARD_JS = 7.0;
+var FOAM_SLH_SCALE  = 0.018;
+var targetFoamSlH   = 0;
+var currentFoamSlH  = 0;
+var neckAlarmPhase  = 0;
 
 var syncScene = null;
 var setSceneMode = null;
@@ -286,11 +294,21 @@ function latheCut(profilePts, segments, material) {
   );
 }
 
+function foamSlagExtraMeters(dhFoam) {
+  var dh = Math.max(0, dhFoam || 0);
+  return Math.min(MAX_SLAG_H * 0.85, dh * FOAM_SLH_SCALE);
+}
+
+function applyFoamTargets(s) {
+  targetFoamSlH = foamSlagExtraMeters(s.foamDelta);
+}
+
 function updateConverter(data) {
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch(e) { return; }
   }
   Object.assign(converterState, data);
+  applyFoamTargets(converterState);
   if (data.uiTheme && typeof applyUiTheme === 'function') {
     applyUiTheme(data.uiTheme);
   }
@@ -1067,6 +1085,25 @@ function initScene() {
   guideRing.position.y = 0;  // will be repositioned
   scene.add(guideRing);
 
+  // === DYNAMIC EXTENSION v3: подсветка горловины при Φ ≥ 0.9 ===
+  var neckAlarmMat = new THREE.MeshStandardMaterial({
+    color: 0xff2200,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.0,
+    transparent: true,
+    opacity: 0.85,
+    metalness: 0.2,
+    roughness: 0.4,
+  });
+  var neckAlarmRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.04, 8, 32),
+    neckAlarmMat
+  );
+  neckAlarmRing.position.set(0, 2.38, 0);
+  neckAlarmRing.visible = false;
+  scene.add(neckAlarmRing);
+  // === END DYNAMIC EXTENSION ===
+
   // Полупрозрачная «лунка» (глубина внедрения струи)
   var pitCone = new THREE.Mesh(
     new THREE.ConeGeometry(0.14, 0.55, 14),
@@ -1238,7 +1275,7 @@ function initScene() {
     var isComplete = (s.state === 'complete');
 
     var mH = bathHeightFromLevel(s.metalLevel, 0);
-    var slH = Math.max(0, s.slagLevel) * MAX_SLAG_H;
+    var slH = Math.max(0, s.slagLevel) * MAX_SLAG_H + currentFoamSlH;
     if (layoutBathFill) layoutBathFill(mH, slH);
 
     // Temperature colour
@@ -1303,9 +1340,30 @@ function initScene() {
     if (converterState.state === 'complete' && tiltCurrent > 0.087) {
       pourF = Math.min(1, (tiltCurrent * 180 / Math.PI - 5) / 125);
     }
+    currentFoamSlH += (targetFoamSlH - currentFoamSlH) * Math.min(1, dt * 5.5);
     var mH = bathHeightFromLevel(converterState.metalLevel, pourF);
-    var slH = Math.max(0, converterState.slagLevel) * MAX_SLAG_H * (1 - pourF * 0.85);
+    var slH = Math.max(0, converterState.slagLevel) * MAX_SLAG_H * (1 - pourF * 0.85)
+      + currentFoamSlH * (1 - pourF * 0.5);
     if (layoutBathFill) layoutBathFill(mH, slH);
+
+    var phiVal = converterState.phi || 0;
+    var phiAlarm = !!converterState.phiAlarm;
+    if (phiAlarm) {
+      neckAlarmPhase += dt * 9.0;
+      var blink = 0.45 + 0.55 * Math.sin(neckAlarmPhase);
+      neckAlarmMat.emissiveIntensity = blink * 1.6;
+      neckAlarmMat.opacity = 0.55 + 0.35 * blink;
+      neckAlarmRing.visible = true;
+    } else if (phiVal >= 0.5) {
+      neckAlarmPhase += dt * 4.0;
+      neckAlarmMat.emissiveIntensity = 0.35 + 0.2 * Math.sin(neckAlarmPhase);
+      neckAlarmMat.emissive.setHex(0xffaa00);
+      neckAlarmMat.opacity = 0.45;
+      neckAlarmRing.visible = true;
+    } else {
+      neckAlarmMat.emissiveIntensity = 0;
+      neckAlarmRing.visible = false;
+    }
 
     lanceGroup.position.y += (targetLanceY - lanceGroup.position.y) * 0.04;
 

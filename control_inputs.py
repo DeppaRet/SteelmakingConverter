@@ -700,9 +700,13 @@ class ControlInputsPanel(QtWidgets.QWidget):
         self._blow_volume_display.setText(f"{v_m3:.0f} м³")
 
     def set_informational_blow_rates(self, i_m3_min: float, tau_min: float) -> None:
-        """Показать i и τ после расчёта дутья (Ф-2: τ = V/i, i = V/τ), без рассинхрона виджетов."""
-        self._knob_flow.set_value(float(i_m3_min))
-        self._knob_time.set_value(float(tau_min))
+        """Показать i и τ после расчёта дутья (Ф-2), без сигнала controls_changed."""
+        for knob, val in ((self._knob_flow, float(i_m3_min)), (self._knob_time, float(tau_min))):
+            was = knob._block
+            knob._block = True
+            knob._sync_widgets(val, "")
+            knob._block = was
+            setattr(knob, f"_prev_{knob.param_key}", knob.value())
 
     def _on_knob_changed(self, key: str, new_val: float) -> None:
         old = getattr(self, f"_prev_{key}", new_val)

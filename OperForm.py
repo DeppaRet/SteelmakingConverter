@@ -34,7 +34,7 @@ from control_inputs import (
 )
 from dynamics_charts import DynamicsChartsWidget
 from dynamics_indicators import DynamicsIndicatorsPanel
-from melt_dynamics import MeltDynamicsEngine
+from melt_dynamics import CALIB_DEFAULTS, MeltDynamicsEngine
 from theme_settings import manager, get_theme
 from theme_toggle import ThemeToggle
 
@@ -498,8 +498,6 @@ class Ui_OperatorForm(object):
         """Полный пересчёт этапов. reload_mode_from_db=False — не трогать поля режима (кнопка панели)."""
         if reload_mode_from_db:
             self.chooseMods()
-        if hasattr(self, "control_panel"):
-            self._apply_user_controls_from_panel()
         self._run_calculation_stages()
 
     def _run_calculation_stages(self):
@@ -604,6 +602,9 @@ class Ui_OperatorForm(object):
             DB.close()
             self.getFluxeInMode(modeId)
 
+            self._balance_tau_min = None
+            self._balance_v_m3 = None
+            self._balance_blast_i_display = None
             self._recalc_scrap_from_target_c = False
             if hasattr(self, "control_panel"):
                 try:
@@ -1074,8 +1075,12 @@ class Ui_OperatorForm(object):
         self._control_scenario_mass_t: float = 200.0
         self._last_3d_process_state: str = "idle"
         self._sim_worker: DynamicsSimulationWorker | None = None
+        self._sim_engine: MeltDynamicsEngine | None = None
         self._sim_playback_idx = 0
         self._sim_snapshots: list[dict] = []
+        self._balance_tau_min: float | None = None
+        self._balance_v_m3: float | None = None
+        self._balance_blast_i_display: float | None = None
 
     def _si_pig_iron_pct(self) -> float:
         try:
@@ -1083,9 +1088,30 @@ class Ui_OperatorForm(object):
         except AttributeError:
             return 0.5
 
-    def _resolve_dynamic_free_params(self) -> dict[str, float]:
-        """η_CO, Z, P_O2, K_P, G_V, i_уд из MeltDynamicsEngine (Ф-Д2…Ф-Д6)."""
-        # === DYNAMIC EXTENSION v3: свободные параметры для баланса ===
+    def _resolve_balance_free_params(self) -> dict[str, float]:
+        """η_CO, Z, P_O2 для 8 этапов баланса — без крутилок симуляции."""
+        mass = self._metal_charge_mass_t()
+        h_c = self._recommended_lance_ranges(mass)["optimal"]
+        i_ud_ref = CALIB_DEFAULTS.get("i_ud_ref", 4.0)
+        i_total = max(400.0, i_ud_ref * mass)
+        si_pig = self._si_pig_iron_pct()
+        preview = MeltDynamicsEngine.preview_free_params(
+            h_c, i_total, mass, si_pig
+        )
+        return {
+            "eta_co": preview["eta_co"],
+            "z_co": preview["z_co"],
+            "p_o2": preview["p_o2"],
+            "k_p": preview["k_p"],
+            "g_v": preview["g_v"],
+            "i_ud": preview["i_ud"],
+            "efficiency": preview["efficiency"],
+            "h_c": h_c,
+            "i_total": i_total,
+        }
+
+    def _resolve_sim_free_params(self) -> dict[str, float]:
+        """η_CO, Z, P_O2 для вкладки «Симуляция» — с учётом крутилок оператора."""
         h_c = 1.15
         i_total = 600.0
         if hasattr(self, "control_panel"):
@@ -1109,8 +1135,15 @@ class Ui_OperatorForm(object):
             "i_ud": preview["i_ud"],
             "efficiency": preview["efficiency"],
             "h_c": h_c,
+            "i_total": i_total,
         }
-        # === END DYNAMIC EXTENSION ===
+
+    def _charge_temperature_for_dynamics(self) -> float:
+        """T заливки чугуна для динамики (не LiquidSteelTemp — финал теплобаланса)."""
+        t = self._field_float(self.castTemperature, 1400.0)
+        if t > 1550.0:
+            t = 1400.0
+        return max(1250.0, min(1500.0, t))
 
     def _build_melt_initial_state(self) -> dict[str, float]:
         """Начальное состояние для пошаговой симуляции."""
@@ -1120,26 +1153,92 @@ class Ui_OperatorForm(object):
             "C": self._field_float(self.ChemCarbon, 4.0),
             "Si": self._field_float(self.ChemSilicon, 0.5),
             "Mn": self._field_float(self.ChemManganese, 0.3),
-            "T": self._field_float(self.castTemperature, 1350.0),
+            "T": self._charge_temperature_for_dynamics(),
             "FeO_slag": 12.0,
             "Si_pig": self._si_pig_iron_pct(),
             "V_O2_total": 0.0,
         }
 
+    def _blast_rates_from_balance_volume(self, v_m3: float) -> tuple[float, float]:
+        """i и τ из балансного V (Ф-2); τ≈V/17 мин — без крутилок симуляции."""
+        v_m3 = max(float(v_m3), 1.0)
+        tau = max(12.0, min(25.0, v_m3 / 17.0))
+        return v_m3 / tau, tau
+
+    def _balance_blow_intensity(self) -> float | None:
+        """i_баланс = V/τ после «Расчёт дутья» (эталон для масштаба v_C)."""
+        tau = self._balance_blow_tau_min()
+        v_m3 = getattr(self, "_balance_v_m3", None)
+        if tau and tau > 1.0 and v_m3 and float(v_m3) > 1.0:
+            return float(v_m3) / float(tau)
+        return None
+
+    def _balance_blow_tau_min(self) -> float | None:
+        """τ продувки из баланса: Ф-2 τ=V/i после «Расчёт дутья» (None = ещё не считали)."""
+        global blastCalcked
+        if not blastCalcked:
+            return None
+        if getattr(self, "_balance_tau_min", None) is not None:
+            if self._balance_tau_min >= 1.0:
+                return self._balance_tau_min
+        if hasattr(self, "TotalConsumptionOfBlastM3"):
+            try:
+                v_m3 = float(self.TotalConsumptionOfBlastM3.text())
+                if v_m3 > 1.0:
+                    _i, tau = self._blast_rates_from_balance_volume(v_m3)
+                    if tau >= 1.0:
+                        return tau
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    def _is_simulation_tab_active(self) -> bool:
+        return (
+            hasattr(self, "tab_simulation")
+            and self.tabWidget.currentWidget() is self.tab_simulation
+        )
+
+    def _on_tab_widget_changed(self, _index: int) -> None:
+        if self._is_simulation_tab_active():
+            self._ensure_sim_engine()
+
+    def _dynamic_T_end_target(self) -> float:
+        """Целевая T конца продувки: из теплобаланса или T чугуна + ~265 °C."""
+        t0 = self._charge_temperature_for_dynamics()
+        global heatBalanceCalcked
+        if heatBalanceCalcked and hasattr(self, "LiquidSteelTemp"):
+            try:
+                t_bal = float(self.LiquidSteelTemp.text())
+                if t_bal > t0 + 30.0:
+                    return min(1720.0, t_bal)
+            except (ValueError, TypeError):
+                pass
+        return min(1720.0, t0 + 265.0)
+
     def _build_melt_control_params(self) -> dict[str, float]:
         h_c = self.userLanceHeight or 1.15
         i_total = self.userBlowFlow or 600.0
-        target_c = self._get_target_carbon()
+        target_c = self._get_sim_target_carbon()
         if hasattr(self, "control_panel"):
             h_c = self.control_panel.lance_height_value()
             i_total = self.control_panel.intensity_value()
             target_c = self.control_panel.target_carbon_value()
-        return {"h_c": h_c, "i_total": i_total, "target_c": target_c}
+        cp: dict[str, float] = {
+            "h_c": h_c,
+            "i_total": i_total,
+            "target_c": target_c,
+            "T_end_target": self._dynamic_T_end_target(),
+            "tau_target_min": self._balance_blow_tau_min() or 17.0,
+        }
+        i_bal = self._balance_blow_intensity()
+        if i_bal is not None and i_bal > 1.0:
+            cp["i_balance_ref"] = i_bal
+        return cp
 
     def _update_dynamic_auto_fields(self) -> None:
         if not hasattr(self, "_auto_eta_co"):
             return
-        free = self._resolve_dynamic_free_params()
+        free = self._resolve_sim_free_params()
         self.user_eta_co = free["eta_co"]
         self.user_z_co = free["z_co"]
         if not (
@@ -1165,7 +1264,7 @@ class Ui_OperatorForm(object):
                 self._metal_charge_mass_t(), self._si_pig_iron_pct()
             )
         if hasattr(self, "dynamics_indicators"):
-            self.dynamics_indicators.set_target_carbon(self._get_target_carbon())
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
             snap = {
                 "eta_CO": free["eta_co"],
                 "Z": free["z_co"],
@@ -1210,10 +1309,14 @@ class Ui_OperatorForm(object):
         self._on_sim_panel_geometry_changed()
 
     def _metal_charge_mass_t(self) -> float:
+        """Масса металлической шихты [т]; 0 в поле → запас из сценария (иначе v_C=0)."""
         try:
-            return float(self.MetalCharge.text())
+            m = float(self.MetalCharge.text())
         except (ValueError, AttributeError):
-            return self._control_scenario_mass_t
+            m = 0.0
+        if m <= 1.0:
+            m = float(getattr(self, "_control_scenario_mass_t", 200.0))
+        return max(m, 50.0)
 
     def _calc_specific_intensity(self, i_m3_min: float, g_st: float) -> float:
         """Ф-1: i_уд = i / G_ст [м³/(т·мин)]. Источники [1], [2]."""
@@ -1303,10 +1406,16 @@ class Ui_OperatorForm(object):
         return ""
 
     def _get_target_carbon(self) -> float:
-        """Целевое [C]_М: с панели или из поля steelCarbon (БД/сценарий)."""
-        if self.user_target_C is not None:
-            return self.user_target_C
+        """Целевое [C]_М для 8 этапов баланса (поле сценария / БД)."""
         return self._field_float(self.steelCarbon)
+
+    def _get_sim_target_carbon(self) -> float:
+        """Целевое [C]_М для симуляции (крутилка или поле сценария)."""
+        if self.user_target_C is not None:
+            return float(self.user_target_C)
+        if hasattr(self, "control_panel"):
+            return self.control_panel.target_carbon_value()
+        return self._get_target_carbon()
 
     def _recalc_scrap_weight_for_target_carbon(self) -> float:
         """Масса лома [т] при изменении целевого [C]_М (разд. 3 методики Шаповалова).
@@ -1319,7 +1428,7 @@ class Ui_OperatorForm(object):
         base_target = self._scenario_target_carbon
         if base_scrap is None or base_target is None:
             return self._field_float(self.scrapWeight)
-        target_c = self._get_target_carbon()
+        target_c = self._get_sim_target_carbon()
         delta_c = base_target - target_c
         factor = 1.0 + 0.02 * (delta_c / 0.05)
         return max(0.0, base_scrap * factor)
@@ -1338,13 +1447,8 @@ class Ui_OperatorForm(object):
         return {KEY_FLOW: i, KEY_TIME: tau}
 
     def _get_informational_blow_rates(self, v_m3: float) -> tuple[float, float]:
-        """Расход i и время τ с панели для 3D и отображения (не для V_дутья)."""
-        default_tau = 17.0
-        if not hasattr(self, "control_panel"):
-            return self._calc_flow_from_time(v_m3, default_tau), default_tau
-        vals = self.control_panel.get_values()
-        synced = self._sync_blast_triplet_info(vals, v_m3)
-        return synced[KEY_FLOW], synced[KEY_TIME]
+        """Расход i и время τ по балансному V (Ф-2), согласованные с крутилками."""
+        return self._blast_rates_from_balance_volume(v_m3)
 
     def _sync_blast_panel_display(self, v_m3: float, i_flow: float, tau_min: float) -> None:
         """Обновить расчётный V и информационные i, τ на панели (Ф-2)."""
@@ -1400,16 +1504,18 @@ class Ui_OperatorForm(object):
         self.control_panel.apply_range_hints(hints)
 
     def _push_controls_to_3d(self, i_flow: float, h_c: float, h_l: float) -> None:
+        """Обновить 3D по результатам баланса (не с крутилок симуляции)."""
         if not getattr(self, "converter3d", None):
             return
         state = getattr(self, "_last_3d_process_state", "blowing")
         if state == "idle" and i_flow > 0:
             state = "blowing"
+        self._balance_blast_i_display = float(i_flow)
         self.converter3d.update_state({
             "blastFlow": round(i_flow, 0),
             "lanceHeight": round(h_c, 3),
             "penetrationDepth": round(h_l, 3),
-            "reactionZoneActive": i_flow > 0 and state in ("blowing", "complete"),
+            "reactionZoneActive": i_flow > 0 and state == "blowing",
         })
 
     def _apply_user_controls_from_panel(self, values: dict[str, Any] | None = None) -> None:
@@ -1425,12 +1531,9 @@ class Ui_OperatorForm(object):
         self.userBlowFlow = values.get(SIGNAL_BLOW_INTENSITY)
         self.userBlowTime = values.get(SIGNAL_BLOW_TIME)
 
-        if self.user_target_C is not None:
-            self.steelCarbon.setText(f"{self.user_target_C:.3f}")
-
         h_c = self.userLanceHeight or 1.15
         if self.userLanceHeight is not None:
-            free = self._resolve_dynamic_free_params()
+            free = self._resolve_sim_free_params()
             self.user_eta_co = free["eta_co"]
             self.user_z_co = free["z_co"]
             if not self.control_panel.p_o2_manual_mode():
@@ -1451,7 +1554,6 @@ class Ui_OperatorForm(object):
         h_l = self._calc_penetration_depth(h_c, ar_star)
 
         self._update_control_hints(i_ud, h_c)
-        self._push_controls_to_3d(i, h_c, h_l)
 
     def _on_controls_changed(self, values: dict[str, Any]) -> None:
         self._log_control_changes()
@@ -1461,6 +1563,110 @@ class Ui_OperatorForm(object):
             self.scrapWeight.setText(str(round(scrap_t, 3)))
             self._recalc_scrap_from_target_c = False
         logger.debug("controls changed: %s", self._user_controls)
+        if self._is_simulation_tab_active():
+            self._apply_live_sim_controls()
+
+    def _ensure_sim_step_timer(self) -> QtCore.QTimer:
+        if not hasattr(self, "_sim_step_timer"):
+            self._sim_step_timer = QtCore.QTimer(
+                getattr(self, "_oper_form", None)
+            )
+            self._sim_step_timer.setInterval(
+                int(CALIB_DEFAULTS.get("sim_live_step_ms", 900))
+            )
+            self._sim_step_timer.timeout.connect(self._sim_live_step)
+        return self._sim_step_timer
+
+    def _ensure_sim_engine(self) -> bool:
+        if self._sim_engine is not None:
+            return True
+        if not self.ScenarioComboBox.currentText().strip():
+            return False
+        self._apply_user_controls_from_panel()
+        try:
+            initial = self._build_melt_initial_state()
+            control = self._build_melt_control_params()
+            self._sim_engine = MeltDynamicsEngine(
+                initial_state=initial,
+                control_params=control,
+            )
+            self._sim_t_charge = float(initial["T"])
+        except Exception as exc:
+            logger.warning("sim engine init failed: %s", exc)
+            self._sim_engine = None
+            return False
+        return True
+
+    def _apply_live_sim_controls(self) -> None:
+        """Передать новые крутилки в идущую симуляцию без сброса истории."""
+        if not self._ensure_sim_engine():
+            return
+        self._apply_user_controls_from_panel()
+        cp = self._build_melt_control_params()
+        tau = self._balance_blow_tau_min()
+        if tau is not None and tau > 0:
+            cp["tau_target_min"] = tau
+        self._sim_engine.apply_controls(cp)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+        if self._sim_snapshots:
+            self._update_sim_temp_hint(self._sim_snapshots[-1])
+        if not self._sim_engine.is_finished():
+            self._ensure_sim_step_timer().start()
+
+    def _refresh_sim_ui(self, snap: dict) -> None:
+        if hasattr(self, "dynamics_charts"):
+            self.dynamics_charts.update_curves(self._sim_snapshots)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+            self.dynamics_indicators.set_state(snap)
+        self._update_sim_temp_hint(snap)
+        if getattr(self, "converter3d", None):
+            self._push_sim_foam_to_3d(snap)
+
+    def _sim_live_step(self) -> None:
+        if self._sim_engine is None or self._sim_engine.is_finished():
+            self._ensure_sim_step_timer().stop()
+            return
+        snap = self._sim_engine.step()
+        self._sim_snapshots.append(snap)
+        self._refresh_sim_ui(snap)
+
+    def _start_simulation_session(self, *, reset: bool) -> bool:
+        if not self.ScenarioComboBox.currentText().strip():
+            return False
+        timer = self._ensure_sim_step_timer()
+        if reset:
+            timer.stop()
+            self._apply_user_controls_from_panel()
+            try:
+                initial = self._build_melt_initial_state()
+                control = self._build_melt_control_params()
+                i_bal = self._balance_blow_intensity()
+                if i_bal is not None:
+                    control["i_balance_ref"] = i_bal
+                    tau_bal = self._balance_blow_tau_min()
+                    if tau_bal is not None and tau_bal > 1.0:
+                        control["tau_target_min"] = float(tau_bal)
+                self._sim_engine = MeltDynamicsEngine(
+                    initial_state=initial,
+                    control_params=control,
+                )
+                self._sim_t_charge = float(initial["T"])
+                self._sim_snapshots = []
+                if hasattr(self, "dynamics_charts"):
+                    self.dynamics_charts.clear()
+                self._update_sim_temp_hint(None)
+            except Exception as exc:
+                logger.warning("simulation reset failed: %s", exc)
+                return False
+        elif not self._ensure_sim_engine():
+            return False
+        if self._sim_engine.is_finished():
+            return True
+        timer.start()
+        self._sim_live_step()
+        return True
 
     def _on_simulate_melt(self) -> None:
         if not self.ScenarioComboBox.currentText().strip():
@@ -1470,58 +1676,77 @@ class Ui_OperatorForm(object):
                 "Сначала выберите и загрузите сценарий.",
             )
             return
-        if self._sim_worker is not None and self._sim_worker.isRunning():
-            return
-        self._apply_user_controls_from_panel()
-        initial = self._build_melt_initial_state()
-        control = self._build_melt_control_params()
-        c_target = control["target_c"]
-        self._btn_simulate = getattr(self.control_panel, "_btn_simulate", None)
-        if self._btn_simulate is not None:
-            self._btn_simulate.setEnabled(False)
-            self._btn_simulate.setText("Симуляция…")
-        qt_parent = getattr(self, "_oper_form", None)
-        self._sim_worker = DynamicsSimulationWorker(
-            initial, control, c_target, parent=qt_parent
-        )
-        self._sim_worker.finished_ok.connect(self._on_simulation_finished)
-        self._sim_worker.failed.connect(self._on_simulation_failed)
-        self._sim_worker.start()
+        if not self._start_simulation_session(reset=True):
+            QMessageBox.warning(
+                None,
+                "Симуляция",
+                "Не удалось запустить расчёт. Загрузите сценарий и выполните расчёт дутья.",
+            )
 
     def _on_simulation_finished(self, snapshots: list, last: dict) -> None:
-        btn = getattr(self.control_panel, "_btn_simulate", None)
-        if btn is not None:
-            btn.setEnabled(True)
-            btn.setText("Симулировать плавку")
+        """Legacy: ответ QThread (сейчас расчёт синхронный в _run_dynamics_preview)."""
         self._sim_snapshots = snapshots
         if hasattr(self, "dynamics_charts"):
             self.dynamics_charts.update_curves(snapshots)
         if hasattr(self, "dynamics_indicators") and last:
-            self.dynamics_indicators.set_target_carbon(self._get_target_carbon())
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
             self.dynamics_indicators.set_state(last)
-        self._sim_playback_idx = 0
-        if not hasattr(self, "_sim_playback_timer"):
-            self._sim_playback_timer = QtCore.QTimer(
-                getattr(self, "_oper_form", None)
-            )
-            self._sim_playback_timer.setInterval(500)
-            self._sim_playback_timer.timeout.connect(self._sim_playback_tick)
-        if snapshots:
-            self._sim_playback_timer.start()
-        # === DYNAMIC EXTENSION v3: опционально 3D foam (TODO полная анимация) ===
-        if getattr(self, "converter3d", None) and last:
-            phi = float(last.get("Phi", 0.0))
-            self.converter3d.update_state({
-                "foamDelta": round(float(last.get("dh_foam", 0.0)), 2),
-                "phiAlarm": phi >= 0.9,
-            })
-        # === END DYNAMIC EXTENSION ===
+        self._update_sim_temp_hint(last)
+
+    def _update_sim_temp_hint(self, snap: dict | None) -> None:
+        if not hasattr(self, "_sim_temp_hint"):
+            return
+        t0 = getattr(self, "_sim_t_charge", self._charge_temperature_for_dynamics())
+        t_end = self._dynamic_T_end_target()
+        tau_bal = self._balance_blow_tau_min()
+        tau_bal_txt = (
+            f"{tau_bal:.1f} мин" if tau_bal is not None and tau_bal > 0 else "н/д (расчёт дутья)"
+        )
+        parts = [
+            f"T чугуна: {t0:.0f} °C",
+            f"цель T: {t_end:.0f} °C",
+            f"τ баланс: {tau_bal_txt}",
+        ]
+        if snap is not None:
+            parts.append(f"T: {float(snap.get('T', 0)):.0f} °C")
+            parts.append(f"τ сим: {float(snap.get('t_min', 0)):.1f} мин")
+        global heatBalanceCalcked
+        if heatBalanceCalcked and hasattr(self, "LiquidSteelTemp"):
+            try:
+                t_bal = float(self.LiquidSteelTemp.text())
+                parts.append(f"T баланс: {t_bal:.0f} °C")
+            except (ValueError, TypeError):
+                pass
+        self._sim_temp_hint.setText(" | ".join(parts))
+
+    def _push_sim_foam_to_3d(self, snap: dict) -> None:
+        if not getattr(self, "converter3d", None):
+            return
+        phi = float(snap.get("Phi", 0.0))
+        self.converter3d.update_state({
+            "state": "blowing",
+            "foamDelta": round(float(snap.get("dh_foam", 0.0)), 3),
+            "phi": round(phi, 3),
+            "phiAlarm": phi >= CALIB_DEFAULTS["phi_alarm"],
+            "temperature": round(float(snap.get("T", 0.0))),
+        })
 
     def _sim_playback_tick(self) -> None:
-        if not self._sim_snapshots or not hasattr(self, "dynamics_indicators"):
+        if not self._sim_snapshots:
             self._sim_playback_timer.stop()
             return
-        self.dynamics_indicators.set_state(self._sim_snapshots[self._sim_playback_idx])
+        idx = self._sim_playback_idx
+        if idx >= len(self._sim_snapshots):
+            self._sim_playback_timer.stop()
+            return
+        prefix = self._sim_snapshots[: idx + 1]
+        snap = prefix[-1]
+        if hasattr(self, "dynamics_charts"):
+            self.dynamics_charts.update_curves(prefix)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_state(snap)
+        self._update_sim_temp_hint(snap)
+        self._push_sim_foam_to_3d(snap)
         self._sim_playback_idx += 1
         if self._sim_playback_idx >= len(self._sim_snapshots):
             self._sim_playback_timer.stop()
@@ -1618,7 +1843,7 @@ class Ui_OperatorForm(object):
                 + self._field_float(self.SlagFe2O3) * 48 / 160
             )
             # === DYNAMIC EXTENSION v3: формула (20), η_CO из Ф-Д2 ===
-            free = self._resolve_dynamic_free_params()
+            free = self._resolve_balance_free_params()
             eta_CO = free["eta_co"]
             po2 = free["p_o2"]
             # === END DYNAMIC EXTENSION ===
@@ -1638,7 +1863,9 @@ class Ui_OperatorForm(object):
             totalBlastConsumptionM3 = chem_m3
             totalBlastConsumptionKg = chem_kg
             excessBlast = chem_kg * 0.08
-            i_flow, tau_min = self._get_informational_blow_rates(chem_m3)
+            i_flow, tau_min = self._blast_rates_from_balance_volume(chem_m3)
+            self._balance_v_m3 = float(chem_m3)
+            self._balance_tau_min = float(tau_min)
 
             self.TotalOxygenDemandBlast.setText(str(round(summaryOxygenRequired, 3)))
             self.TotalConsumptionOfBlastKg.setText(str(round(totalBlastConsumptionKg, 3)))
@@ -1649,13 +1876,12 @@ class Ui_OperatorForm(object):
 
             if hasattr(self, "control_panel"):
                 self._sync_blast_panel_display(chem_m3, i_flow, tau_min)
-                self._apply_user_controls_from_panel()
 
             self._refresh_control_recommended(chem_m3, i_flow, tau_min)
 
             global blastCalcked
             blastCalcked = True
-            h_c = self.userLanceHeight or self._recommended_lance_ranges(
+            h_c = self._recommended_lance_ranges(
                 self._metal_charge_mass_t()
             )["optimal"]
             omega = self._calc_jet_velocity()
@@ -1725,7 +1951,7 @@ class Ui_OperatorForm(object):
             self.OutputDataTable.setItem(1, 2, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 3))))
             co0 = self._cell_float(self.OutputDataTable, 0, 0)
             # === DYNAMIC EXTENSION v3: формула (20), η_CO из Ф-Д2 ===
-            free = self._resolve_dynamic_free_params()
+            free = self._resolve_balance_free_params()
             co_burn_frac = free["eta_co"] / 100.0
             # === END DYNAMIC EXTENSION ===
             self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-co_burn_frac * co0, 3))))
@@ -1931,7 +2157,7 @@ class Ui_OperatorForm(object):
             # === DYNAMIC EXTENSION v3: формула (36), η_CO и Z из Ф-Д2, Ф-Д3 ===
             # Q_CO = 101 · g_CO · η_СО · Z
             g_CO = abs(self._cell_float(self.OutputDataTable, 2, 0)) * 1000.0
-            free = self._resolve_dynamic_free_params()
+            free = self._resolve_balance_free_params()
             HeatOfBurningCO = 101.0 * g_CO * free["eta_co"] * free["z_co"]
             # === END DYNAMIC EXTENSION ===
             self.HeatCO.setText(str(round(HeatOfBurningCO, 2)))
@@ -2436,9 +2662,12 @@ class Ui_OperatorForm(object):
             if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
             if getattr(self, 'converter3d', None):
+                self._last_3d_process_state = "complete"
                 self.converter3d.update_state({
                     'state':       'complete',
                     'temperature': steelTemperature,
+                    'blastFlow':   0,
+                    'reactionZoneActive': False,
                 })
         except Exception as err:
             s = 0
@@ -3558,6 +3787,13 @@ class Ui_OperatorForm(object):
         charts_title = QtWidgets.QLabel("Динамика плавки")
         charts_title.setProperty("class", "control_knob_title")
         sim_right_lay.addWidget(charts_title, 0)
+        self._sim_temp_hint = QtWidgets.QLabel(
+            "«Симулировать» — старт с начала. Крутилки меняют режим без сброса плавки. "
+            "τ и T — по балансу после «Рассчитать»."
+        )
+        self._sim_temp_hint.setProperty("class", "control_info_hint")
+        self._sim_temp_hint.setWordWrap(True)
+        sim_right_lay.addWidget(self._sim_temp_hint, 0)
         sim_right_lay.addWidget(self.dynamics_charts, 1)
 
         sim_split.addWidget(sim_left)
@@ -3568,6 +3804,7 @@ class Ui_OperatorForm(object):
 
         sim_root.addWidget(sim_split, 1)
         self.tabWidget.insertTab(1, self.tab_simulation, "")
+        self.tabWidget.currentChanged.connect(self._on_tab_widget_changed)
         self._update_dynamic_auto_fields()
         # === END CONTROL INPUTS + DYNAMIC EXTENSION ===
 

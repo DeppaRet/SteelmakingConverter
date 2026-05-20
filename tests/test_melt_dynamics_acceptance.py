@@ -37,6 +37,19 @@ def run_scenario(name: str, h_c: float, i: float, g_t: float = 200.0, c_target: 
     }
 
 
+def diff_test_lance_temperature(i: float = 900.0, c_target: float = 0.12) -> dict:
+    """Дифф. тест 1: при h_c 1.5 → 3.0 м T должна упасть на 30–50 °C."""
+    out = {}
+    for h_c in (1.5, 3.0):
+        r = run_scenario(f"h={h_c}", h_c, i, c_target=c_target)
+        out[h_c] = r["T"]
+    return {
+        "T_1.5": out[1.5],
+        "T_3.0": out[3.0],
+        "delta_T": out[1.5] - out[3.0],
+    }
+
+
 if __name__ == "__main__":
     scenarios = [
         run_scenario("soft", 2.8, 800),
@@ -50,3 +63,8 @@ if __name__ == "__main__":
             f"{s['kp']:.0f}\t{s['gv']:.2f}\t{s['phi']:.2f}\t{s['T']:.0f}\t"
             f"{s['FeO']:.1f}\t{s['peak_vc']:.3f}\t{s['t_min']:.1f}"
         )
+    dt = diff_test_lance_temperature()
+    print(
+        f"\ndiff h_c: T(1.5)={dt['T_1.5']:.0f} T(3.0)={dt['T_3.0']:.0f} "
+        f"dT={dt['delta_T']:.0f} C (expect 30-50)"
+    )
