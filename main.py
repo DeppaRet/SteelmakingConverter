@@ -100,8 +100,12 @@ class Ui_LoginForm(object):
             mycursor = usersDB.cursor()
             query = "SELECT Roles_idRoles FROM users where Login like '" + login + "' AND Password Like '" + password + "';"
             mycursor.execute(query)
-            result = mycursor.fetchone()[0]
-            if result == None:
+            row = mycursor.fetchone()
+            if row is None:
+                result = None
+            else:
+                result = row[0]
+            if result is None:
                 msg.setIcon(QMessageBox.Critical)
                 msg.setText("Внимание")
                 msg.setInformativeText('Неверный логин или пароль')
@@ -136,11 +140,15 @@ class Ui_LoginForm(object):
                 self.window.show()
 
         except Exception as err:  # mc.Error
+            msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Ошибка")
             msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные или настройки подключения!")
-            # msg.setInformativeText("Error: {0}".format(err))
+            detail = str(err).strip() or type(err).__name__
+            msg.setInformativeText(
+                "Проверьте введенные данные или настройки подключения!\n\n"
+                f"({detail})"
+            )
             app_theme.style_message_box(msg)
             msg.exec_()
 

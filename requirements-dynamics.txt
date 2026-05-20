@@ -1,0 +1,2 @@
+# Dynamics charts (pyqtgraph) — install alongside main app deps
+pyqtgraph>=0.13.3

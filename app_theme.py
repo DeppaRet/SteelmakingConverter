@@ -47,6 +47,7 @@ _TOKENS = {
         "control_warn": "#e6a817",
         "control_danger": "#e04040",
         "control_computed": "#6a8a9a",
+        "control_success_green": "#27ae60",
         "control_dial_track": "rgba(0,200,240,0.22)",
         "control_slider_groove": "rgba(0,0,0,0.35)",
     },
@@ -88,10 +89,15 @@ _TOKENS = {
         "control_warn": "#b8860b",
         "control_danger": "#c03030",
         "control_computed": "#6a7c8e",
+        "control_success_green": "#27ae60",
         "control_dial_track": "rgba(0,100,148,0.25)",
         "control_slider_groove": "rgba(0,0,0,0.12)",
     },
 }
+
+
+def control_success_green(theme: str | None = None) -> str:
+    return tokens(theme)["control_success_green"]
 
 
 def tokens(theme: str | None = None) -> dict:
@@ -588,6 +594,45 @@ def control_inputs_panel_qss(theme: str | None = None) -> str:
             border-color: {t['accent']};
             color: {t['accent']};
         }}
+        QLabel.control_info_hint {{
+            color: {t['text_muted']};
+            font-size: 8px;
+            font-style: italic;
+            background: transparent;
+        }}
+        QLineEdit.control_blow_volume_readonly {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['control_computed']};
+            font-size: 10px;
+            font-style: italic;
+            padding: 2px 4px;
+            min-height: 18px;
+        }}
+        QLineEdit.control_auto_strikethrough {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['text_muted']};
+            font-size: 10px;
+            text-decoration: line-through;
+            padding: 2px 4px;
+            min-height: 18px;
+        }}
+        QFrame.control_efficiency_frame {{
+            border: 1px solid {t['input_border']};
+            border-radius: 5px;
+            background: {t['input_bg']};
+        }}
+        QFrame.control_efficiency_frame[success="true"] {{
+            border-color: {t['control_success_green']};
+        }}
+        QLabel.control_efficiency_value {{
+            color: {t['accent']};
+            font-size: 11px;
+            background: transparent;
+        }}
     """
 
 
@@ -721,6 +766,26 @@ def admin_central_style(theme: str | None = None) -> str:
         }}
     """
     return base + extra
+
+
+def secondary_button_style(theme: str | None = None) -> str:
+    """Outlined action (e.g. «Симулировать плавку»)."""
+    t = tokens(theme)
+    return f"""
+        QPushButton {{
+            background: transparent;
+            color: {t['accent']};
+            border: 1px solid {t['accent']};
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            min-height: 28px;
+        }}
+        QPushButton:hover {{
+            background: {t['btn_hover_flat']};
+        }}
+    """
 
 
 def primary_button_style(theme: str | None = None) -> str:

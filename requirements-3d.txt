@@ -7,3 +7,6 @@ PyQtWebEngine-Qt5>=5.15.2
 
 # OpenGL fallback (optional)
 PyOpenGL>=3.1.6
+
+# Dynamics charts (operator central column)
+# pip install -r requirements-dynamics.txt
