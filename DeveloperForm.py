@@ -361,6 +361,14 @@ class Ui_Form(object):
             mycursor.close()
             DB.close()
 
+    def openScrapTypeDialog(self):
+        from ScrapTypeDialog import ScrapTypeDialog
+        dialog = ScrapTypeDialog(
+            "localhost", "root", "root",
+            editable=True, parent=getattr(self, "_dev_form", None)
+        )
+        dialog.exec_()
+
     def refresh_theme(self):
         theme = get_theme()
         if hasattr(self, '_dev_form') and self._dev_form:
@@ -435,6 +443,12 @@ class Ui_Form(object):
         self.displayTableButton.setObjectName("displayTableButton")
         self.displayTableButton.clicked.connect(self.showChoosenTable)
         hdr_row.addWidget(self.displayTableButton)
+
+        self.scrapTypesButton = QtWidgets.QPushButton()
+        self.scrapTypesButton.setObjectName("scrapTypesButton")
+        self.scrapTypesButton.clicked.connect(self.openScrapTypeDialog)
+        hdr_row.addWidget(self.scrapTypesButton)
+
         hdr_row.addStretch()
         left_vbox.addLayout(hdr_row)
 
@@ -673,6 +687,7 @@ class Ui_Form(object):
         self.choosenTable.setItemText(6, _translate("Form", "Состав лома"))
         self.choosenTable.setItemText(7, _translate("Form", "Флюсы"))
         self.displayTableButton.setText(_translate("Form", "Отобразить"))
+        self.scrapTypesButton.setText(_translate("Form", "Типы лома и реакции"))
         self.groupBox.setTitle(_translate("Form", "Добавление режима"))
         self.label_2.setText(_translate("Form", "Название:"))
         self.label_3.setText(_translate("Form", "Сталь:"))

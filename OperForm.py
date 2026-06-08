@@ -103,6 +103,63 @@ class FluxeComposition(object):
     fluxeMgCO3 = 0.0
     fluxeWeight = 0.0
 
+
+class Reaction:
+    """Строка матрицы стехиометрических коэффициентов."""
+
+    def __init__(self, row):
+        # порядок колонок соответствует SELECT в load_reactions_for_scrap_type
+        (self.id, self.number, self.element, self.name, self.equation,
+         self.nu_element, self.M_element, self.nu_O2, self.M_O2,
+         self.nu_product, self.M_product, self.product,
+         self.heat_kJ_kg, self.produces_gas, self.needs_O2,
+         self.affects_material, self.affects_slag,
+         self.affects_blast, self.affects_heat,
+         self.is_active, co_frac) = row
+        self.produces_gas = bool(self.produces_gas)
+        self.needs_O2 = bool(self.needs_O2)
+        self.affects_material = bool(self.affects_material)
+        self.affects_slag = bool(self.affects_slag)
+        self.affects_blast = bool(self.affects_blast)
+        self.affects_heat = bool(self.affects_heat)
+        self.co_fraction = float(co_frac) if co_frac is not None else 0.9
+
+    def oxygen_per_kg_element(self):
+        """Формула (3) методички: расход O2 (кг) на 1 кг элемента."""
+        if not self.needs_O2 or self.nu_O2 == 0:
+            return 0.0
+        return (self.nu_O2 * self.M_O2) / (self.nu_element * self.M_element)
+
+    def oxygen_m3_per_kg_element(self):
+        """Формула (4) методички: объём O2 (м3) на 1 кг элемента."""
+        return self.oxygen_per_kg_element() * 22.4 / 32.0
+
+    def product_per_kg_element(self):
+        """Формула (14) методички: масса оксида (кг) на 1 кг элемента."""
+        return (self.nu_product * self.M_product) / (self.nu_element * self.M_element)
+
+
+def load_reactions_for_scrap_type(scrap_type_id, db_host, db_login, db_pass):
+    """Возвращает list[Reaction] — активные реакции для данного типа лома."""
+    DB = mc.connect(host=db_host, user=db_login, password=db_pass, database="regimdata")
+    cur = DB.cursor()
+    cur.execute("""
+        SELECT r.idReaction, r.ReactionNumber, r.ElementSymbol, r.ElementName,
+               r.ReactionEquation, r.nu_Element, r.M_Element, r.nu_O2, r.M_O2,
+               r.nu_Product, r.M_Product, r.ProductFormula, r.HeatEffect_kJ_kg,
+               r.ProducesGas, r.NeedsO2,
+               r.AffectsMaterialBalance, r.AffectsSlag, r.AffectsBlast, r.AffectsHeatBalance,
+               str.IsActive, str.CO_Fraction
+        FROM reaction r
+        JOIN scraptype_reaction str ON r.idReaction = str.Reaction_idReaction
+        WHERE str.ScrapType_idScrapType = %s AND str.IsActive = 1
+        ORDER BY r.ReactionNumber
+    """, (scrap_type_id,))
+    rows = cur.fetchall()
+    cur.close()
+    DB.close()
+    return [Reaction(row) for row in rows]
+
 listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6', 'fluxe7', 'fluxe8',
                                'fluxe9', 'fluxe10','fluxe11','fluxe12','fluxe13','fluxe14','fluxe15', 'fluxe16']
 
@@ -592,6 +649,21 @@ class Ui_OperatorForm(object):
             self.scrapSilicon.setText(str(scrapData[0][4]))
             self.scrapManganese.setText(str(scrapData[0][5]))
 
+            # Тип лома для текущего режима
+            mycursor.execute(
+                "SELECT ScrapType_idScrapType FROM scrapdata WHERE idScrapData = %s;",
+                (scrapId,)
+            )
+            scrapTypeRow = mycursor.fetchone()
+            self.current_scrap_type_id = scrapTypeRow[0] if scrapTypeRow and scrapTypeRow[0] else 1
+
+            # Новые элементы лома (индексы 6..9 после ALTER TABLE scrapcomposition)
+            self.scrapCr = float(scrapData[0][6]) if len(scrapData[0]) > 6 and scrapData[0][6] else 0.0
+            self.scrapV  = float(scrapData[0][7]) if len(scrapData[0]) > 7 and scrapData[0][7] else 0.0
+            self.scrapAl = float(scrapData[0][8]) if len(scrapData[0]) > 8 and scrapData[0][8] else 0.0
+            self.scrapTi = float(scrapData[0][9]) if len(scrapData[0]) > 9 and scrapData[0][9] else 0.0
+            self._sync_scrap_type_ui()
+
             query = "select ScrapWeight from scrapdata where idScrapData = " + str(scrapId) +";"
             mycursor.execute(query)
             scrapWeight = mycursor.fetchall()
@@ -802,12 +874,72 @@ class Ui_OperatorForm(object):
             self.OxidationTable.setItem(2, 6, QTableWidgetItem(str(round(serumRemove, 3))))  # serum
             self.OxidationTable.setItem(2, 7, QTableWidgetItem(str(round(summRemove, 3))))  # summ
 
-            carbonToCOOxygen = carbonToCO * 16/12
-            carbonToCO2Oxygen = carbonToCO2 * 32/12
-            siliconOxygen = siliconRemove * 32/28
-            manganesOxygen = manganeseRemove * 16/55
-            phosphorOxygen = phosphorRemove * 5 * 16 / 2 / 31
-            summOxygen = carbonToCOOxygen + carbonToCO2Oxygen + siliconOxygen + manganesOxygen +phosphorOxygen
+            # --- НОВЫЙ БЛОК: расчёт через матрицу стехиометрических коэффициентов ---
+            self._read_scrap_extra_inputs()
+            scrap_type_id = getattr(self, 'current_scrap_type_id', 1)
+            reactions = load_reactions_for_scrap_type(scrap_type_id, DBhost, DBlogin, DBpass)
+
+            charge_elements = {
+                'C_CO2':   chemCarbonValue,   'C_CO':    chemCarbonValue,
+                'Si':      chemSiliconValue,  'Mn':      chemManganesevalue,
+                'P':       chemPhosphorValue, 'P_alt':   chemPhosphorValue,
+                'FeS_CaO': chemSerumValue,    'S_SO2':   chemSerumValue,
+                'Cr': getattr(self, 'scrapCr', 0.0),
+                'V':  getattr(self, 'scrapV',  0.0),
+                'Al': getattr(self, 'scrapAl', 0.0),
+                'Ti': getattr(self, 'scrapTi', 0.0),
+            }
+            after_elements = {
+                'C_CO2': 0.0, 'C_CO': steelCarbonValue,
+                'Si': 0.0, 'Mn': manganeseAfter, 'P': phosphorAfter, 'P_alt': phosphorAfter,
+                'FeS_CaO': serumAfter, 'S_SO2': serumAfter,
+                'Cr': 0.0, 'V': 0.0, 'Al': 0.0, 'Ti': 0.0,
+            }
+
+            self.reaction_results = {}
+            total_O2_kg = total_O2_m3 = 0.0
+
+            for reaction in reactions:
+                el = reaction.element
+                if el not in charge_elements:
+                    continue
+                if el == 'C_CO':
+                    g_removed = max(0.0, (charge_elements['C_CO'] - steelCarbonValue) * reaction.co_fraction)
+                elif el == 'C_CO2':
+                    g_removed = max(0.0, (charge_elements['C_CO2'] - steelCarbonValue) * (1.0 - reaction.co_fraction))
+                else:
+                    g_removed = max(0.0, charge_elements[el] - after_elements.get(el, 0.0))
+
+                self.reaction_results[el] = {
+                    'removed':          g_removed,
+                    'O2_kg':            g_removed * reaction.oxygen_per_kg_element()    if reaction.affects_blast else 0.0,
+                    'O2_m3':            g_removed * reaction.oxygen_m3_per_kg_element() if reaction.affects_blast else 0.0,
+                    'oxide_kg':         g_removed * reaction.product_per_kg_element()   if reaction.affects_slag  else 0.0,
+                    'product':          reaction.product,
+                    'is_gas':           reaction.produces_gas,
+                    'heat':             g_removed * reaction.heat_kJ_kg                 if reaction.affects_heat  else 0.0,
+                    'affects_material': reaction.affects_material,
+                    'affects_slag':     reaction.affects_slag,
+                    'affects_blast':    reaction.affects_blast,
+                }
+                if reaction.affects_blast:
+                    total_O2_kg += self.reaction_results[el]['O2_kg']
+                    total_O2_m3 += self.reaction_results[el]['O2_m3']
+
+            self.total_O2_kg = total_O2_kg
+            self.total_O2_m3 = total_O2_m3
+
+            # Переменные-псевдонимы для совместимости с OxidationTable (строки 0..5)
+            carbonToCO        = self.reaction_results.get('C_CO',  {}).get('removed',  carbonRemove * 0.9)
+            carbonToCO2       = self.reaction_results.get('C_CO2', {}).get('removed',  carbonRemove * 0.1)
+            carbonToCOOxygen  = self.reaction_results.get('C_CO',  {}).get('O2_kg',    0.0)
+            carbonToCO2Oxygen = self.reaction_results.get('C_CO2', {}).get('O2_kg',    0.0)
+            siliconOxygen     = self.reaction_results.get('Si',    {}).get('O2_kg',    0.0)
+            manganesOxygen    = self.reaction_results.get('Mn',    {}).get('O2_kg',    0.0)
+            phosphorOxygen    = self.reaction_results.get('P',     {}).get('O2_kg',
+                                self.reaction_results.get('P_alt', {}).get('O2_kg',    0.0))
+            summOxygen        = total_O2_kg
+            # --- КОНЕЦ НОВОГО БЛОКА ---
 
             self.OxidationTable.setItem(3, 0, QTableWidgetItem("-"))
             self.OxidationTable.setItem(3, 1, QTableWidgetItem(str(round(carbonToCOOxygen, 3))))
@@ -850,6 +982,8 @@ class Ui_OperatorForm(object):
             self.OxidationTable.setItem(5, 5, QTableWidgetItem(str(round(oxidesPhosphor, 3))))  # Phosphor
             self.OxidationTable.setItem(5, 6, QTableWidgetItem(str(round(oxidesSerum, 3))))  # serum
             self.OxidationTable.setItem(5, 7, QTableWidgetItem(str(round(oxidesSumm, 3))))  # summ
+
+            self.update_oxidation_table_rows()
             global tableCalcked
             tableCalcked = True
         except Exception as err:  # mc.Error
@@ -861,6 +995,96 @@ class Ui_OperatorForm(object):
             # msg.setInformativeText("Error: {0}".format(err))
             msg.exec_()
         return
+
+    def update_oxidation_table_rows(self):
+        """Добавляет строки для Cr/V/Al/Ti/S(газ), если они ненулевые."""
+        EXTRA = {
+            'Cr': 'Хром', 'V': 'Ванадий', 'Al': 'Алюминий',
+            'Ti': 'Титан', 'S_SO2': 'Сера->SO2',
+        }
+        # Убираем ранее добавленные строки сверх базовых 6 (C/Si/Mn/P/S не трогаем)
+        self.OxidationTable.setRowCount(6)
+        if not hasattr(self, 'reaction_results'):
+            return
+        for el, label in EXTRA.items():
+            res = self.reaction_results.get(el)
+            if not res or res['removed'] <= 0:
+                continue
+            row = self.OxidationTable.rowCount()
+            self.OxidationTable.insertRow(row)
+            # Название элемента — в заголовок строки, не в ячейку данных
+            self.OxidationTable.setVerticalHeaderItem(row, QTableWidgetItem(label))
+            # col 0 (Всего): содержалось/удалено из шихты, %
+            self.OxidationTable.setItem(row, 0, QTableWidgetItem(str(round(res['removed'],  4))))
+            self.OxidationTable.setItem(row, 1, QTableWidgetItem("-"))
+            self.OxidationTable.setItem(row, 2, QTableWidgetItem("-"))
+            # col 3: O2 кг, col 4: O2 м³, col 5: оксид кг (переиспользуем колонки Si/Mn/P)
+            self.OxidationTable.setItem(row, 3, QTableWidgetItem(str(round(res['O2_kg'],    4))))
+            self.OxidationTable.setItem(row, 4, QTableWidgetItem(str(round(res['O2_m3'],    4))))
+            self.OxidationTable.setItem(row, 5, QTableWidgetItem(str(round(res['oxide_kg'], 4))))
+            self.OxidationTable.setItem(row, 6, QTableWidgetItem("-"))
+            self.OxidationTable.setItem(row, 7, QTableWidgetItem(str(round(res['oxide_kg'], 4))))
+
+    def loadScrapTypeCombo(self):
+        """Заполняет combo типов лома из таблицы scraptype."""
+        try:
+            DB = mc.connect(host=DBhost, user=DBlogin, password=DBpass, database="regimdata")
+            cur = DB.cursor()
+            cur.execute("SELECT idScrapType, ScrapTypeName FROM scraptype ORDER BY idScrapType;")
+            rows = cur.fetchall()
+            cur.close(); DB.close()
+            if not hasattr(self, 'scrapTypeCombo'):
+                return
+            self.scrapTypeCombo.blockSignals(True)
+            self.scrapTypeCombo.clear()
+            for row in rows:
+                self.scrapTypeCombo.addItem(row[1], userData=row[0])
+            self.scrapTypeCombo.blockSignals(False)
+        except Exception as err:
+            logger.warning("loadScrapTypeCombo failed: %s", err)
+
+    def _sync_scrap_type_ui(self):
+        """Синхронизирует combo и поля Cr/V/Al/Ti с загруженными значениями."""
+        if hasattr(self, 'scrapTypeCombo'):
+            idx = self.scrapTypeCombo.findData(getattr(self, 'current_scrap_type_id', 1))
+            if idx >= 0:
+                self.scrapTypeCombo.blockSignals(True)
+                self.scrapTypeCombo.setCurrentIndex(idx)
+                self.scrapTypeCombo.blockSignals(False)
+        if hasattr(self, 'scrapCrInput'):
+            self.scrapCrInput.setText(str(getattr(self, 'scrapCr', 0.0)))
+            self.scrapVInput.setText(str(getattr(self, 'scrapV', 0.0)))
+            self.scrapAlInput.setText(str(getattr(self, 'scrapAl', 0.0)))
+            self.scrapTiInput.setText(str(getattr(self, 'scrapTi', 0.0)))
+
+    def onScrapTypeChanged(self, _index=-1):
+        """Пользователь выбрал тип лома в combo на главной форме."""
+        if not hasattr(self, 'scrapTypeCombo'):
+            return
+        data = self.scrapTypeCombo.currentData()
+        if data is not None:
+            self.current_scrap_type_id = data
+
+    def _read_scrap_extra_inputs(self):
+        """Читает Cr/V/Al/Ti из полей ввода в self.scrapCr/V/Al/Ti."""
+        def _val(widget):
+            try:
+                return float(widget.text())
+            except (ValueError, AttributeError):
+                return 0.0
+        if hasattr(self, 'scrapCrInput'):
+            self.scrapCr = _val(self.scrapCrInput)
+            self.scrapV = _val(self.scrapVInput)
+            self.scrapAl = _val(self.scrapAlInput)
+            self.scrapTi = _val(self.scrapTiInput)
+
+    def openScrapTypeDialog(self):
+        """Открывает диалог матрицы реакций (только просмотр для оператора)."""
+        from ScrapTypeDialog import ScrapTypeDialog
+        dialog = ScrapTypeDialog(DBhost, DBlogin, DBpass, editable=False, parent=self.centralwidget)
+        dialog.exec_()
+        self.loadScrapTypeCombo()
+        self._sync_scrap_type_ui()
 
     def getFluxes(self):
         try:
@@ -1016,6 +1240,20 @@ class Ui_OperatorForm(object):
 
             slagSiO2 = oxidesSilicon * metalChargeWeight/100 + totalSlagSiO2
             slagOthers = (oxidesManganes + oxidesPhosphor + oxidesSerum) * metalChargeWeight/100
+
+            # Оксиды новых элементов (Cr2O3, V2O5, TiO2, Al2O3 и пр.) из матрицы реакций
+            if hasattr(self, 'reaction_results'):
+                ALREADY_COUNTED = {'C_CO', 'C_CO2', 'CO_burn', 'Si', 'Mn', 'P', 'P_alt', 'FeS_CaO', 'S_SO2'}
+                for el, res in self.reaction_results.items():
+                    if el in ALREADY_COUNTED:
+                        continue
+                    if res['affects_slag'] and not res['is_gas'] and res['oxide_kg'] > 0:
+                        oxide_total = res['oxide_kg'] * metalChargeWeight / 100.0
+                        if res['product'] == 'Al2O3':
+                            slagAl2O3 += oxide_total
+                        else:
+                            slagOthers += oxide_total
+
             slagWeight = ((slagSiO2 + slagCaO + slagMgO + slagAl2O3 + slagOthers) / (100 - FeO - Fe2O3)) * 100
             slagFeO = FeO / 100 * slagWeight
             slagFe2O3 = Fe2O3 / 100 * slagWeight
@@ -1927,8 +2165,23 @@ class Ui_OperatorForm(object):
             self.ReclaimedIronWeight.setText(str(round(amountOfReclaimedIron, 3)))
 
             metalChargeWeight = self._field_float(self.MetalCharge)
+
+            # Учёт легирующих элементов (Cr/V/Al/Ti), удалённых из металла через
+            # матрицу реакций (флаг AffectsMaterialBalance). C/Si/Mn/P/S уже входят
+            # в summRemove (OxidationTable строка 2, столбец 7).
+            extra_removed_pct = 0.0
+            self._extra_material_rows = []
+            if hasattr(self, 'reaction_results'):
+                ALREADY_IN_SUMM = {'C_CO', 'C_CO2', 'CO_burn', 'Si', 'Mn', 'P', 'P_alt', 'FeS_CaO', 'S_SO2'}
+                for el, res in self.reaction_results.items():
+                    if el in ALREADY_IN_SUMM:
+                        continue
+                    if res['affects_material'] and res['removed'] > 0:
+                        extra_removed_pct += res['removed']
+                        self._extra_material_rows.append((el, res))
+
             weightOfOxedizedImpurities = (
-                self._cell_float(self.OxidationTable, 2, 7) / 100 * metalChargeWeight
+                (self._cell_float(self.OxidationTable, 2, 7) + extra_removed_pct) / 100 * metalChargeWeight
             )
             self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 3)))
 
@@ -2097,6 +2350,32 @@ class Ui_OperatorForm(object):
             self.OutputData.insertRow(outRowCount)
             self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Итого"))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(summary, 3))))
+
+            # Справочная разбивка по легирующим (не входит в сумму «Итого»:
+            # их масса уже учтена внутри статей «Металл жидкий» и «Шлак»)
+            extra_rows = getattr(self, '_extra_material_rows', [])
+            if extra_rows:
+                EL_NAMES = {'Cr': 'Хром', 'V': 'Ванадий', 'Al': 'Алюминий', 'Ti': 'Титан'}
+                italic = QtGui.QFont()
+                italic.setItalic(True)
+
+                def _add_ref_row(text, value):
+                    r = self.OutputData.rowCount()
+                    self.OutputData.insertRow(r)
+                    name_item = QTableWidgetItem(text)
+                    name_item.setFont(italic)
+                    val_item = QTableWidgetItem(value)
+                    val_item.setFont(italic)
+                    self.OutputData.setItem(r, 0, name_item)
+                    self.OutputData.setItem(r, 1, val_item)
+
+                _add_ref_row("Справочно: окисление легирующих", "удал.Me / оксид в шлак, кг")
+                for el, res in extra_rows:
+                    removed_kg = res['removed'] * metalChargeWeight / 100 * 1000
+                    oxide_kg = res['oxide_kg'] * metalChargeWeight / 100 * 1000
+                    label = "  в т.ч. {0} -> {1}".format(EL_NAMES.get(el, el), res['product'])
+                    _add_ref_row(label, "{0} / {1}".format(round(removed_kg, 3), round(oxide_kg, 3)))
+
             self.IncomingData.resizeColumnsToContents()
             self.OutputData.resizeColumnsToContents()
             global materialBalanceCalcked
@@ -2130,10 +2409,16 @@ class Ui_OperatorForm(object):
             TotalRemovedSilicon = self._cell_float(self.OxidationTable, 2, 3)
             TotalRemovedMagn = self._cell_float(self.OxidationTable, 2, 4)
             TotalRemovedPhosph = self._cell_float(self.OxidationTable, 2, 5)
-            HeatReactOfOxidation = (
-                14770.0 * TotalRemovedCarbon + 26970.0 * TotalRemovedSilicon
-                + 7000.0 * TotalRemovedMagn + 21730.0 * TotalRemovedPhosph
-            ) * self._field_float(self.MetalCharge) * 10.0
+            if hasattr(self, 'reaction_results'):
+                HeatReactOfOxidation = (
+                    sum(res['heat'] for res in self.reaction_results.values())
+                    * self._field_float(self.MetalCharge) * 10.0
+                )
+            else:
+                HeatReactOfOxidation = (
+                    14770.0 * TotalRemovedCarbon + 26970.0 * TotalRemovedSilicon
+                    + 7000.0 * TotalRemovedMagn + 21730.0 * TotalRemovedPhosph
+                ) * self._field_float(self.MetalCharge) * 10.0
             self.ThermalReactEffect.setText(str(round(HeatReactOfOxidation, 3)))
             self.IncomingHeatTable.setItem(1, 0, QTableWidgetItem(str(HeatReactOfOxidation)))
 
@@ -2156,8 +2441,10 @@ class Ui_OperatorForm(object):
             #Тепло от дожигания CO
             # === DYNAMIC EXTENSION v3: формула (36), η_CO и Z из Ф-Д2, Ф-Д3 ===
             # Q_CO = 101 · g_CO · η_СО · Z
+            # Используем параметры с учётом управляющих воздействий оператора
+            # (высота фурмы, интенсивность дутья), если панель управления подключена.
             g_CO = abs(self._cell_float(self.OutputDataTable, 2, 0)) * 1000.0
-            free = self._resolve_balance_free_params()
+            free = self._resolve_sim_free_params()
             HeatOfBurningCO = 101.0 * g_CO * free["eta_co"] * free["z_co"]
             # === END DYNAMIC EXTENSION ===
             self.HeatCO.setText(str(round(HeatOfBurningCO, 2)))
@@ -3237,17 +3524,50 @@ class Ui_OperatorForm(object):
         self.groupBox_7.setObjectName("groupBox_7")
         g7 = QtWidgets.QGridLayout(self.groupBox_7)
         g7.setSpacing(4)
+        g7.setColumnMinimumWidth(0, 90)
+        g7.setColumnMinimumWidth(2, 90)
         g7.setColumnStretch(1, 1); g7.setColumnStretch(3, 1)
-        self.label_12 = _lbl("label_12"); self.scrapCarbon   = _edit("scrapCarbon")
-        self.label_13 = _lbl("label_13"); self.scrapSerum    = _edit("scrapSerum")
-        self.label_14 = _lbl("label_14"); self.scrapSilicon  = _edit("scrapSilicon")
-        self.label_15 = _lbl("label_15"); self.scrapPhosphor = _edit("scrapPhosphor")
-        self.label_25 = _lbl("label_25"); self.scrapManganese= _edit("scrapManganese")
+
+        def _rlbl(name):
+            lbl = _lbl(name)
+            lbl.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            return lbl
+
+        self.label_12 = _rlbl("label_12"); self.scrapCarbon   = _edit("scrapCarbon")
+        self.label_13 = _rlbl("label_13"); self.scrapSerum    = _edit("scrapSerum")
+        self.label_14 = _rlbl("label_14"); self.scrapSilicon  = _edit("scrapSilicon")
+        self.label_15 = _rlbl("label_15"); self.scrapPhosphor = _edit("scrapPhosphor")
+        self.label_25 = _rlbl("label_25"); self.scrapManganese= _edit("scrapManganese")
         g7.addWidget(self.label_12, 0, 0); g7.addWidget(self.scrapCarbon,  0, 1)
         g7.addWidget(self.label_13, 0, 2); g7.addWidget(self.scrapSerum,   0, 3)
         g7.addWidget(self.label_14, 1, 0); g7.addWidget(self.scrapSilicon, 1, 1)
         g7.addWidget(self.label_15, 1, 2); g7.addWidget(self.scrapPhosphor,1, 3)
         g7.addWidget(self.label_25, 2, 0); g7.addWidget(self.scrapManganese,2,1)
+
+        # Тип лома и легирующие элементы (Cr/V/Al/Ti)
+        self.label_scrapType = _rlbl("label_scrapType")
+        self.label_scrapType.setText("Тип лома:")
+        self.scrapTypeCombo = QtWidgets.QComboBox()
+        self.scrapTypeCombo.setObjectName("scrapTypeCombo")
+        self.scrapTypeCombo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.scrapTypeCombo.currentIndexChanged.connect(self.onScrapTypeChanged)
+        g7.addWidget(self.label_scrapType, 2, 2); g7.addWidget(self.scrapTypeCombo, 2, 3)
+
+        self.label_scrapCr = _rlbl("label_scrapCr"); self.label_scrapCr.setText("Cr, %")
+        self.scrapCrInput = _edit("scrapCrInput")
+        self.label_scrapV = _rlbl("label_scrapV"); self.label_scrapV.setText("V, %")
+        self.scrapVInput = _edit("scrapVInput")
+        self.label_scrapAl = _rlbl("label_scrapAl"); self.label_scrapAl.setText("Al, %")
+        self.scrapAlInput = _edit("scrapAlInput")
+        self.label_scrapTi = _rlbl("label_scrapTi"); self.label_scrapTi.setText("Ti, %")
+        self.scrapTiInput = _edit("scrapTiInput")
+        for _w in (self.scrapCrInput, self.scrapVInput, self.scrapAlInput, self.scrapTiInput):
+            _w.setText("0.0")
+        g7.addWidget(self.label_scrapCr, 3, 0); g7.addWidget(self.scrapCrInput, 3, 1)
+        g7.addWidget(self.label_scrapV,  3, 2); g7.addWidget(self.scrapVInput,  3, 3)
+        g7.addWidget(self.label_scrapAl, 4, 0); g7.addWidget(self.scrapAlInput, 4, 1)
+        g7.addWidget(self.label_scrapTi, 4, 2); g7.addWidget(self.scrapTiInput, 4, 3)
         g3v.addWidget(self.groupBox_7)
         ll.addWidget(self.groupBox_3)
 
@@ -4290,6 +4610,10 @@ class Ui_OperatorForm(object):
         self.addUser  = QtWidgets.QAction(OperatorForm); self.addUser.setEnabled(True); self.addUser.setObjectName("addUser")
         self.AddUser  = QtWidgets.QAction(OperatorForm); self.AddUser.setEnabled(True);  self.AddUser.setObjectName("AddUser")
         self.AddDbData= QtWidgets.QAction(OperatorForm); self.AddDbData.setEnabled(True); self.AddDbData.setObjectName("AddDbData")
+        self.actionScrapTypes = QtWidgets.QAction(OperatorForm)
+        self.actionScrapTypes.setObjectName("actionScrapTypes")
+        self.actionScrapTypes.setText("Типы лома и реакции")
+        self.actionScrapTypes.triggered.connect(self.openScrapTypeDialog)
 
         self.Menu.addAction(self.SaveFile)
         self.Menu.addSeparator()
@@ -4297,6 +4621,7 @@ class Ui_OperatorForm(object):
         self.Help.addAction(self.about)
         self.Administrate.addAction(self.AddUser)
         self.Administrate.addAction(self.AddDbData)
+        self.Administrate.addAction(self.actionScrapTypes)
         self.ViewMenu = QtWidgets.QMenu(self.menubar)
         self.ViewMenu.setObjectName("ViewMenu")
         self.theme_toggle = ThemeToggle()
@@ -4670,6 +4995,7 @@ class Ui_OperatorForm(object):
         self.getSettings()
         self.getFluxes()
         self.getModes()
+        self.loadScrapTypeCombo()
         self.AddNewMode.setEnabled(1)
         self.tab_4.setEnabled(1)
         self.tab_5.setEnabled(1)
