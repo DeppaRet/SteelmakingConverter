@@ -1,50 +1,54 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 import mysql.connector as mc
-from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtWidgets import QTableWidgetItem
 from PyQt5.QtGui import QPalette, QColor
 from PyQt5.QtCore import Qt
 
 import app_theme
 from theme_settings import manager, get_theme
-from theme_toggle import ThemeToggle
+from i18n import tr, msg_critical, msg_info
+from view_toggles import ViewTogglesBar
+from locale_settings import manager as locale_manager
 
 
 class Ui_Form(object):
+
+    def _show_critical(self, info, title="Ошибка", text="Внимание"):
+        msg_critical(getattr(self, '_dev_form', None), title, text, info)
 
     def showChoosenTable(self):
         try:
             chTable = self.choosenTable.currentText()
             query = "SELECT * FROM "
-            if(chTable == "Режимы"):
+            if(chTable == tr("Form", "Режимы")):
                 query += "Mode;"
                 self.tableWidget.setColumnCount(6)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Название", "Номер стали", "Номер лома", "Номер чугуна", "Мат параметры"])
-            elif(chTable == "Сталь"):
+            elif(chTable == tr("Form", "Сталь")):
                 query += "SteelData;"
                 self.tableWidget.setColumnCount(3)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Марка", "Номер состава"])
-            elif (chTable == "Состав стали"):
+            elif (chTable == tr("Form", "Состав стали")):
                 query += "SteelComposition;"
                 self.tableWidget.setColumnCount(5)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний"])
-            elif (chTable == "Чугун"):
+            elif (chTable == tr("Form", "Чугун")):
                 query += "CastSteelData;"
                 self.tableWidget.setColumnCount(4)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Масса", "Температура", "Номер состава"])
-            elif (chTable == "Состав чугуна"):
+            elif (chTable == tr("Form", "Состав чугуна")):
                 query += "CastSteelComposition;"
                 self.tableWidget.setColumnCount(6)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Лом"):
+            elif (chTable == tr("Form", "Лом")):
                 query += "ScrapData;"
                 self.tableWidget.setColumnCount(3)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Масса", "Номер состава"])
-            elif (chTable == "Состав лома"):
+            elif (chTable == tr("Form", "Состав лома")):
                 query += "ScrapComposition;"
                 self.tableWidget.setColumnCount(6)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Флюсы"):
+            elif (chTable == tr("Form", "Флюсы")):
                 query += "FluxeData;"
                 self.tableWidget.setColumnCount(3)
                 self.tableWidget.setHorizontalHeaderLabels(["Номер", "Название", "Номер состава"])
@@ -68,13 +72,7 @@ class Ui_Form(object):
                     self.tableWidget.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
-            #msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные!", "Ошибка", "Внимание")
 
     def getAllSteel(self):
         try:
@@ -93,13 +91,7 @@ class Ui_Form(object):
                 for column_number, data in enumerate(row_data):
                     self.modeSteelName.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -121,13 +113,7 @@ class Ui_Form(object):
                 for column_number, data in enumerate(row_data):
                     self.modeScrap.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -149,13 +135,7 @@ class Ui_Form(object):
                 for column_number, data in enumerate(row_data):
                     self.modeCastSteel.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -177,13 +157,7 @@ class Ui_Form(object):
                 for column_number, data in enumerate(row_data):
                     self.FluxeType.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -195,13 +169,7 @@ class Ui_Form(object):
             self.FluxeTable.insertRow(rows)
             self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def removeFluxeButtonClicked(self):
         rows = self.FluxeTable.rowCount()
@@ -242,18 +210,13 @@ class Ui_Form(object):
             mycursor = DB.cursor()
             mycursor.execute(query, value)
             DB.commit()
-            msg = QMessageBox()
             self.getAllCast()
-            msg.setWindowTitle("Успех")
-            msg.setText("Выполнено")
-            msg.setInformativeText("Запись успешно добавлена!")
+            msg_info(
+                getattr(self, '_dev_form', None),
+                "Успех", "Выполнено", "Запись успешно добавлена!",
+            )
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные!", "Ошибка", "Внимание")
 
     def addScrap(self):
         try:
@@ -290,17 +253,12 @@ class Ui_Form(object):
             DB.close()
 
             self.getAllScrap()
-            msg = QMessageBox()
-            msg.setWindowTitle("Успех")
-            msg.setText("Выполнено")
-            msg.setInformativeText("Запись успешно добавлена!")
+            msg_info(
+                getattr(self, '_dev_form', None),
+                "Успех", "Выполнено", "Запись успешно добавлена!",
+            )
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные!", "Ошибка", "Внимание")
 
     def addMode(self):
         try:
@@ -351,15 +309,23 @@ class Ui_Form(object):
             DB.close()
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные!")
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные!", "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
+
+    def refresh_language(self, Form):
+        self.retranslateUi(Form)
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.language_toggle.sync_from_settings()
+
+    def openScrapTypeDialog(self):
+        from ScrapTypeDialog import ScrapTypeDialog
+        dialog = ScrapTypeDialog(
+            "localhost", "root", "root",
+            editable=True, parent=getattr(self, "_dev_form", None)
+        )
+        dialog.exec_()
 
     def refresh_theme(self):
         theme = get_theme()
@@ -392,8 +358,8 @@ class Ui_Form(object):
                     background: {t['table_header']}; color: {t['text']};
                 }}
             """)
-        if hasattr(self, 'theme_toggle'):
-            self.theme_toggle.sync_from_settings()
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.theme_toggle.sync_from_settings()
         root = getattr(self, '_dev_form', None)
         if root:
             for tbl in root.findChildren(QtWidgets.QTableWidget):
@@ -435,6 +401,12 @@ class Ui_Form(object):
         self.displayTableButton.setObjectName("displayTableButton")
         self.displayTableButton.clicked.connect(self.showChoosenTable)
         hdr_row.addWidget(self.displayTableButton)
+
+        self.scrapTypesButton = QtWidgets.QPushButton()
+        self.scrapTypesButton.setObjectName("scrapTypesButton")
+        self.scrapTypesButton.clicked.connect(self.openScrapTypeDialog)
+        hdr_row.addWidget(self.scrapTypesButton)
+
         hdr_row.addStretch()
         left_vbox.addLayout(hdr_row)
 
@@ -632,10 +604,13 @@ class Ui_Form(object):
         root_hbox.addWidget(right_scroll, stretch=1)
 
         self.menu_view = QtWidgets.QMenu(Form)
-        self.theme_toggle = ThemeToggle()
-        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles = ViewTogglesBar()
+        self.view_toggles.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles.language_toggle.language_changed.connect(
+            lambda _l: self.refresh_language(Form)
+        )
         toggle_action = QtWidgets.QWidgetAction(Form)
-        toggle_action.setDefaultWidget(self.theme_toggle)
+        toggle_action.setDefaultWidget(self.view_toggles)
         self.menu_view.addAction(toggle_action)
         menubar = QtWidgets.QMenuBar(Form)
         menubar.addMenu(self.menu_view)
@@ -654,13 +629,16 @@ class Ui_Form(object):
             _outer.addWidget(_central)
 
         manager().theme_changed.connect(lambda _t: self.refresh_theme())
+        locale_manager().language_changed.connect(
+            lambda _l: self.refresh_language(Form)
+        )
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.refresh_theme()
 
     def retranslateUi(self, Form):
-        _translate = QtCore.QCoreApplication.translate
+        from i18n import tr as _translate
         Form.setWindowTitle(_translate("Form", "Добро пожаловать, разработчик модели"))
         self.menu_view.setTitle(_translate("Form", "Вид"))
         self.label.setText(_translate("Form", "Таблица:"))
@@ -673,6 +651,7 @@ class Ui_Form(object):
         self.choosenTable.setItemText(6, _translate("Form", "Состав лома"))
         self.choosenTable.setItemText(7, _translate("Form", "Флюсы"))
         self.displayTableButton.setText(_translate("Form", "Отобразить"))
+        self.scrapTypesButton.setText(_translate("Form", "Типы лома и реакции"))
         self.groupBox.setTitle(_translate("Form", "Добавление режима"))
         self.label_2.setText(_translate("Form", "Название:"))
         self.label_3.setText(_translate("Form", "Сталь:"))

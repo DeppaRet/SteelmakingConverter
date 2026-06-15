@@ -1,4 +1,7 @@
+import logging
 import math
+import os
+from typing import Any
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, QThread
@@ -12,8 +15,65 @@ from configparser import ConfigParser
 
 import config
 import app_theme
+from control_inputs import (
+    ControlInputsPanel,
+    KEY_COMPUTED,
+    KEY_FLOW,
+    KEY_LANCE,
+    KEY_LOCKS,
+    KEY_O2_LOSSES,
+    KEY_P_O2_MANUAL,
+    KEY_TARGET_C,
+    KEY_TIME,
+    SIGNAL_BLOW_INTENSITY,
+    SIGNAL_BLOW_TIME,
+    SIGNAL_LANCE,
+    SIGNAL_O2_LOSSES,
+    SIGNAL_TARGET_C,
+    TRIPLET_KEYS,
+)
+from dynamics_charts import DynamicsChartsWidget
+from dynamics_indicators import DynamicsIndicatorsPanel
+from melt_dynamics import CALIB_DEFAULTS, MeltDynamicsEngine
 from theme_settings import manager, get_theme
 from theme_toggle import ThemeToggle
+from view_toggles import ViewTogglesBar
+from locale_settings import manager as locale_manager, get_language
+from i18n import msg_critical, msg_warning, tr
+
+logger = logging.getLogger(__name__)
+
+
+class DynamicsSimulationWorker(QThread):
+    """Фоновый прогон MeltDynamicsEngine до целевого [C]."""
+
+    finished_ok = pyqtSignal(list, dict)
+    failed = pyqtSignal(str)
+
+    def __init__(
+        self,
+        initial_state: dict,
+        control_params: dict,
+        c_target: float,
+        parent: QtCore.QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._initial = initial_state
+        self._control = control_params
+        self._c_target = c_target
+
+    def run(self) -> None:
+        try:
+            engine = MeltDynamicsEngine(
+                initial_state=self._initial,
+                control_params=self._control,
+            )
+            snapshots = engine.run_until_target(self._c_target)
+            last = snapshots[-1] if snapshots else {}
+            self.finished_ok.emit(snapshots, last)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
 
 try:
     from converter3d.widget import create_converter_widget, WEBENGINE_AVAILABLE
@@ -45,6 +105,63 @@ class FluxeComposition(object):
     fluxeCaCO3 = 0.0
     fluxeMgCO3 = 0.0
     fluxeWeight = 0.0
+
+
+class Reaction:
+    """Строка матрицы стехиометрических коэффициентов."""
+
+    def __init__(self, row):
+        # порядок колонок соответствует SELECT в load_reactions_for_scrap_type
+        (self.id, self.number, self.element, self.name, self.equation,
+         self.nu_element, self.M_element, self.nu_O2, self.M_O2,
+         self.nu_product, self.M_product, self.product,
+         self.heat_kJ_kg, self.produces_gas, self.needs_O2,
+         self.affects_material, self.affects_slag,
+         self.affects_blast, self.affects_heat,
+         self.is_active, co_frac) = row
+        self.produces_gas = bool(self.produces_gas)
+        self.needs_O2 = bool(self.needs_O2)
+        self.affects_material = bool(self.affects_material)
+        self.affects_slag = bool(self.affects_slag)
+        self.affects_blast = bool(self.affects_blast)
+        self.affects_heat = bool(self.affects_heat)
+        self.co_fraction = float(co_frac) if co_frac is not None else 0.9
+
+    def oxygen_per_kg_element(self):
+        """Формула (3) методички: расход O2 (кг) на 1 кг элемента."""
+        if not self.needs_O2 or self.nu_O2 == 0:
+            return 0.0
+        return (self.nu_O2 * self.M_O2) / (self.nu_element * self.M_element)
+
+    def oxygen_m3_per_kg_element(self):
+        """Формула (4) методички: объём O2 (м3) на 1 кг элемента."""
+        return self.oxygen_per_kg_element() * 22.4 / 32.0
+
+    def product_per_kg_element(self):
+        """Формула (14) методички: масса оксида (кг) на 1 кг элемента."""
+        return (self.nu_product * self.M_product) / (self.nu_element * self.M_element)
+
+
+def load_reactions_for_scrap_type(scrap_type_id, db_host, db_login, db_pass):
+    """Возвращает list[Reaction] — активные реакции для данного типа лома."""
+    DB = mc.connect(host=db_host, user=db_login, password=db_pass, database="regimdata")
+    cur = DB.cursor()
+    cur.execute("""
+        SELECT r.idReaction, r.ReactionNumber, r.ElementSymbol, r.ElementName,
+               r.ReactionEquation, r.nu_Element, r.M_Element, r.nu_O2, r.M_O2,
+               r.nu_Product, r.M_Product, r.ProductFormula, r.HeatEffect_kJ_kg,
+               r.ProducesGas, r.NeedsO2,
+               r.AffectsMaterialBalance, r.AffectsSlag, r.AffectsBlast, r.AffectsHeatBalance,
+               str.IsActive, str.CO_Fraction
+        FROM reaction r
+        JOIN scraptype_reaction str ON r.idReaction = str.Reaction_idReaction
+        WHERE str.ScrapType_idScrapType = %s AND str.IsActive = 1
+        ORDER BY r.ReactionNumber
+    """, (scrap_type_id,))
+    rows = cur.fetchall()
+    cur.close()
+    DB.close()
+    return [Reaction(row) for row in rows]
 
 listOfNamesForClass = ['fluxe1', 'fluxe2', 'fluxe3', 'fluxe4', 'fluxe5', 'fluxe6', 'fluxe7', 'fluxe8',
                                'fluxe9', 'fluxe10','fluxe11','fluxe12','fluxe13','fluxe14','fluxe15', 'fluxe16']
@@ -189,6 +306,66 @@ class ConverterDiagram(QtWidgets.QFrame):
 
 
 class Ui_OperatorForm(object):
+
+    def _show_critical(self, info, title="Ошибка", text="Внимание"):
+        msg_critical(getattr(self, '_oper_form', None), title, text, info)
+
+    def _show_warning(self, info, title="Внимание", text="Внимание"):
+        msg_warning(getattr(self, '_oper_form', None), title, text, info)
+
+    _STATIC_TABLE_LABELS = frozenset({
+        "Чугун жидкий", "Лом", "Дутьё", "Итого",
+        "Металл жидкий", "Шлак", "Газ", "Избыток дутья",
+        "Выносы и выбросы", "Потери с пылью",
+    })
+
+    def _tl(self, text: str) -> str:
+        return tr("OperatorForm", text)
+
+    def _set_recommendation_lines(self, *lines_ru: str) -> None:
+        self._recommendation_lines_ru = list(lines_ru)
+        text = "\n".join(tr("OperatorForm", line) for line in lines_ru)
+        if text:
+            text += "\n"
+        self.recomendation.setPlainText(text)
+
+    def _append_recommendation_line(self, line_ru: str) -> None:
+        lines = getattr(self, "_recommendation_lines_ru", [])
+        if line_ru not in lines:
+            lines.append(line_ru)
+        self._recommendation_lines_ru = lines
+        current = self.recomendation.toPlainText().rstrip("\n")
+        addition = tr("OperatorForm", line_ru)
+        self.recomendation.setPlainText(
+            (current + "\n" + addition).strip() + "\n" if current else addition + "\n"
+        )
+
+    def _refresh_recommendation_text(self) -> None:
+        lines = getattr(self, "_recommendation_lines_ru", None)
+        if not lines:
+            return
+        text = "\n".join(tr("OperatorForm", line) for line in lines)
+        if text:
+            text += "\n"
+        self.recomendation.setPlainText(text)
+
+    def _refresh_static_table_labels(self) -> None:
+        from i18n import canonical_label
+
+        for tbl in (
+            getattr(self, "IncomingData", None),
+            getattr(self, "OutputData", None),
+        ):
+            if tbl is None:
+                continue
+            for row in range(tbl.rowCount()):
+                item = tbl.item(row, 0)
+                if item is None:
+                    continue
+                key = canonical_label(item.text())
+                if key in self._STATIC_TABLE_LABELS:
+                    item.setText(tr("OperatorForm", key))
+
     scenarioProgress = pyqtSignal(int)
     finished = pyqtSignal(str)
     def getSettings(self):
@@ -247,13 +424,7 @@ class Ui_OperatorForm(object):
                     self.FeroType.addItem((str(data)))
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -312,13 +483,7 @@ class Ui_OperatorForm(object):
 
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -410,12 +575,10 @@ class Ui_OperatorForm(object):
             self.thread.finished.connect(self.run_calculations)
             self.thread.start()
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            msg.exec_()
+            msg_critical(
+                getattr(self, '_oper_form', None),
+                "Ошибка", "Внимание", "Проверьте введенные данные! {0}".format(err),
+            )
 
     def update_progress(self, value):
         self.scenarioProgress.setValue(value)
@@ -430,15 +593,18 @@ class Ui_OperatorForm(object):
         self.ModeComboBox.setCurrentText(mode)
 
     def show_error(self, error):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("Ошибка")
-        msg.setText("Внимание")
-        msg.setInformativeText(f"Проверьте введенные данные! {error}")
-        msg.exec_()
+        msg_critical(
+            getattr(self, '_oper_form', None),
+            "Ошибка", "Внимание", f"Проверьте введенные данные! {error}",
+        )
 
-    def run_calculations(self):
-        self.chooseMods()
+    def run_calculations(self, *, reload_mode_from_db: bool = True) -> None:
+        """Полный пересчёт этапов. reload_mode_from_db=False — не трогать поля режима (кнопка панели)."""
+        if reload_mode_from_db:
+            self.chooseMods()
+        self._run_calculation_stages()
+
+    def _run_calculation_stages(self):
         self.calcMetalChargeClicked()
         self.calcTableClick()
         self.slagCalcClicked()
@@ -452,10 +618,6 @@ class Ui_OperatorForm(object):
         Protokol = ''
         global step
         step = 1
-
-
-
-
 
 
 
@@ -534,22 +696,47 @@ class Ui_OperatorForm(object):
             self.scrapSilicon.setText(str(scrapData[0][4]))
             self.scrapManganese.setText(str(scrapData[0][5]))
 
+            # Тип лома для текущего режима
+            mycursor.execute(
+                "SELECT ScrapType_idScrapType FROM scrapdata WHERE idScrapData = %s;",
+                (scrapId,)
+            )
+            scrapTypeRow = mycursor.fetchone()
+            self.current_scrap_type_id = scrapTypeRow[0] if scrapTypeRow and scrapTypeRow[0] else 1
+
+            # Новые элементы лома (индексы 6..9 после ALTER TABLE scrapcomposition)
+            self.scrapCr = float(scrapData[0][6]) if len(scrapData[0]) > 6 and scrapData[0][6] else 0.0
+            self.scrapV  = float(scrapData[0][7]) if len(scrapData[0]) > 7 and scrapData[0][7] else 0.0
+            self.scrapAl = float(scrapData[0][8]) if len(scrapData[0]) > 8 and scrapData[0][8] else 0.0
+            self.scrapTi = float(scrapData[0][9]) if len(scrapData[0]) > 9 and scrapData[0][9] else 0.0
+            self._sync_scrap_type_ui()
+
             query = "select ScrapWeight from scrapdata where idScrapData = " + str(scrapId) +";"
             mycursor.execute(query)
             scrapWeight = mycursor.fetchall()
             self.scrapWeight.setText(str(scrapWeight[0][0]))
+            self._scenario_scrap_weight_t = float(scrapWeight[0][0])
+            self._scenario_target_carbon = float(steelComposition[0][1])
             mycursor.close()
             DB.close()
             self.getFluxeInMode(modeId)
 
+            self._balance_tau_min = None
+            self._balance_v_m3 = None
+            self._balance_blast_i_display = None
+            self._recalc_scrap_from_target_c = False
+            if hasattr(self, "control_panel"):
+                try:
+                    limit_c = float(self.SteelCarbonLimit.text())
+                    self.control_panel.set_target_carbon_range(limit_c)
+                except (ValueError, AttributeError):
+                    pass
+                c_val = self._field_float(self.steelCarbon)
+                self.control_panel.set_target_carbon_value(c_val)
+                self.user_target_C = c_val
+
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -602,8 +789,16 @@ class Ui_OperatorForm(object):
             scrapSerumValue = float(self.scrapSerum.text())
             scrapSiliconValue = float(self.scrapSilicon.text())
             scrapPhosphorValue = float(self.scrapPhosphor.text())
-            scrapWeightValue = float(self.scrapWeight.text())
             scrapManganeseValue = float(self.scrapManganese.text())
+
+            # Массы чугуна и лома — тонны [т] (поля «Масса [т]», ScrapWeight/CastSteelWeight в БД).
+            scrapWeightValue = float(self.scrapWeight.text())
+            # Пересчёт лома [т] — только если оператор изменил целевой [C] на панели.
+            if getattr(self, "_recalc_scrap_from_target_c", False):
+                # === CONTROL INPUTS: разд. 3 методики Шаповалова (чувствительность к [C]_М) ===
+                scrapWeightValue = self._recalc_scrap_weight_for_target_carbon()
+                self.scrapWeight.setText(str(round(scrapWeightValue, 3)))
+                self._recalc_scrap_from_target_c = False
 
             totalWeightValue = castSteelWeightValue + scrapWeightValue
 
@@ -628,6 +823,7 @@ class Ui_OperatorForm(object):
             global metalChargeCalcked
             metalChargeCalcked = True
             if getattr(self, 'converter3d', None):
+                self._last_3d_process_state = "charged"
                 self.converter3d.update_state({
                     'state':      'charged',
                     'metalMass':  round(totalWeightValue, 1),
@@ -635,15 +831,10 @@ class Ui_OperatorForm(object):
                     'slagMass':   0,
                     'slagLevel':  0,
                 })
+            self._update_control_scenario_context()
 
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         return
 
     def calcTableClick(self):
@@ -667,7 +858,7 @@ class Ui_OperatorForm(object):
             self.OxidationTable.setItem(0, 6, QTableWidgetItem(str(round(chemSerumValue, 3)))) # serum
             self.OxidationTable.setItem(0, 7, QTableWidgetItem("-"))  # serum
 
-            steelCarbonValue = float(self.steelCarbon.text())
+            steelCarbonValue = self._get_target_carbon()
             steelSerumValue = float(self.steelSerum.text())
             steelSiliconValue = float(self.steelSilicon.text())
             steelPhosphorValue = float(self.steelPhosphor.text())
@@ -718,12 +909,72 @@ class Ui_OperatorForm(object):
             self.OxidationTable.setItem(2, 6, QTableWidgetItem(str(round(serumRemove, 3))))  # serum
             self.OxidationTable.setItem(2, 7, QTableWidgetItem(str(round(summRemove, 3))))  # summ
 
-            carbonToCOOxygen = carbonToCO * 16/12
-            carbonToCO2Oxygen = carbonToCO2 * 32/12
-            siliconOxygen = siliconRemove * 32/28
-            manganesOxygen = manganeseRemove * 16/55
-            phosphorOxygen = phosphorRemove * 5 * 16 / 2 / 31
-            summOxygen = carbonToCOOxygen + carbonToCO2Oxygen + siliconOxygen + manganesOxygen +phosphorOxygen
+            # --- НОВЫЙ БЛОК: расчёт через матрицу стехиометрических коэффициентов ---
+            self._read_scrap_extra_inputs()
+            scrap_type_id = getattr(self, 'current_scrap_type_id', 1)
+            reactions = load_reactions_for_scrap_type(scrap_type_id, DBhost, DBlogin, DBpass)
+
+            charge_elements = {
+                'C_CO2':   chemCarbonValue,   'C_CO':    chemCarbonValue,
+                'Si':      chemSiliconValue,  'Mn':      chemManganesevalue,
+                'P':       chemPhosphorValue, 'P_alt':   chemPhosphorValue,
+                'FeS_CaO': chemSerumValue,    'S_SO2':   chemSerumValue,
+                'Cr': getattr(self, 'scrapCr', 0.0),
+                'V':  getattr(self, 'scrapV',  0.0),
+                'Al': getattr(self, 'scrapAl', 0.0),
+                'Ti': getattr(self, 'scrapTi', 0.0),
+            }
+            after_elements = {
+                'C_CO2': 0.0, 'C_CO': steelCarbonValue,
+                'Si': 0.0, 'Mn': manganeseAfter, 'P': phosphorAfter, 'P_alt': phosphorAfter,
+                'FeS_CaO': serumAfter, 'S_SO2': serumAfter,
+                'Cr': 0.0, 'V': 0.0, 'Al': 0.0, 'Ti': 0.0,
+            }
+
+            self.reaction_results = {}
+            total_O2_kg = total_O2_m3 = 0.0
+
+            for reaction in reactions:
+                el = reaction.element
+                if el not in charge_elements:
+                    continue
+                if el == 'C_CO':
+                    g_removed = max(0.0, (charge_elements['C_CO'] - steelCarbonValue) * reaction.co_fraction)
+                elif el == 'C_CO2':
+                    g_removed = max(0.0, (charge_elements['C_CO2'] - steelCarbonValue) * (1.0 - reaction.co_fraction))
+                else:
+                    g_removed = max(0.0, charge_elements[el] - after_elements.get(el, 0.0))
+
+                self.reaction_results[el] = {
+                    'removed':          g_removed,
+                    'O2_kg':            g_removed * reaction.oxygen_per_kg_element()    if reaction.affects_blast else 0.0,
+                    'O2_m3':            g_removed * reaction.oxygen_m3_per_kg_element() if reaction.affects_blast else 0.0,
+                    'oxide_kg':         g_removed * reaction.product_per_kg_element()   if reaction.affects_slag  else 0.0,
+                    'product':          reaction.product,
+                    'is_gas':           reaction.produces_gas,
+                    'heat':             g_removed * reaction.heat_kJ_kg                 if reaction.affects_heat  else 0.0,
+                    'affects_material': reaction.affects_material,
+                    'affects_slag':     reaction.affects_slag,
+                    'affects_blast':    reaction.affects_blast,
+                }
+                if reaction.affects_blast:
+                    total_O2_kg += self.reaction_results[el]['O2_kg']
+                    total_O2_m3 += self.reaction_results[el]['O2_m3']
+
+            self.total_O2_kg = total_O2_kg
+            self.total_O2_m3 = total_O2_m3
+
+            # Переменные-псевдонимы для совместимости с OxidationTable (строки 0..5)
+            carbonToCO        = self.reaction_results.get('C_CO',  {}).get('removed',  carbonRemove * 0.9)
+            carbonToCO2       = self.reaction_results.get('C_CO2', {}).get('removed',  carbonRemove * 0.1)
+            carbonToCOOxygen  = self.reaction_results.get('C_CO',  {}).get('O2_kg',    0.0)
+            carbonToCO2Oxygen = self.reaction_results.get('C_CO2', {}).get('O2_kg',    0.0)
+            siliconOxygen     = self.reaction_results.get('Si',    {}).get('O2_kg',    0.0)
+            manganesOxygen    = self.reaction_results.get('Mn',    {}).get('O2_kg',    0.0)
+            phosphorOxygen    = self.reaction_results.get('P',     {}).get('O2_kg',
+                                self.reaction_results.get('P_alt', {}).get('O2_kg',    0.0))
+            summOxygen        = total_O2_kg
+            # --- КОНЕЦ НОВОГО БЛОКА ---
 
             self.OxidationTable.setItem(3, 0, QTableWidgetItem("-"))
             self.OxidationTable.setItem(3, 1, QTableWidgetItem(str(round(carbonToCOOxygen, 3))))
@@ -766,17 +1017,109 @@ class Ui_OperatorForm(object):
             self.OxidationTable.setItem(5, 5, QTableWidgetItem(str(round(oxidesPhosphor, 3))))  # Phosphor
             self.OxidationTable.setItem(5, 6, QTableWidgetItem(str(round(oxidesSerum, 3))))  # serum
             self.OxidationTable.setItem(5, 7, QTableWidgetItem(str(round(oxidesSumm, 3))))  # summ
+
+            self.update_oxidation_table_rows()
             global tableCalcked
             tableCalcked = True
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         return
+
+    def update_oxidation_table_rows(self):
+        """Добавляет строки для Cr/V/Al/Ti/S(газ), если они ненулевые."""
+        EXTRA = {
+            'Cr': 'Хром', 'V': 'Ванадий', 'Al': 'Алюминий',
+            'Ti': 'Титан', 'S_SO2': 'Сера->SO2',
+        }
+        # Убираем ранее добавленные строки сверх базовых 6 (C/Si/Mn/P/S не трогаем)
+        self.OxidationTable.setRowCount(6)
+        if not hasattr(self, 'reaction_results'):
+            return
+        for el, label in EXTRA.items():
+            res = self.reaction_results.get(el)
+            if not res or res['removed'] <= 0:
+                continue
+            row = self.OxidationTable.rowCount()
+            self.OxidationTable.insertRow(row)
+            # Название элемента — в заголовок строки, не в ячейку данных
+            self.OxidationTable.setVerticalHeaderItem(row, QTableWidgetItem(label))
+            # col 0 (Всего): содержалось/удалено из шихты, %
+            self.OxidationTable.setItem(row, 0, QTableWidgetItem(str(round(res['removed'],  4))))
+            self.OxidationTable.setItem(row, 1, QTableWidgetItem("-"))
+            self.OxidationTable.setItem(row, 2, QTableWidgetItem("-"))
+            # col 3: O2 кг, col 4: O2 м³, col 5: оксид кг (переиспользуем колонки Si/Mn/P)
+            self.OxidationTable.setItem(row, 3, QTableWidgetItem(str(round(res['O2_kg'],    4))))
+            self.OxidationTable.setItem(row, 4, QTableWidgetItem(str(round(res['O2_m3'],    4))))
+            self.OxidationTable.setItem(row, 5, QTableWidgetItem(str(round(res['oxide_kg'], 4))))
+            self.OxidationTable.setItem(row, 6, QTableWidgetItem("-"))
+            self.OxidationTable.setItem(row, 7, QTableWidgetItem(str(round(res['oxide_kg'], 4))))
+
+    def loadScrapTypeCombo(self):
+        """Заполняет combo типов лома из таблицы scraptype."""
+        try:
+            DB = mc.connect(host=DBhost, user=DBlogin, password=DBpass, database="regimdata")
+            cur = DB.cursor()
+            cur.execute("SELECT idScrapType, ScrapTypeName FROM scraptype ORDER BY idScrapType;")
+            rows = cur.fetchall()
+            cur.close(); DB.close()
+            if not hasattr(self, 'scrapTypeCombo'):
+                return
+            self.scrapTypeCombo.blockSignals(True)
+            self.scrapTypeCombo.clear()
+            for row in rows:
+                self.scrapTypeCombo.addItem(row[1], userData=row[0])
+            self.scrapTypeCombo.blockSignals(False)
+        except Exception as err:
+            logger.warning("loadScrapTypeCombo failed: %s", err)
+
+    def _sync_scrap_type_ui(self):
+        """Синхронизирует combo и поля Cr/V/Al/Ti с загруженными значениями."""
+        if hasattr(self, 'scrapTypeCombo'):
+            idx = self.scrapTypeCombo.findData(getattr(self, 'current_scrap_type_id', 1))
+            if idx >= 0:
+                self.scrapTypeCombo.blockSignals(True)
+                self.scrapTypeCombo.setCurrentIndex(idx)
+                self.scrapTypeCombo.blockSignals(False)
+        if hasattr(self, 'scrapCrInput'):
+            self.scrapCrInput.setText(str(getattr(self, 'scrapCr', 0.0)))
+            self.scrapVInput.setText(str(getattr(self, 'scrapV', 0.0)))
+            self.scrapAlInput.setText(str(getattr(self, 'scrapAl', 0.0)))
+            self.scrapTiInput.setText(str(getattr(self, 'scrapTi', 0.0)))
+
+    def onScrapTypeChanged(self, _index=-1):
+        """Пользователь выбрал тип лома в combo на главной форме."""
+        if not hasattr(self, 'scrapTypeCombo'):
+            return
+        data = self.scrapTypeCombo.currentData()
+        if data is not None:
+            self.current_scrap_type_id = data
+
+    def _read_scrap_extra_inputs(self):
+        """Читает Cr/V/Al/Ti из полей ввода в self.scrapCr/V/Al/Ti."""
+        def _val(widget):
+            try:
+                return float(widget.text())
+            except (ValueError, AttributeError):
+                return 0.0
+        if hasattr(self, 'scrapCrInput'):
+            self.scrapCr = _val(self.scrapCrInput)
+            self.scrapV = _val(self.scrapVInput)
+            self.scrapAl = _val(self.scrapAlInput)
+            self.scrapTi = _val(self.scrapTiInput)
+
+    def openScrapTypeDialog(self):
+        """Открывает диалог матрицы реакций (только просмотр для оператора)."""
+        from ScrapTypeDialog import ScrapTypeDialog
+        dialog = ScrapTypeDialog(DBhost, DBlogin, DBpass, editable=False, parent=self.centralwidget)
+        dialog.exec_()
+        self.loadScrapTypeCombo()
+        self._sync_scrap_type_ui()
+
+    def openStoichiometryMatrixDialog(self):
+        """Открывает диалог просмотра полной матрицы стехиометрических коэффициентов."""
+        from StoichiometryMatrixDialog import StoichiometryMatrixDialog
+        dlg = StoichiometryMatrixDialog(DBhost, DBlogin, DBpass, parent=self.centralwidget)
+        dlg.exec_()
 
     def getFluxes(self):
         try:
@@ -795,13 +1138,7 @@ class Ui_OperatorForm(object):
                 for column_number, data in enumerate(row_data):
                     self.FluxeType.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -813,13 +1150,7 @@ class Ui_OperatorForm(object):
             self.FluxeTable.insertRow(rows)
             self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def removeFluxeButtonClicked(self):
         rows = self.FluxeTable.rowCount()
@@ -850,13 +1181,7 @@ class Ui_OperatorForm(object):
             self.ChemEmission.setItem(0, 4, QTableWidgetItem(str(i[5])))
             self.ChemEmission.setItem(0, 5, QTableWidgetItem(str(i[6])))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             DB.close()
             mycursor.close()
@@ -916,10 +1241,9 @@ class Ui_OperatorForm(object):
                 slagMgO += listOfNamesForClass[row].fluxeWeight * (listOfNamesForClass[row].fluxeMgO/100 + listOfNamesForClass[row].fluxeMgCO3 / 100 * 40/84)
                 slagAl2O3 += listOfNamesForClass[row].fluxeWeight * listOfNamesForClass[row].fluxeAl2O3 / 100
 
-            FeO = 20.0 + 0.218 / float(self.steelCarbon.text()) + 0.031 / float(self.steelPhosphor.text())
+            steelCarbon = self._get_target_carbon()
+            FeO = 20.0 + 0.218 / steelCarbon + 0.031 / float(self.steelPhosphor.text())
             Fe2O3 = 0
-
-            steelCarbon = float(self.steelCarbon.text())
             steelPhosphor = float(self.steelPhosphor.text())
 
             if (steelCarbon < 0.1):
@@ -933,6 +1257,20 @@ class Ui_OperatorForm(object):
 
             slagSiO2 = oxidesSilicon * metalChargeWeight/100 + totalSlagSiO2
             slagOthers = (oxidesManganes + oxidesPhosphor + oxidesSerum) * metalChargeWeight/100
+
+            # Оксиды новых элементов (Cr2O3, V2O5, TiO2, Al2O3 и пр.) из матрицы реакций
+            if hasattr(self, 'reaction_results'):
+                ALREADY_COUNTED = {'C_CO', 'C_CO2', 'CO_burn', 'Si', 'Mn', 'P', 'P_alt', 'FeS_CaO', 'S_SO2'}
+                for el, res in self.reaction_results.items():
+                    if el in ALREADY_COUNTED:
+                        continue
+                    if res['affects_slag'] and not res['is_gas'] and res['oxide_kg'] > 0:
+                        oxide_total = res['oxide_kg'] * metalChargeWeight / 100.0
+                        if res['product'] == 'Al2O3':
+                            slagAl2O3 += oxide_total
+                        else:
+                            slagOthers += oxide_total
+
             slagWeight = ((slagSiO2 + slagCaO + slagMgO + slagAl2O3 + slagOthers) / (100 - FeO - Fe2O3)) * 100
             slagFeO = FeO / 100 * slagWeight
             slagFe2O3 = Fe2O3 / 100 * slagWeight
@@ -956,6 +1294,7 @@ class Ui_OperatorForm(object):
             slagCalcked = True
             if getattr(self, 'converter3d', None):
                 metal_mass = float(self.MetalCharge.text())
+                self._last_3d_process_state = "blowing"
                 self.converter3d.update_state({
                     'state':     'blowing',
                     'slagMass':  round(slagWeight, 1),
@@ -965,13 +1304,768 @@ class Ui_OperatorForm(object):
                     'temperature': 1500,
                 })
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
+
+    # === CONTROL INPUTS START ===
+    # Панель управления и симуляция — вкладка «Симуляция»; в центре — только этапы расчёта.
+
+    def _init_control_user_state(self) -> None:
+        self._user_controls: dict[str, Any] = {}
+        self.user_target_C: float | None = None
+        self.user_o2_losses: float | None = None
+        self.user_eta_co: float | None = None
+        self.user_z_co: float | None = None
+        self.userBlowFlow: float | None = None
+        self.userBlowTime: float | None = None
+        self.userLanceHeight: float | None = None
+        self._recalc_scrap_from_target_c: bool = False
+        self._scenario_scrap_weight_t: float | None = None
+        self._scenario_target_carbon: float | None = None
+        self._control_scenario_mass_t: float = 200.0
+        self._last_3d_process_state: str = "idle"
+        self._sim_worker: DynamicsSimulationWorker | None = None
+        self._sim_engine: MeltDynamicsEngine | None = None
+        self._sim_playback_idx = 0
+        self._sim_snapshots: list[dict] = []
+        self._balance_tau_min: float | None = None
+        self._balance_v_m3: float | None = None
+        self._balance_blast_i_display: float | None = None
+
+    def _si_pig_iron_pct(self) -> float:
+        try:
+            return self._field_float(self.castCarbon, 0.5)
+        except AttributeError:
+            return 0.5
+
+    def _resolve_balance_free_params(self) -> dict[str, float]:
+        """η_CO, Z, P_O2 для 8 этапов баланса — без крутилок симуляции."""
+        mass = self._metal_charge_mass_t()
+        h_c = self._recommended_lance_ranges(mass)["optimal"]
+        i_ud_ref = CALIB_DEFAULTS.get("i_ud_ref", 4.0)
+        i_total = max(400.0, i_ud_ref * mass)
+        si_pig = self._si_pig_iron_pct()
+        preview = MeltDynamicsEngine.preview_free_params(
+            h_c, i_total, mass, si_pig
+        )
+        return {
+            "eta_co": preview["eta_co"],
+            "z_co": preview["z_co"],
+            "p_o2": preview["p_o2"],
+            "k_p": preview["k_p"],
+            "g_v": preview["g_v"],
+            "i_ud": preview["i_ud"],
+            "efficiency": preview["efficiency"],
+            "h_c": h_c,
+            "i_total": i_total,
+        }
+
+    def _resolve_sim_free_params(self) -> dict[str, float]:
+        """η_CO, Z, P_O2 для вкладки «Симуляция» — с учётом крутилок оператора."""
+        h_c = 1.15
+        i_total = 600.0
+        if hasattr(self, "control_panel"):
+            h_c = self.control_panel.lance_height_value()
+            i_total = self.control_panel.intensity_value()
+        g_st = self._metal_charge_mass_t()
+        si_pig = self._si_pig_iron_pct()
+        preview = MeltDynamicsEngine.preview_free_params(
+            h_c, i_total, g_st, si_pig
+        )
+        if hasattr(self, "control_panel") and self.control_panel.p_o2_manual_mode():
+            p_o2 = self.control_panel.p_o2_manual_value()
+        else:
+            p_o2 = preview["p_o2"]
+        return {
+            "eta_co": preview["eta_co"],
+            "z_co": preview["z_co"],
+            "p_o2": p_o2,
+            "k_p": preview["k_p"],
+            "g_v": preview["g_v"],
+            "i_ud": preview["i_ud"],
+            "efficiency": preview["efficiency"],
+            "h_c": h_c,
+            "i_total": i_total,
+        }
+
+    def _charge_temperature_for_dynamics(self) -> float:
+        """T заливки чугуна для динамики (не LiquidSteelTemp — финал теплобаланса)."""
+        t = self._field_float(self.castTemperature, 1400.0)
+        if t > 1550.0:
+            t = 1400.0
+        return max(1250.0, min(1500.0, t))
+
+    def _build_melt_initial_state(self) -> dict[str, float]:
+        """Начальное состояние для пошаговой симуляции."""
+        g_metal = self._metal_charge_mass_t()
+        return {
+            "G_metal_t": g_metal,
+            "C": self._field_float(self.ChemCarbon, 4.0),
+            "Si": self._field_float(self.ChemSilicon, 0.5),
+            "Mn": self._field_float(self.ChemManganese, 0.3),
+            "T": self._charge_temperature_for_dynamics(),
+            "FeO_slag": 12.0,
+            "Si_pig": self._si_pig_iron_pct(),
+            "V_O2_total": 0.0,
+        }
+
+    def _blast_rates_from_balance_volume(self, v_m3: float) -> tuple[float, float]:
+        """i и τ из балансного V (Ф-2); τ≈V/17 мин — без крутилок симуляции."""
+        v_m3 = max(float(v_m3), 1.0)
+        tau = max(12.0, min(25.0, v_m3 / 17.0))
+        return v_m3 / tau, tau
+
+    def _balance_blow_intensity(self) -> float | None:
+        """i_баланс = V/τ после «Расчёт дутья» (эталон для масштаба v_C)."""
+        tau = self._balance_blow_tau_min()
+        v_m3 = getattr(self, "_balance_v_m3", None)
+        if tau and tau > 1.0 and v_m3 and float(v_m3) > 1.0:
+            return float(v_m3) / float(tau)
+        return None
+
+    def _balance_blow_tau_min(self) -> float | None:
+        """τ продувки из баланса: Ф-2 τ=V/i после «Расчёт дутья» (None = ещё не считали)."""
+        global blastCalcked
+        if not blastCalcked:
+            return None
+        if getattr(self, "_balance_tau_min", None) is not None:
+            if self._balance_tau_min >= 1.0:
+                return self._balance_tau_min
+        if hasattr(self, "TotalConsumptionOfBlastM3"):
+            try:
+                v_m3 = float(self.TotalConsumptionOfBlastM3.text())
+                if v_m3 > 1.0:
+                    _i, tau = self._blast_rates_from_balance_volume(v_m3)
+                    if tau >= 1.0:
+                        return tau
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    def _is_simulation_tab_active(self) -> bool:
+        return (
+            hasattr(self, "tab_simulation")
+            and self.tabWidget.currentWidget() is self.tab_simulation
+        )
+
+    def _on_tab_widget_changed(self, _index: int) -> None:
+        if self._is_simulation_tab_active():
+            self._ensure_sim_engine()
+
+    def _dynamic_T_end_target(self) -> float:
+        """Целевая T конца продувки: из теплобаланса или T чугуна + ~265 °C."""
+        t0 = self._charge_temperature_for_dynamics()
+        global heatBalanceCalcked
+        if heatBalanceCalcked and hasattr(self, "LiquidSteelTemp"):
+            try:
+                t_bal = float(self.LiquidSteelTemp.text())
+                if t_bal > t0 + 30.0:
+                    return min(1720.0, t_bal)
+            except (ValueError, TypeError):
+                pass
+        return min(1720.0, t0 + 265.0)
+
+    def _build_melt_control_params(self) -> dict[str, float]:
+        h_c = self.userLanceHeight or 1.15
+        i_total = self.userBlowFlow or 600.0
+        target_c = self._get_sim_target_carbon()
+        if hasattr(self, "control_panel"):
+            h_c = self.control_panel.lance_height_value()
+            i_total = self.control_panel.intensity_value()
+            target_c = self.control_panel.target_carbon_value()
+        cp: dict[str, float] = {
+            "h_c": h_c,
+            "i_total": i_total,
+            "target_c": target_c,
+            "T_end_target": self._dynamic_T_end_target(),
+            "tau_target_min": self._balance_blow_tau_min() or 17.0,
+        }
+        i_bal = self._balance_blow_intensity()
+        if i_bal is not None and i_bal > 1.0:
+            cp["i_balance_ref"] = i_bal
+        return cp
+
+    def _update_dynamic_auto_fields(self) -> None:
+        if not hasattr(self, "_auto_eta_co"):
+            return
+        free = self._resolve_sim_free_params()
+        self.user_eta_co = free["eta_co"]
+        self.user_z_co = free["z_co"]
+        if not (
+            hasattr(self, "control_panel") and self.control_panel.p_o2_manual_mode()
+        ):
+            self.user_o2_losses = free["p_o2"]
+        self._auto_eta_co.setText(f"{free['eta_co']:.1f}")
+        self._auto_z_co.setText(f"{free['z_co']:.3f}")
+        manual_po2 = (
+            hasattr(self, "control_panel") and self.control_panel.p_o2_manual_mode()
+        )
+        if manual_po2:
+            self._auto_p_o2.setProperty("class", "control_auto_strikethrough")
+        else:
+            self._auto_p_o2.setProperty("class", "control_blow_volume_readonly")
+        self._auto_p_o2.setText(f"{free['p_o2']:.1f}")
+        self._auto_p_o2.style().unpolish(self._auto_p_o2)
+        self._auto_p_o2.style().polish(self._auto_p_o2)
+        self._auto_k_p.setText(f"{free['k_p']:.0f}")
+        self._auto_g_v.setText(f"{free['g_v']:.2f}")
+        if hasattr(self, "control_panel"):
+            self.control_panel.refresh_derived_display(
+                self._metal_charge_mass_t(), self._si_pig_iron_pct()
+            )
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+            snap = {
+                "eta_CO": free["eta_co"],
+                "Z": free["z_co"],
+                "h_c": free["h_c"],
+                "C": self._field_float(self.ChemCarbon, 4.0),
+                "Phi": 0.0,
+                "dh_foam": 0.0,
+            }
+            self.dynamics_indicators.set_state(snap)
+        self._sync_sim_tab_layout()
+
+    def _sim_left_scroll_content_height(self) -> int:
+        """Суммарная высота левой колонки «Симуляция» (всё внутри одной прокрутки)."""
+        if not hasattr(self, "control_panel"):
+            return 0
+        return (
+            self.control_panel.scroll_content_min_height()
+            + 22
+            + 78
+            + 52
+            + 36
+            + 24
+        )
+
+    def _on_sim_panel_geometry_changed(self) -> None:
+        """Высота inner-виджета прокрутки (без повторного _refresh)."""
+        if not hasattr(self, "sim_left_inner"):
+            return
+        h = self._sim_left_scroll_content_height()
+        if getattr(self, "_sim_scroll_inner_h", None) == h:
+            return
+        self._sim_scroll_inner_h = h
+        self.sim_left_inner.setMinimumHeight(h)
+
+    def _sync_sim_tab_layout(self) -> None:
+        """Синхронизировать группу крутилок и высоту прокрутки (один проход)."""
+        if not hasattr(self, "sim_left_inner"):
+            return
+        if not hasattr(self, "control_panel"):
+            return
+        self.control_panel._refresh_tab_panel_min_height()
+        self._on_sim_panel_geometry_changed()
+
+    def _metal_charge_mass_t(self) -> float:
+        """Масса металлической шихты [т]; 0 в поле → запас из сценария (иначе v_C=0)."""
+        try:
+            m = float(self.MetalCharge.text())
+        except (ValueError, AttributeError):
+            m = 0.0
+        if m <= 1.0:
+            m = float(getattr(self, "_control_scenario_mass_t", 200.0))
+        return max(m, 50.0)
+
+    def _calc_specific_intensity(self, i_m3_min: float, g_st: float) -> float:
+        """Ф-1: i_уд = i / G_ст [м³/(т·мин)]. Источники [1], [2]."""
+        if g_st <= 0:
+            return 0.0
+        return i_m3_min / g_st
+
+    def _intensity_hint_level(self, i_ud: float) -> str:
+        if i_ud > 6.0:
+            return "danger"
+        if i_ud < 2.5 or i_ud > 5.5:
+            return "warning"
+        return ""
+
+    def _calc_blow_time(self, v_m3: float, i_m3_min: float) -> float:
+        """Ф-2: τ = V / i [мин]. Источник [2], [3]."""
+        if i_m3_min <= 0:
+            return 0.0
+        return v_m3 / i_m3_min
+
+    def _calc_flow_from_time(self, v_m3: float, tau_min: float) -> float:
+        """Ф-2: i = V / τ [м³/мин]."""
+        if tau_min <= 0:
+            return 0.0
+        return v_m3 / tau_min
+
+    def _calc_jet_velocity(
+        self,
+        t_gas_k: float = 303.0,
+        p2_pa: float = 1.2e6,
+        p1_pa: float = 1.2e5,
+    ) -> float:
+        """Ф-3: скорость истечения O₂ из сопла [м/с]. Источник [1]."""
+        k = 1.4
+        r_gas = 8.3143 / 0.032
+        term = 1.0 - (p1_pa / p2_pa) ** ((k - 1.0) / k)
+        if term <= 0:
+            return 0.0
+        return math.sqrt(2.0 * k / (k - 1.0) * r_gas * t_gas_k * term)
+
+    def _calc_jet_impulse(self, i_m3_min: float, omega: float, n_nozzles: int = 5) -> float:
+        """Ф-4: импульс струи [Н]. Источник [1]."""
+        rho = 1.429
+        v_g = i_m3_min / 60.0
+        return rho * v_g * omega / max(n_nozzles, 1)
+
+    def _calc_archimedes_star(self, i_g: float, h_c: float) -> float:
+        """Ф-5: модифицированный критерий Архимеда. Источник [1]."""
+        rho = 7000.0
+        g = 9.81
+        if h_c <= 0:
+            return 0.0
+        return i_g / (rho * g * h_c ** 3)
+
+    def _calc_penetration_depth(self, h_c: float, ar_star: float) -> float:
+        """Ф-6: глубина лунки h_л [м]. Шаповалов, МИСиС, 2014, гл. 2."""
+        if h_c <= 0:
+            return 0.0
+        return 0.78 * h_c * (max(ar_star, 1e-12) ** 0.35)
+
+    def _recommended_lance_ranges(self, mass_t: float) -> dict[str, float]:
+        """Ф-7: диапазоны положения фурмы по массе плавки. Источник [1]."""
+        if mass_t <= 200:
+            return {
+                "initial_min": 2.0, "initial_max": 3.0,
+                "working_min": 1.0, "working_max": 1.3,
+                "optimal": 1.15,
+            }
+        if mass_t <= 300:
+            return {
+                "initial_min": 2.5, "initial_max": 3.5,
+                "working_min": 1.3, "working_max": 1.6,
+                "optimal": 1.45,
+            }
+        return {
+            "initial_min": 3.5, "initial_max": 4.5,
+            "working_min": 1.7, "working_max": 2.0,
+            "optimal": 1.85,
+        }
+
+    def _lance_hint_level(self, h_c: float, mass_t: float) -> str:
+        if h_c < 0.8 or h_c > 4.5:
+            return "danger"
+        r = self._recommended_lance_ranges(mass_t)
+        if h_c < r["working_min"] or h_c > r["working_max"]:
+            return "warning"
+        return ""
+
+    def _get_target_carbon(self) -> float:
+        """Целевое [C]_М для 8 этапов баланса (поле сценария / БД)."""
+        return self._field_float(self.steelCarbon)
+
+    def _get_sim_target_carbon(self) -> float:
+        """Целевое [C]_М для симуляции (крутилка или поле сценария)."""
+        if self.user_target_C is not None:
+            return float(self.user_target_C)
+        if hasattr(self, "control_panel"):
+            return self.control_panel.target_carbon_value()
+        return self._get_target_carbon()
+
+    def _recalc_scrap_weight_for_target_carbon(self) -> float:
+        """Масса лома [т] при изменении целевого [C]_М (разд. 3 методики Шаповалова).
+
+        Полная формула (3) G_лом = G_ч·(C_ч−[C]_М)/(C_лом−[C]_М) даёт нереалистичные
+        значения, когда C_лом и [C]_М близки (типовые режимы из БД). Для симулятора
+        пересчитываем от базы сценария: ~2% изменения массы лома на 0,05% [C]_М.
+        """
+        base_scrap = self._scenario_scrap_weight_t
+        base_target = self._scenario_target_carbon
+        if base_scrap is None or base_target is None:
+            return self._field_float(self.scrapWeight)
+        target_c = self._get_sim_target_carbon()
+        delta_c = base_target - target_c
+        factor = 1.0 + 0.02 * (delta_c / 0.05)
+        return max(0.0, base_scrap * factor)
+
+    def _sync_blast_triplet_info(
+        self, values: dict[str, Any], v_m3: float
+    ) -> dict[str, float]:
+        """Ф-2: связь i и τ через расчётный V (информационно, не влияет на химию)."""
+        i = float(values[KEY_FLOW])
+        tau = float(values[KEY_TIME])
+        computed = values.get(KEY_COMPUTED, KEY_TIME)
+        if computed == KEY_FLOW:
+            i = self._calc_flow_from_time(v_m3, max(tau, 0.1))
+        else:
+            tau = self._calc_blow_time(v_m3, max(i, 1.0))
+        return {KEY_FLOW: i, KEY_TIME: tau}
+
+    def _get_informational_blow_rates(self, v_m3: float) -> tuple[float, float]:
+        """Расход i и время τ по балансному V (Ф-2), согласованные с крутилками."""
+        return self._blast_rates_from_balance_volume(v_m3)
+
+    def _sync_blast_panel_display(self, v_m3: float, i_flow: float, tau_min: float) -> None:
+        """Обновить расчётный V и информационные i, τ на панели (Ф-2)."""
+        if not hasattr(self, "control_panel"):
+            return
+        self.control_panel.set_blow_volume_display(v_m3)
+        self.control_panel.set_informational_blow_rates(i_flow, tau_min)
+
+    def _control_param_label(self, key: str) -> str:
+        return {
+            KEY_TARGET_C: "Целевое [C]",
+            KEY_O2_LOSSES: "Потери O₂",
+            KEY_FLOW: "Расход O₂",
+            KEY_TIME: "Время продувки",
+            KEY_LANCE: "Положение фурмы",
+        }.get(key, key)
+
+    def _log_control_changes(self) -> None:
+        global Protokol
+        if not hasattr(self, "control_panel"):
+            return
+        for key, old_v, new_v in self.control_panel.drain_change_log():
+            t = QtCore.QTime.currentTime().toString("HH:mm:ss")
+            label = self._control_param_label(key)
+            suffix = {
+                KEY_TARGET_C: "%",
+                KEY_O2_LOSSES: "%",
+                KEY_FLOW: "м³/мин",
+                KEY_TIME: "мин",
+                KEY_LANCE: "м",
+            }.get(key, "")
+            Protokol += (
+                f"[{t}] Оператор изменил «{label}» с {old_v:g} → {new_v:g} {suffix}\n"
+            )
+            if key == KEY_TARGET_C:
+                self._recalc_scrap_from_target_c = True
+
+    def _update_control_hints(self, i_ud: float, h_c: float) -> None:
+        if not hasattr(self, "control_panel"):
+            return
+        global metalChargeCalcked
+        if not metalChargeCalcked:
+            self.control_panel.apply_range_hints({})
+            return
+        mass = self._metal_charge_mass_t()
+        hints = {
+            KEY_FLOW: self._intensity_hint_level(i_ud),
+            KEY_LANCE: self._lance_hint_level(h_c, mass),
+        }
+        tau = self._user_controls.get(KEY_TIME, 17.0)
+        if tau > 25 or tau < 12:
+            hints[KEY_TIME] = "warning"
+        self.control_panel.apply_range_hints(hints)
+
+    def _push_controls_to_3d(self, i_flow: float, h_c: float, h_l: float) -> None:
+        """Обновить 3D по результатам баланса (не с крутилок симуляции)."""
+        if not getattr(self, "converter3d", None):
+            return
+        state = getattr(self, "_last_3d_process_state", "blowing")
+        if state == "idle" and i_flow > 0:
+            state = "blowing"
+        self._balance_blast_i_display = float(i_flow)
+        self.converter3d.update_state({
+            "blastFlow": round(i_flow, 0),
+            "lanceHeight": round(h_c, 3),
+            "penetrationDepth": round(h_l, 3),
+            "reactionZoneActive": i_flow > 0 and state == "blowing",
+        })
+
+    def _apply_user_controls_from_panel(self, values: dict[str, Any] | None = None) -> None:
+        if not hasattr(self, "control_panel"):
+            return
+        if values is None:
+            values = self.control_panel.get_signal_values()
+        self._user_controls = dict(values)
+
+        self.user_target_C = values.get(SIGNAL_TARGET_C)
+        self.user_o2_losses = values.get(SIGNAL_O2_LOSSES)
+        self.userLanceHeight = values.get(SIGNAL_LANCE)
+        self.userBlowFlow = values.get(SIGNAL_BLOW_INTENSITY)
+        self.userBlowTime = values.get(SIGNAL_BLOW_TIME)
+
+        h_c = self.userLanceHeight or 1.15
+        if self.userLanceHeight is not None:
+            free = self._resolve_sim_free_params()
+            self.user_eta_co = free["eta_co"]
+            self.user_z_co = free["z_co"]
+            if not self.control_panel.p_o2_manual_mode():
+                self.user_o2_losses = free["p_o2"]
+        else:
+            self.user_eta_co = None
+            self.user_z_co = None
+        self._update_dynamic_auto_fields()
+
+        i = self.userBlowFlow or 600.0
+        tau = self.userBlowTime or 17.0
+
+        g_st = self._metal_charge_mass_t()
+        i_ud = self._calc_specific_intensity(i, g_st)
+        omega = self._calc_jet_velocity()
+        i_g = self._calc_jet_impulse(i, omega)
+        ar_star = self._calc_archimedes_star(i_g, h_c)
+        h_l = self._calc_penetration_depth(h_c, ar_star)
+
+        self._update_control_hints(i_ud, h_c)
+
+    def _on_controls_changed(self, values: dict[str, Any]) -> None:
+        self._log_control_changes()
+        self._apply_user_controls_from_panel(values)
+        if getattr(self, "_recalc_scrap_from_target_c", False):
+            scrap_t = self._recalc_scrap_weight_for_target_carbon()
+            self.scrapWeight.setText(str(round(scrap_t, 3)))
+            self._recalc_scrap_from_target_c = False
+        logger.debug("controls changed: %s", self._user_controls)
+        if self._is_simulation_tab_active():
+            self._apply_live_sim_controls()
+
+    def _ensure_sim_step_timer(self) -> QtCore.QTimer:
+        if not hasattr(self, "_sim_step_timer"):
+            self._sim_step_timer = QtCore.QTimer(
+                getattr(self, "_oper_form", None)
+            )
+            self._sim_step_timer.setInterval(
+                int(CALIB_DEFAULTS.get("sim_live_step_ms", 900))
+            )
+            self._sim_step_timer.timeout.connect(self._sim_live_step)
+        return self._sim_step_timer
+
+    def _ensure_sim_engine(self) -> bool:
+        if self._sim_engine is not None:
+            return True
+        if not self.ScenarioComboBox.currentText().strip():
+            return False
+        self._apply_user_controls_from_panel()
+        try:
+            initial = self._build_melt_initial_state()
+            control = self._build_melt_control_params()
+            self._sim_engine = MeltDynamicsEngine(
+                initial_state=initial,
+                control_params=control,
+            )
+            self._sim_t_charge = float(initial["T"])
+        except Exception as exc:
+            logger.warning("sim engine init failed: %s", exc)
+            self._sim_engine = None
+            return False
+        return True
+
+    def _apply_live_sim_controls(self) -> None:
+        """Передать новые крутилки в идущую симуляцию без сброса истории."""
+        if not self._ensure_sim_engine():
+            return
+        self._apply_user_controls_from_panel()
+        cp = self._build_melt_control_params()
+        tau = self._balance_blow_tau_min()
+        if tau is not None and tau > 0:
+            cp["tau_target_min"] = tau
+        self._sim_engine.apply_controls(cp)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+        if self._sim_snapshots:
+            self._update_sim_temp_hint(self._sim_snapshots[-1])
+        if not self._sim_engine.is_finished():
+            self._ensure_sim_step_timer().start()
+
+    def _refresh_sim_ui(self, snap: dict) -> None:
+        if hasattr(self, "dynamics_charts"):
+            self.dynamics_charts.update_curves(self._sim_snapshots)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+            self.dynamics_indicators.set_state(snap)
+        self._update_sim_temp_hint(snap)
+        if getattr(self, "converter3d", None):
+            self._push_sim_foam_to_3d(snap)
+
+    def _sim_live_step(self) -> None:
+        if self._sim_engine is None or self._sim_engine.is_finished():
+            self._ensure_sim_step_timer().stop()
+            return
+        snap = self._sim_engine.step()
+        self._sim_snapshots.append(snap)
+        self._refresh_sim_ui(snap)
+
+    def _start_simulation_session(self, *, reset: bool) -> bool:
+        if not self.ScenarioComboBox.currentText().strip():
+            return False
+        timer = self._ensure_sim_step_timer()
+        if reset:
+            timer.stop()
+            self._apply_user_controls_from_panel()
+            try:
+                initial = self._build_melt_initial_state()
+                control = self._build_melt_control_params()
+                i_bal = self._balance_blow_intensity()
+                if i_bal is not None:
+                    control["i_balance_ref"] = i_bal
+                    tau_bal = self._balance_blow_tau_min()
+                    if tau_bal is not None and tau_bal > 1.0:
+                        control["tau_target_min"] = float(tau_bal)
+                self._sim_engine = MeltDynamicsEngine(
+                    initial_state=initial,
+                    control_params=control,
+                )
+                self._sim_t_charge = float(initial["T"])
+                self._sim_snapshots = []
+                if hasattr(self, "dynamics_charts"):
+                    self.dynamics_charts.clear()
+                self._update_sim_temp_hint(None)
+            except Exception as exc:
+                logger.warning("simulation reset failed: %s", exc)
+                return False
+        elif not self._ensure_sim_engine():
+            return False
+        if self._sim_engine.is_finished():
+            return True
+        timer.start()
+        self._sim_live_step()
+        return True
+
+    def _on_simulate_melt(self) -> None:
+        if not self.ScenarioComboBox.currentText().strip():
+            msg_warning(
+                None,
+                "Сценарий",
+                "Сначала выберите и загрузите сценарий.",
+            )
+            return
+        if not self._start_simulation_session(reset=True):
+            msg_warning(
+                None,
+                "Симуляция",
+                "Не удалось запустить расчёт. Загрузите сценарий и выполните расчёт дутья.",
+            )
+
+    def _on_simulation_finished(self, snapshots: list, last: dict) -> None:
+        """Legacy: ответ QThread (сейчас расчёт синхронный в _run_dynamics_preview)."""
+        self._sim_snapshots = snapshots
+        if hasattr(self, "dynamics_charts"):
+            self.dynamics_charts.update_curves(snapshots)
+        if hasattr(self, "dynamics_indicators") and last:
+            self.dynamics_indicators.set_target_carbon(self._get_sim_target_carbon())
+            self.dynamics_indicators.set_state(last)
+        self._update_sim_temp_hint(last)
+
+    def _update_sim_temp_hint(self, snap: dict | None) -> None:
+        if not hasattr(self, "_sim_temp_hint"):
+            return
+        t0 = getattr(self, "_sim_t_charge", self._charge_temperature_for_dynamics())
+        t_end = self._dynamic_T_end_target()
+        tau_bal = self._balance_blow_tau_min()
+        tau_bal_txt = (
+            f"{tau_bal:.1f} мин" if tau_bal is not None and tau_bal > 0 else "н/д (расчёт дутья)"
+        )
+        parts = [
+            f"T чугуна: {t0:.0f} °C",
+            f"цель T: {t_end:.0f} °C",
+            f"τ баланс: {tau_bal_txt}",
+        ]
+        if snap is not None:
+            parts.append(f"T: {float(snap.get('T', 0)):.0f} °C")
+            parts.append(f"τ сим: {float(snap.get('t_min', 0)):.1f} мин")
+        global heatBalanceCalcked
+        if heatBalanceCalcked and hasattr(self, "LiquidSteelTemp"):
+            try:
+                t_bal = float(self.LiquidSteelTemp.text())
+                parts.append(f"T баланс: {t_bal:.0f} °C")
+            except (ValueError, TypeError):
+                pass
+        self._sim_temp_hint.setText(" | ".join(parts))
+
+    def _push_sim_foam_to_3d(self, snap: dict) -> None:
+        if not getattr(self, "converter3d", None):
+            return
+        phi = float(snap.get("Phi", 0.0))
+        self.converter3d.update_state({
+            "state": "blowing",
+            "foamDelta": round(float(snap.get("dh_foam", 0.0)), 3),
+            "phi": round(phi, 3),
+            "phiAlarm": phi >= CALIB_DEFAULTS["phi_alarm"],
+            "temperature": round(float(snap.get("T", 0.0))),
+        })
+
+    def _sim_playback_tick(self) -> None:
+        if not self._sim_snapshots:
+            self._sim_playback_timer.stop()
+            return
+        idx = self._sim_playback_idx
+        if idx >= len(self._sim_snapshots):
+            self._sim_playback_timer.stop()
+            return
+        prefix = self._sim_snapshots[: idx + 1]
+        snap = prefix[-1]
+        if hasattr(self, "dynamics_charts"):
+            self.dynamics_charts.update_curves(prefix)
+        if hasattr(self, "dynamics_indicators"):
+            self.dynamics_indicators.set_state(snap)
+        self._update_sim_temp_hint(snap)
+        self._push_sim_foam_to_3d(snap)
+        self._sim_playback_idx += 1
+        if self._sim_playback_idx >= len(self._sim_snapshots):
+            self._sim_playback_timer.stop()
+
+    def _on_simulation_failed(self, message: str) -> None:
+        btn = getattr(self.control_panel, "_btn_simulate", None)
+        if btn is not None:
+            btn.setEnabled(True)
+            btn.setText(tr("OperatorForm", "Симулировать плавку"))
+        msg_critical(None, "Симуляция", "Внимание", message)
+
+    def _on_control_apply_recalc(self) -> None:
+        if not self.ScenarioComboBox.currentText().strip():
+            msg_warning(
+                None,
+                "Сценарий",
+                "Сначала выберите и загрузите сценарий.",
+            )
+            return
+        # Пересчёт с текущими крутилками и полями формы, без перезагрузки режима из БД.
+        self.run_calculations(reload_mode_from_db=False)
+
+    def _refresh_control_recommended(self, v_calc: float, i_rec: float, tau_rec: float) -> None:
+        if not hasattr(self, "control_panel"):
+            return
+        mass = self._metal_charge_mass_t()
+        lr = self._recommended_lance_ranges(mass)
+        self.control_panel.set_recommended({
+            KEY_FLOW: i_rec,
+            KEY_TIME: tau_rec,
+            KEY_LANCE: lr["optimal"],
+            KEY_O2_LOSSES: 7.5,
+        })
+
+    def _update_control_scenario_context(self) -> None:
+        if not hasattr(self, "control_panel"):
+            return
+        self._control_scenario_mass_t = self._metal_charge_mass_t()
+        self.control_panel.set_scenario_name(self.ScenarioComboBox.currentText())
+        try:
+            limit_c = float(self.SteelCarbonLimit.text())
+            self.control_panel.set_target_carbon_range(limit_c)
+        except (ValueError, AttributeError):
+            pass
+        self.control_panel.set_target_carbon_value(self._field_float(self.steelCarbon))
+        self._apply_user_controls_from_panel()
+
+    # === CONTROL INPUTS END ===
+
+    @staticmethod
+    def _safe_float(value, default: float = 0.0) -> float:
+        """Пустые ячейки и «-» в таблицах → default (без ValueError)."""
+        if value is None:
+            return default
+        text = str(value).strip().replace(",", ".")
+        if text in ("", "-", "—"):
+            return default
+        return float(text)
+
+    def _field_float(self, widget, default: float = 0.0) -> float:
+        try:
+            return self._safe_float(widget.text(), default)
+        except AttributeError:
+            return default
+
+    def _cell_float(self, table, row: int, col: int, default: float = 0.0) -> float:
+        item = table.item(row, col)
+        if item is None:
+            return default
+        return self._safe_float(item.text(), default)
 
     def blastCalcClicked(self):
         try:
@@ -993,31 +2087,61 @@ class Ui_OperatorForm(object):
 
             tmpOxygenRequired = FeO * 16 / 72 + Fe2O3 * 48 / 160.0
 
-            ironOxygenRequired = float(self.SlagFeO.text()) * 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
-            carbonOxygenRequired = float(self.OxidationTable.item(5,1).text()) / 100 * metalChargeWeight * 0.1 * 16/28
+            ironOxygenRequired = (
+                self._field_float(self.SlagFeO) * 16 / 72
+                + self._field_float(self.SlagFe2O3) * 48 / 160
+            )
+            # === DYNAMIC EXTENSION v3: формула (20), η_CO из Ф-Д2 ===
+            free = self._resolve_balance_free_params()
+            eta_CO = free["eta_co"]
+            po2 = free["p_o2"]
+            # === END DYNAMIC EXTENSION ===
+            carbonOxygenRequired = (
+                self._cell_float(self.OxidationTable, 5, 1) / 100
+                * metalChargeWeight * (eta_CO / 100.0) * 16 / 28
+            )
+            # === END CONTROL INPUTS ===
             summaryOxygenRequired = totalOxygenRequired + ironOxygenRequired + carbonOxygenRequired - tmpOxygenRequired
-            totalBlastConsumptionKg = (summaryOxygenRequired * 0.01 + summaryOxygenRequired) * 100 / 99.5
-            totalBlastConsumptionM3 = totalBlastConsumptionKg * 22.4/32
-            excessBlast = totalBlastConsumptionKg * 0.08
+
+            # === DYNAMIC EXTENSION v3: формула (25), П_O2 из Ф-Д6 ===
+            # V_D = (V_K + V_K · П_O2 / 100) · 100 / 99,5
+            chem_kg = summaryOxygenRequired * (1.0 + po2 / 100.0) * 100.0 / 99.5
+            chem_m3 = chem_kg * 22.4 / 32
+            # === END DYNAMIC EXTENSION ===
+
+            totalBlastConsumptionM3 = chem_m3
+            totalBlastConsumptionKg = chem_kg
+            excessBlast = chem_kg * 0.08
+            i_flow, tau_min = self._blast_rates_from_balance_volume(chem_m3)
+            self._balance_v_m3 = float(chem_m3)
+            self._balance_tau_min = float(tau_min)
 
             self.TotalOxygenDemandBlast.setText(str(round(summaryOxygenRequired, 3)))
             self.TotalConsumptionOfBlastKg.setText(str(round(totalBlastConsumptionKg, 3)))
-            self.TotalConsumptionOfBlastM3.setText(str(round(totalBlastConsumptionM3, 3)))
             self.ExcessBlast.setText(str(round(excessBlast, 3)))
+            self.TotalConsumptionOfBlastM3.setText(
+                str(round(totalBlastConsumptionM3, 3))
+            )
+
+            if hasattr(self, "control_panel"):
+                self._sync_blast_panel_display(chem_m3, i_flow, tau_min)
+
+            self._refresh_control_recommended(chem_m3, i_flow, tau_min)
+
             global blastCalcked
             blastCalcked = True
-            if getattr(self, 'converter3d', None):
-                self.converter3d.update_state({
-                    'blastFlow': round(totalBlastConsumptionM3, 0),
-                })
+            h_c = self._recommended_lance_ranges(
+                self._metal_charge_mass_t()
+            )["optimal"]
+            omega = self._calc_jet_velocity()
+            i_g = self._calc_jet_impulse(i_flow, omega)
+            h_l = self._calc_penetration_depth(
+                h_c, self._calc_archimedes_star(i_g, h_c)
+            )
+            self._last_3d_process_state = "blowing"
+            self._push_controls_to_3d(i_flow, h_c, h_l)
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def MaterialBalanceCalcClicked(self):
         try:
@@ -1026,7 +2150,10 @@ class Ui_OperatorForm(object):
                 self.blastCalcClicked()
                 blastCalcked = True
             #totalOxygenRequired = float(self.TotalOxygenDemandBlast.text())
-            totalOxygenRequired = float(self.SlagFeO.text()) * 16 / 72 + float(self.SlagFe2O3.text()) * 48 / 160
+            totalOxygenRequired = (
+                self._field_float(self.SlagFeO) * 16 / 72
+                + self._field_float(self.SlagFe2O3) * 48 / 160
+            )
             totalFeO = 0
             totalFe2O3 = 0
             totalCaCO3 = 0
@@ -1042,51 +2169,95 @@ class Ui_OperatorForm(object):
             amountOfReclaimedIron = totalFeO + totalFe2O3 - totalFeO * 16/72 - totalFe2O3 * 48/160
             self.ReclaimedIronWeight.setText(str(round(amountOfReclaimedIron, 3)))
 
-            weightOfOxedizedImpurities = float(self.OxidationTable.item(2,7).text())/100 * float(self.MetalCharge.text())
+            metalChargeWeight = self._field_float(self.MetalCharge)
+
+            # Учёт легирующих элементов (Cr/V/Al/Ti), удалённых из металла через
+            # матрицу реакций (флаг AffectsMaterialBalance). C/Si/Mn/P/S уже входят
+            # в summRemove (OxidationTable строка 2, столбец 7).
+            extra_removed_pct = 0.0
+            self._extra_material_rows = []
+            if hasattr(self, 'reaction_results'):
+                ALREADY_IN_SUMM = {'C_CO', 'C_CO2', 'CO_burn', 'Si', 'Mn', 'P', 'P_alt', 'FeS_CaO', 'S_SO2'}
+                for el, res in self.reaction_results.items():
+                    if el in ALREADY_IN_SUMM:
+                        continue
+                    if res['affects_material'] and res['removed'] > 0:
+                        extra_removed_pct += res['removed']
+                        self._extra_material_rows.append((el, res))
+
+            weightOfOxedizedImpurities = (
+                (self._cell_float(self.OxidationTable, 2, 7) + extra_removed_pct) / 100 * metalChargeWeight
+            )
             self.MassOfOxidizedImpurities.setText(str(round(weightOfOxedizedImpurities, 3)))
 
-            weightOfIronOxides = float(self.SlagFeO.text()) + float(self.SlagFe2O3.text()) - totalOxygenRequired
-            #weightOfIronOxides = float(self.TotalOxygenDemandBlast.text())
+            weightOfIronOxides = (
+                self._field_float(self.SlagFeO) + self._field_float(self.SlagFe2O3)
+                - totalOxygenRequired
+            )
             self.MassOfOxidesPassingIntoSlag.setText(str(round(weightOfIronOxides, 3)))
-            self.LossWithCarryOver.setText(str(round(0.02 * float(self.MetalCharge.text()), 3)))
+            self.LossWithCarryOver.setText(str(round(0.02 * metalChargeWeight, 3)))
 
-            oxidesToCO = float(self.OxidationTable.item(5, 1).text())
-            oxidesToCO2 = float(self.OxidationTable.item(5, 2).text())
-            metalChargeWeight = float(self.MetalCharge.text())
+            oxidesToCO = self._cell_float(self.OxidationTable, 5, 1)
+            oxidesToCO2 = self._cell_float(self.OxidationTable, 5, 2)
             self.OutputDataTable.setItem(0, 0, QTableWidgetItem(str(round(oxidesToCO * metalChargeWeight / 100, 3))))
             self.OutputDataTable.setItem(0, 1, QTableWidgetItem(str(round(oxidesToCO2 * metalChargeWeight / 100, 3))))
-            self.OutputDataTable.setItem(0, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(0,1).text()), 3))))
+            self.OutputDataTable.setItem(0, 2, QTableWidgetItem(str(round(
+                self._cell_float(self.OutputDataTable, 0, 0)
+                + self._cell_float(self.OutputDataTable, 0, 1), 3))))
             self.OutputDataTable.setItem(1, 0, QTableWidgetItem(str("-")))
             self.OutputDataTable.setItem(1, 1, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 3))))
             self.OutputDataTable.setItem(1, 2, QTableWidgetItem(str(round(totalCaCO3 * 44/96, 3))))
-            self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-0.1 * float(self.OutputDataTable.item(0, 0).text()), 3))))
-            self.OutputDataTable.setItem(2, 1, QTableWidgetItem(str(round(0.1 * float(self.OutputDataTable.item(0, 0).text()) * 44 / 28, 3))))
-            self.OutputDataTable.setItem(2, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(2, 0).text()) + float(self.OutputDataTable.item(2, 1).text()), 3))))
+            co0 = self._cell_float(self.OutputDataTable, 0, 0)
+            # === DYNAMIC EXTENSION v3: формула (20), η_CO из Ф-Д2 ===
+            free = self._resolve_balance_free_params()
+            co_burn_frac = free["eta_co"] / 100.0
+            # === END DYNAMIC EXTENSION ===
+            self.OutputDataTable.setItem(2, 0, QTableWidgetItem(str(round(-co_burn_frac * co0, 3))))
+            self.OutputDataTable.setItem(2, 1, QTableWidgetItem(str(round(co_burn_frac * co0 * 44 / 28, 3))))
+            # === END CONTROL INPUTS ===
+            self.OutputDataTable.setItem(2, 2, QTableWidgetItem(str(round(
+                self._cell_float(self.OutputDataTable, 2, 0)
+                + self._cell_float(self.OutputDataTable, 2, 1), 3))))
             self.OutputDataTable.setItem(3, 0, QTableWidgetItem(str("-")))
             self.OutputDataTable.setItem(3, 1, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 3))))
             self.OutputDataTable.setItem(3, 2, QTableWidgetItem(str(round(totalMgCO3 * 44 / 84, 3))))
-            tmp = float(self.OutputDataTable.item(0, 0).text()) + float(self.OutputDataTable.item(2, 0).text());
+            tmp = self._cell_float(self.OutputDataTable, 0, 0) + self._cell_float(self.OutputDataTable, 2, 0)
             self.OutputDataTable.setItem(4, 0, QTableWidgetItem(str(round(tmp, 3))))
-            tmp = float(self.OutputDataTable.item(0, 1).text()) + float(self.OutputDataTable.item(1, 1).text()) + float(self.OutputDataTable.item(2, 1).text()) + float(self.OutputDataTable.item(3, 1).text())
+            tmp = (
+                self._cell_float(self.OutputDataTable, 0, 1)
+                + self._cell_float(self.OutputDataTable, 1, 1)
+                + self._cell_float(self.OutputDataTable, 2, 1)
+                + self._cell_float(self.OutputDataTable, 3, 1)
+            )
             self.OutputDataTable.setItem(4, 1, QTableWidgetItem(str(round(tmp, 3))))
-            tmp = float(self.OutputDataTable.item(0, 2).text()) + float(self.OutputDataTable.item(1, 2).text()) + float(self.OutputDataTable.item(2, 2).text()) + float(self.OutputDataTable.item(3, 2).text())
+            tmp = (
+                self._cell_float(self.OutputDataTable, 0, 2)
+                + self._cell_float(self.OutputDataTable, 1, 2)
+                + self._cell_float(self.OutputDataTable, 2, 2)
+                + self._cell_float(self.OutputDataTable, 3, 2)
+            )
             self.OutputDataTable.setItem(4, 2, QTableWidgetItem(str(round(tmp, 3))))
-            self.OutputDataTable.setItem(5, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4, 0).text()) * 22.4 / 28, 3))))
-            tmp = float(self.OutputDataTable.item(4, 1).text()) * 22.4 / 44
-            self.OutputDataTable.setItem(5, 1, QTableWidgetItem(str(round(tmp, 3))))
-            self.OutputDataTable.setItem(5, 2, QTableWidgetItem(str(round(float(self.OutputDataTable.item(5, 0).text()) + float(self.OutputDataTable.item(5, 1).text()), 3))))
-            self.OutputDataTable.setItem(6, 0, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,0).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 3))))
-            self.OutputDataTable.setItem(6, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,1).text()) / float(self.OutputDataTable.item(4,2).text()) * 100, 3))))
+            g4_0 = self._cell_float(self.OutputDataTable, 4, 0)
+            g4_1 = self._cell_float(self.OutputDataTable, 4, 1)
+            g4_2 = self._cell_float(self.OutputDataTable, 4, 2)
+            g5_0 = g4_0 * 22.4 / 28
+            g5_1 = g4_1 * 22.4 / 44
+            self.OutputDataTable.setItem(5, 0, QTableWidgetItem(str(round(g5_0, 3))))
+            self.OutputDataTable.setItem(5, 1, QTableWidgetItem(str(round(g5_1, 3))))
+            self.OutputDataTable.setItem(5, 2, QTableWidgetItem(str(round(g5_0 + g5_1, 3))))
+            pct_den = g4_2 if abs(g4_2) > 1e-9 else 1.0
+            self.OutputDataTable.setItem(6, 0, QTableWidgetItem(str(round(g4_0 / pct_den * 100, 3))))
+            self.OutputDataTable.setItem(6, 1, QTableWidgetItem(str(round(g4_1 / pct_den * 100, 3))))
             self.OutputDataTable.setItem(6, 2, QTableWidgetItem(str(100)))
 
-            tmp = 0.00001 * 200 * 70 * float(self.OutputDataTable.item(5,2).text())
+            tmp = 0.00001 * 200 * 70 * self._cell_float(self.OutputDataTable, 5, 2)
             self.DustLoss.setText(str(round(tmp, 3)))
 
-            oxidesPassingIntoSlag = float(self.MassOfOxidesPassingIntoSlag.text())
-            oxidizedImpurities = float(self.MassOfOxidizedImpurities.text())
-            lossWithCarryOver = float(self.LossWithCarryOver.text())
-            dustLoss = float(self.DustLoss.text())
-            reclaimedIronWeight = float(self.ReclaimedIronWeight.text())
+            oxidesPassingIntoSlag = self._field_float(self.MassOfOxidesPassingIntoSlag)
+            oxidizedImpurities = self._field_float(self.MassOfOxidizedImpurities)
+            lossWithCarryOver = self._field_float(self.LossWithCarryOver)
+            dustLoss = self._field_float(self.DustLoss)
+            reclaimedIronWeight = self._field_float(self.ReclaimedIronWeight)
             liquidIron = metalChargeWeight + reclaimedIronWeight - (oxidizedImpurities + oxidesPassingIntoSlag +
                                                                     lossWithCarryOver + dustLoss)
             self.LiquidIronYield.setText(str(round(liquidIron, 3)))
@@ -1105,13 +2276,15 @@ class Ui_OperatorForm(object):
 
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Чугун жидкий"))
-            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.castWeight.text())*1000, 3))))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Чугун жидкий")))
+            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(
+                self._field_float(self.castWeight) * 1000, 3))))
 
             incomingDataRowCount += 1
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Лом"))
-            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(float(self.scrapWeight.text()) * 1000, 3))))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Лом")))
+            self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(
+                self._field_float(self.scrapWeight) * 1000, 3))))
 
             incomingDataRowCount += 1
             for row in range(fluxesRowCount):
@@ -1122,17 +2295,18 @@ class Ui_OperatorForm(object):
                 incomingDataRowCount += 1
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Дутьё"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Дутьё")))
             self.IncomingData.setItem(incomingDataRowCount, 1,
-                                      QTableWidgetItem(str(round(float(self.TotalConsumptionOfBlastKg.text()) * 1000, 3))))
+                                      QTableWidgetItem(str(round(
+                                          self._field_float(self.TotalConsumptionOfBlastKg) * 1000, 3))))
             incomingDataRowCount += 1
 
             summary = 0
             for row in range(incomingDataRowCount):
-                summary += float(self.IncomingData.item(row, 1).text())
+                summary += self._cell_float(self.IncomingData, row, 1)
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Итого"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Итого")))
             self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(int(summary))))
 
             outRowCount = self.OutputData.rowCount()
@@ -1142,55 +2316,78 @@ class Ui_OperatorForm(object):
                     outRowCount -= 1
 
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Металл жидкий"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Металл жидкий")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(liquidIron * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Шлак"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.SlagWeight.text()) * 1000, 3))))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Шлак")))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
+                self._field_float(self.SlagWeight) * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Газ"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.OutputDataTable.item(4,2).text()) * 1000, 3))))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Газ")))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(g4_2 * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Избыток дутья"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.ExcessBlast.text()) * 1000, 3))))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Избыток дутья")))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
+                self._field_float(self.ExcessBlast) * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Выносы и выбросы"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.LossWithCarryOver.text()) * 1000, 3))))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Выносы и выбросы")))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
+                lossWithCarryOver * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Потери с пылью"))
-            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(float(self.DustLoss.text()) * 1000, 3))))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Потери с пылью")))
+            self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(dustLoss * 1000, 3))))
 
             outRowCount += 1
             summary = 0
             for row in range(outRowCount-1):
-                summary += float(self.OutputData.item(row, 1).text())
+                summary += self._cell_float(self.OutputData, row, 1)
 
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Итого"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Итого")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(summary, 3))))
+
+            # Справочная разбивка по легирующим (не входит в сумму «Итого»:
+            # их масса уже учтена внутри статей «Металл жидкий» и «Шлак»)
+            extra_rows = getattr(self, '_extra_material_rows', [])
+            if extra_rows:
+                EL_NAMES = {'Cr': 'Хром', 'V': 'Ванадий', 'Al': 'Алюминий', 'Ti': 'Титан'}
+                italic = QtGui.QFont()
+                italic.setItalic(True)
+
+                def _add_ref_row(text, value):
+                    r = self.OutputData.rowCount()
+                    self.OutputData.insertRow(r)
+                    name_item = QTableWidgetItem(text)
+                    name_item.setFont(italic)
+                    val_item = QTableWidgetItem(value)
+                    val_item.setFont(italic)
+                    self.OutputData.setItem(r, 0, name_item)
+                    self.OutputData.setItem(r, 1, val_item)
+
+                _add_ref_row("Справочно: окисление легирующих", "удал.Me / оксид в шлак, кг")
+                for el, res in extra_rows:
+                    removed_kg = res['removed'] * metalChargeWeight / 100 * 1000
+                    oxide_kg = res['oxide_kg'] * metalChargeWeight / 100 * 1000
+                    label = "  в т.ч. {0} -> {1}".format(EL_NAMES.get(el, el), res['product'])
+                    _add_ref_row(label, "{0} / {1}".format(round(removed_kg, 3), round(oxide_kg, 3)))
+
             self.IncomingData.resizeColumnsToContents()
             self.OutputData.resizeColumnsToContents()
             global materialBalanceCalcked
             materialBalanceCalcked = True
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def HeatBalanceCalcClicked(self):
         try:
@@ -1199,32 +2396,56 @@ class Ui_OperatorForm(object):
                 self.MaterialBalanceCalcClicked()
                 materialBalanceCalcked = True
             #Физическое тепло жидкого чугуна
-            PhysCastHeat = float(self.castWeight.text()) * 1000.0 * (61.9 + 0.88 * float(self.castTemperature.text()))
+            PhysCastHeat = (
+                self._field_float(self.castWeight) * 1000.0
+                * (61.9 + 0.88 * self._field_float(self.castTemperature))
+            )
             self.CastPhysHeat.setText(str(round(PhysCastHeat, 3)))
             self.IncomingHeatTable.setItem(0, 0, QTableWidgetItem(str(PhysCastHeat)))
 
             #Тепло от реакции окисления
-            TotalRemovedCarbon = float(self.OxidationTable.item(2, 0).text())
-            TotalRemovedSilicon = float(self.OxidationTable.item(2, 3).text())
-            TotalRemovedMagn = float(self.OxidationTable.item(2, 4).text())
-            TotalRemovedPhosph = float(self.OxidationTable.item(2, 5).text())
-            HeatReactOfOxidation = (14770.0 * TotalRemovedCarbon + 26970.0 * TotalRemovedSilicon + 7000.0 * TotalRemovedMagn + 21730.0 * TotalRemovedPhosph) * float(self.MetalCharge.text()) * 10.0
+            TotalRemovedCarbon = self._cell_float(self.OxidationTable, 2, 0)
+            TotalRemovedSilicon = self._cell_float(self.OxidationTable, 2, 3)
+            TotalRemovedMagn = self._cell_float(self.OxidationTable, 2, 4)
+            TotalRemovedPhosph = self._cell_float(self.OxidationTable, 2, 5)
+            if hasattr(self, 'reaction_results'):
+                HeatReactOfOxidation = (
+                    sum(res['heat'] for res in self.reaction_results.values())
+                    * self._field_float(self.MetalCharge) * 10.0
+                )
+            else:
+                HeatReactOfOxidation = (
+                    14770.0 * TotalRemovedCarbon + 26970.0 * TotalRemovedSilicon
+                    + 7000.0 * TotalRemovedMagn + 21730.0 * TotalRemovedPhosph
+                ) * self._field_float(self.MetalCharge) * 10.0
             self.ThermalReactEffect.setText(str(round(HeatReactOfOxidation, 3)))
             self.IncomingHeatTable.setItem(1, 0, QTableWidgetItem(str(HeatReactOfOxidation)))
 
             #Химическое тепло от образования оксидов
-            ChemHeatOxidAppear =  3707.0 * float(self.SlagFeO.text()) * 1000.0 + 5278.0 * float(self.SlagFe2O3.text()) * 1000.0
+            ChemHeatOxidAppear = (
+                3707.0 * self._field_float(self.SlagFeO) * 1000.0
+                + 5278.0 * self._field_float(self.SlagFe2O3) * 1000.0
+            )
             self.ChemHeatOxyd.setText(str(round(ChemHeatOxidAppear, 3)))
             self.IncomingHeatTable.setItem(2, 0, QTableWidgetItem(str(round(ChemHeatOxidAppear, 3))))
 
             #Тепловой эффект реакции шлакообразования
-            ChemSlagHeat =  628.0 * float(self.SlagCaO.text()) * 1000.0 + 1464.0 * float(self.SlagSiO2.text()) * 1000.0
+            ChemSlagHeat = (
+                628.0 * self._field_float(self.SlagCaO) * 1000.0
+                + 1464.0 * self._field_float(self.SlagSiO2) * 1000.0
+            )
             self.ChemHeatSlag.setText(str(round(ChemSlagHeat, 2)))
             self.IncomingHeatTable.setItem(3, 0, QTableWidgetItem(str(round(ChemSlagHeat, 3))))
             
             #Тепло от дожигания CO
-            BurningCO = float(self.OutputDataTable.item(2, 0).text())
-            HeatOfBurningCO = 101.0 * 100.0 * abs(BurningCO) * 1000.0 * 0.2
+            # === DYNAMIC EXTENSION v3: формула (36), η_CO и Z из Ф-Д2, Ф-Д3 ===
+            # Q_CO = 101 · g_CO · η_СО · Z
+            # Используем параметры с учётом управляющих воздействий оператора
+            # (высота фурмы, интенсивность дутья), если панель управления подключена.
+            g_CO = abs(self._cell_float(self.OutputDataTable, 2, 0)) * 1000.0
+            free = self._resolve_sim_free_params()
+            HeatOfBurningCO = 101.0 * g_CO * free["eta_co"] * free["z_co"]
+            # === END DYNAMIC EXTENSION ===
             self.HeatCO.setText(str(round(HeatOfBurningCO, 2)))
             self.IncomingHeatTable.setItem(4, 0, QTableWidgetItem(str(round(HeatOfBurningCO, 3))))
 
@@ -1236,8 +2457,8 @@ class Ui_OperatorForm(object):
             #Расходные статьи
             #
             # Физическое тепло отходящих газов
-            COKilo = float(self.OutputDataTable.item(4, 0).text()) * 1000
-            CO2Kilo = float(self.OutputDataTable.item(4, 1).text()) * 1000
+            COKilo = self._cell_float(self.OutputDataTable, 4, 0) * 1000
+            CO2Kilo = self._cell_float(self.OutputDataTable, 4, 1) * 1000
             PhysGasHeat = (1.32 * 2000.0 - 220.0) * (COKilo + CO2Kilo)
             self.PhysHeatOutGas.setText(str(round(PhysGasHeat, 3)))
             self.OutputHeatTable.setItem(3, 0, QTableWidgetItem(str(round(PhysGasHeat, 3))))
@@ -1255,20 +2476,20 @@ class Ui_OperatorForm(object):
             self.OutputHeatTable.setItem(2, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 3))))
 
             #Потери тепла с выносами и выбросами
-            emissions = float(self.OutputData.item(4, 1).text())
+            emissions = self._cell_float(self.OutputData, 4, 1)
             emissionsHeatLoses =  (54.8 + 0.84 * 1550.0) * emissions
             self.HeatLosesRemove.setText(str(round(emissionsHeatLoses, 3)))
             self.OutputHeatTable.setItem(4, 0, QTableWidgetItem(str(round(FeOxydesHeatLoses, 3))))
 
             #Затраты тепла на пылеобразование
-            dustFeLoses = float(self.OutputData.item(5, 1).text())
+            dustFeLoses = self._cell_float(self.OutputData, 5, 1)
             heatDustLoses = (54.8 + 0.84 * 2000.0) * dustFeLoses
             self.HeatDustForm.setText(str(round(heatDustLoses, 3)))
             self.OutputHeatTable.setItem(5, 0, QTableWidgetItem(str(round(heatDustLoses, 3))))
 
             #Тепло на разложение карбонатов
-            totalCaCO3Decom = float(self.OutputDataTable.item(1, 2).text())
-            totalMgCO3Decom = float(self.OutputDataTable.item(3, 2).text())
+            totalCaCO3Decom = self._cell_float(self.OutputDataTable, 1, 2)
+            totalMgCO3Decom = self._cell_float(self.OutputDataTable, 3, 2)
             heatCarbonDecom =  4038.0 * (totalCaCO3Decom * 1000.0 + totalMgCO3Decom * 1000.0)
             self.HeatCarbonDecom.setText(str(round(heatCarbonDecom, 3)))
             self.OutputHeatTable.setItem(6, 0, QTableWidgetItem(str(round(heatCarbonDecom, 3))))
@@ -1279,18 +2500,24 @@ class Ui_OperatorForm(object):
             self.OutputHeatTable.setItem(7, 0, QTableWidgetItem(str(round(heatLoses, 3))))
 
             #Температура жидкого металла в конце продувки
-            SteelTemperature = (TotalHeatInc - PhysGasHeat - FeOxydesHeatLoses - emissionsHeatLoses - heatDustLoses -
-                                heatCarbonDecom - heatLoses - 54.8 * float(self.LiquidIronYield.text())*1000.0 +
-                                1379 * float(self.SlagWeight.text()) * 1000) / (0.84 * float(self.LiquidIronYield.text()) *
-                                1000 + 2.09 * float(self.SlagWeight.text())*1000)
+            liquid_yield = self._field_float(self.LiquidIronYield)
+            slag_weight = self._field_float(self.SlagWeight)
+            heat_denom = 0.84 * liquid_yield * 1000 + 2.09 * slag_weight * 1000
+            if abs(heat_denom) < 1e-9:
+                heat_denom = 1.0
+            SteelTemperature = (
+                TotalHeatInc - PhysGasHeat - FeOxydesHeatLoses - emissionsHeatLoses
+                - heatDustLoses - heatCarbonDecom - heatLoses
+                - 54.8 * liquid_yield * 1000.0 + 1379 * slag_weight * 1000
+            ) / heat_denom
 
             #Физическое тепло жидкого металла
-            PhysSteelHeat = (54.8 + 0.84 * SteelTemperature) * float(self.LiquidIronYield.text()) * 1000
+            PhysSteelHeat = (54.8 + 0.84 * SteelTemperature) * liquid_yield * 1000
             self.PhysHeatLiquidSteel.setText(str(round(PhysSteelHeat, 3)))
             self.OutputHeatTable.setItem(0, 0, QTableWidgetItem(str(round(PhysSteelHeat, 3))))
 
             #Физическое тепло шлака
-            PhysSlagHeat = (2.09 * SteelTemperature - 1379.0) * float(self.SlagWeight.text()) * 1000
+            PhysSlagHeat = (2.09 * SteelTemperature - 1379.0) * slag_weight * 1000
             self.PhysHeatSlag.setText(str(round(PhysSlagHeat, 3)))
             self.OutputHeatTable.setItem(1, 0, QTableWidgetItem(str(round(PhysSlagHeat, 3))))
 
@@ -1304,7 +2531,7 @@ class Ui_OperatorForm(object):
 
             #Температура перегрева
             # МОЖНО ДОБАВИТЬ ПРОВЕРКУ НА ТО, ЕСЛИ ТЕМПРЕАТУРА ПЕРЕГРЕВА ОТРИЦАТЕЛЬНАЯ ТО БАН
-            meltTemperature = 1539.0 - 80.0 * float(self.steelCarbon.text())
+            meltTemperature = 1539.0 - 80.0 * self._get_target_carbon()
             overheatTemperature = SteelTemperature - meltTemperature
             self.OverheatTemp.setText(str(round(overheatTemperature, 1)))
 
@@ -1319,13 +2546,7 @@ class Ui_OperatorForm(object):
                     'temperature': round(SteelTemperature, 0),
                 })
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def deoxCalc(self):
         try:
@@ -1334,13 +2555,7 @@ class Ui_OperatorForm(object):
                 self.HeatBalanceCalcClicked()
                 heatBalanceCalcked = True
             if(self.ChemEmission.rowCount() == 0):
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Ошибка")
-                msg.setText("Внимание")
-                msg.setInformativeText("Не выбран феросплав!")
-                # msg.setInformativeText("Error: {0}".format(err))
-                msg.exec_()
+                self._show_critical("Не выбран феросплав!", "Ошибка", "Внимание")
                 return
 
             A = 0.255817 * float(self.LiquidSteelTemp.text()) - 335
@@ -1357,7 +2572,11 @@ class Ui_OperatorForm(object):
             limitSolubilityMgO = (A - B * slagCaO/slagSiO2) * 0.075 * slagFeO - 0.875
             limitSolubilityMgO = abs(limitSolubilityMgO)
             #Потери массы футеровки
-            liningWeightLoss = 4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text()) * (limitSolubilityMgO * slagMgO)
+            lining_base = (
+                4.11155 * pow(10, -6) * float(self.LiquidSteelTemp.text())
+                * (limitSolubilityMgO * slagMgO)
+            )
+            liningWeightLoss = lining_base
             self.LiningWeightLoss.setText(str(round(liningWeightLoss, 3)))
 
             self.resultSteelTemperature.setText(self.LiquidSteelTemp.text())
@@ -1549,13 +2768,7 @@ class Ui_OperatorForm(object):
             self.stepResult()
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def recomendationCalc(self):
@@ -1565,23 +2778,11 @@ class Ui_OperatorForm(object):
                 self.HeatBalanceCalcClicked()
                 heatBalanceCalcked = True
             if(self.ChemEmission.rowCount() == 0):
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Ошибка")
-                msg.setText("Внимание")
-                msg.setInformativeText("Не выбран феросплав!")
-                # msg.setInformativeText("Error: {0}".format(err))
-                msg.exec_()
+                self._show_critical("Не выбран феросплав!", "Ошибка", "Внимание")
                 return
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def CheckConverterFunc(self):
@@ -1589,31 +2790,37 @@ class Ui_OperatorForm(object):
             H = float(self.height.text())
             D = float(self.diametr.text())
             attitude = H / D
-            msg = QMessageBox()
+            att_s = str(round(attitude, 2))
             if attitude > 2.1:
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру выше максимально допустимого (" + str(round(attitude, 2)) + ">2.1)\nВозможно возникновение выбросов")
+                msg_critical(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Отношение высоты рабочего объема к диаметру выше максимально допустимого ({0}>2.1)\n"
+                       "Возможно возникновение выбросов").format(att_s),
+                )
             elif attitude < 1.17:
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру ниже минимально допустимого (" + str(round(attitude, 2)) + ">1.17)")
+                msg_critical(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Отношение высоты рабочего объема к диаметру ниже минимально допустимого ({0}<1.17)").format(att_s),
+                )
             else:
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Проверка конвертера выполнена успешно.\nОтношение высоты рабочего объема к диаметру находится в допустимых пределах\n(1.17>" + str(round(attitude, 2)) + ">2.1)")
-            msg.exec_()
+                from i18n import msg_info
+                msg_info(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Проверка конвертера выполнена успешно.\n"
+                       "Отношение высоты рабочего объема к диаметру находится в допустимых пределах\n"
+                       "(1.17>{0}>2.1)").format(att_s),
+                )
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def openAbout(self):
@@ -1711,15 +2918,22 @@ class Ui_OperatorForm(object):
             slagBasicity = slagCaO / slagSiO2
             self.slag_basicity.setText(str(round(slagBasicity, 3)))
             if slagСorrosionСriteria > 3:
-                self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты\n")
+                self._set_recommendation_lines(
+                    "Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты"
+                )
             else:
-                self.recomendation.setPlainText("Используется оптимальный расход флюсов\n")
+                self._set_recommendation_lines(
+                    "Используется оптимальный расход флюсов"
+                )
             if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
             if getattr(self, 'converter3d', None):
+                self._last_3d_process_state = "complete"
                 self.converter3d.update_state({
                     'state':       'complete',
                     'temperature': steelTemperature,
+                    'blastFlow':   0,
+                    'reactionZoneActive': False,
                 })
         except Exception as err:
             s = 0
@@ -1745,50 +2959,51 @@ class Ui_OperatorForm(object):
             self.SteelWeightRes.setStyleSheet(_field)
             self.resultSteelTemperature.setStyleSheet(_field)
             self.SlagWeightRes.setStyleSheet(_field)
-            checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
+            checkResult = tr("OperatorForm", "Рассчеты завершены. Накладываемые ограничения не выполняются") + "\n"
             actualSteelCarbon = float(self.DeoxidationBalance.item(0,0).text())
             actualSteelTemp = float(self.resultSteelTemperature.text())
             actualSteelPhosphor = float(self.DeoxidationBalance.item(0,6).text())
             steelCarbon = float(self.SteelCarbonLimit.text())
             minSteelTemp = float(self.MinSteelTempLimit.text())
             steelPhosphor = float(self.SteelPhosphorLimit.text())
-            recText = self.recomendation.toPlainText()
-            msg = QMessageBox()
+            extra_lines: list[str] = []
             if actualSteelCarbon > steelCarbon:
-                checkResult += "Содержание углерода в стали меньше минимально допустимого.\n"
-                recText += "Содержание углерода в стали меньше минимально допустимого.\n"
+                line = "Содержание углерода в стали меньше минимально допустимого."
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 problem = True
             if actualSteelTemp < minSteelTemp:
-                checkResult += "Температура стали меньше минимально допустимой.\n"
-                recText += "Температура стали меньше минимально допустимой.\n"
+                line = "Температура стали меньше минимально допустимой."
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 self.resultSteelTemperature.setStyleSheet("QLineEdit { background: #cc0000; color: #ffffff; border: 1px solid #ff4444; border-radius: 4px; }")
                 problem = True
             if actualSteelPhosphor > steelPhosphor:
-                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
-                recText += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
+                line = (
+                    "Содержание фосфора в стали меньше минимально допустимого.\n"
+                    "Рекомендуется увеличить содержание извести и провести рассчеты еще раз."
+                )
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 problem = True
+            base_lines = list(getattr(self, "_recommendation_lines_ru", []))
+            rec_lines = base_lines + extra_lines
             if problem == True:
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Проверка Результата")
-                msg.setText("Внимание")
-                msg.setInformativeText(checkResult)
-                app_theme.style_message_box(msg)
-                msg.exec_()
+                from i18n import msg_info
+                msg_info(
+                    getattr(self, '_oper_form', None),
+                    "Проверка Результата",
+                    "Внимание",
+                    checkResult,
+                )
             elif problem == False:
-                tmp = self.recomendation.toPlainText()
-                tmp += "\nПроверка результатов выполнена успешно, накладываемые ограничения выполняются"
-                recText += "Ограничения сценария выполняются\n"
-                self.recomendation.setPlainText(tmp)
-            self.recomendation.setPlainText(recText)
+                ok_line = "Проверка результатов выполнена успешно, накладываемые ограничения выполняются"
+                ok_short = "Ограничения сценария выполняются"
+                rec_lines = base_lines + [ok_line, ok_short]
+            self._recommendation_lines_ru = rec_lines
+            self._refresh_recommendation_text()
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            app_theme.style_message_box(msg)
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1826,12 +3041,11 @@ class Ui_OperatorForm(object):
             self._header_frame.setStyleSheet(app_theme.header_bar_style(theme))
         if hasattr(self, '_title_lbl'):
             self._title_lbl.setStyleSheet(app_theme.header_title_style(theme))
+        self._refresh_locale_dependent_text()
         if hasattr(self, '_stages_lbl'):
-            self._stages_lbl.setText(app_theme.help_rich_html(theme))
             self._stages_lbl.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_label']}; font-size: 11px;")
         if hasattr(self, '_hints_lbl'):
-            self._hints_lbl.setText(app_theme.hints_rich_html(theme))
             self._hints_lbl.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_label']}; font-size: 10px;")
         for fr, cap, val, border, tcol in getattr(self, '_indicator_widgets', []):
@@ -1842,8 +3056,8 @@ class Ui_OperatorForm(object):
             val.setStyleSheet(
                 f"QLineEdit {{ background: transparent; border: none; "
                 f"color: {tcol}; font-size: 20px; font-weight: bold; }}")
-        if hasattr(self, 'theme_toggle'):
-            self.theme_toggle.sync_from_settings()
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.theme_toggle.sync_from_settings()
         t = app_theme.tokens(theme)
         pe = (
             f"QPlainTextEdit {{ background: {t['table_bg']}; "
@@ -1870,6 +3084,16 @@ class Ui_OperatorForm(object):
         if hasattr(self, "_center_panel"):
             self._center_panel.setPalette(pal)
             self._center_panel.setStyleSheet(app_theme.center_panel_style(theme))
+        if hasattr(self, "_center_scroll"):
+            app_theme.apply_scroll_panel(self._center_scroll, self._center_panel, theme)
+        if hasattr(self, "control_panel"):
+            self.control_panel.set_theme(theme)
+            self.control_panel._btn_apply.setStyleSheet(
+                app_theme.primary_button_style(theme))
+            if hasattr(self, "dynamics_charts"):
+                self.dynamics_charts.set_theme(theme)
+            if hasattr(self, "dynamics_indicators"):
+                self.dynamics_indicators.set_theme(theme)
         ro_field = app_theme.read_only_field_style(theme)
         for name in (
             "CO2ThrowRes", "SteelWeightRes", "SlagWeightRes",
@@ -1878,7 +3102,8 @@ class Ui_OperatorForm(object):
             w = getattr(self, name, None)
             if w is not None:
                 w.setStyleSheet(ro_field)
-        for fr, cap, val, border, tcol in getattr(self, "_result_kpi_frames", []):
+        for item in getattr(self, "_result_kpi_frames", []):
+            fr, cap, val, border, tcol = item[:5]
             fr.setStyleSheet(app_theme.indicator_card_style(theme, border))
             cap.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_muted']}; "
@@ -1899,8 +3124,11 @@ class Ui_OperatorForm(object):
         if hasattr(self, "tabWidget"):
             self.tabWidget.setPalette(pal)
         for scroll in self.centralwidget.findChildren(QtWidgets.QScrollArea):
-            if scroll not in (getattr(self, "_left_scroll", None),
-                              getattr(self, "_right_scroll", None)):
+            if scroll not in (
+                getattr(self, "_left_scroll", None),
+                getattr(self, "_right_scroll", None),
+                getattr(self, "_center_scroll", None),
+            ):
                 app_theme.apply_scroll_panel(scroll, scroll.widget(), theme)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -2117,11 +3345,12 @@ class Ui_OperatorForm(object):
         self._left_scroll = QtWidgets.QScrollArea()
         self._left_scroll.setWidgetResizable(True)
         self._left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self._left_scroll.setMinimumWidth(265)
+        self._left_scroll.setMinimumWidth(320)
 
         self._left_panel = QtWidgets.QWidget()
         lw = self._left_panel
         lw.setAutoFillBackground(True)
+        lw.setMinimumWidth(300)
         ll = QtWidgets.QVBoxLayout(lw)
         ll.setContentsMargins(8, 8, 6, 8)
         ll.setSpacing(5)
@@ -2184,8 +3413,9 @@ class Ui_OperatorForm(object):
         self.AddNewMode.clicked.connect(self.chooseMods)
         g11h.addWidget(self.label_23)
         g11h.addWidget(self.ModeComboBox, 1)
-        g11h.addWidget(self.AddNewMode)
-        mc_row.addWidget(self.groupBox_11, 2)
+        self.AddNewMode.setFixedSize(32, 32)
+        g11h.addWidget(self.AddNewMode, 0, QtCore.Qt.AlignRight)
+        mc_row.addWidget(self.groupBox_11, 3)
 
         self.groupBox_13 = QtWidgets.QGroupBox()
         self.groupBox_13.setObjectName("groupBox_13")
@@ -2272,19 +3502,60 @@ class Ui_OperatorForm(object):
         g3v.addLayout(g3top)
         self.groupBox_7 = QtWidgets.QGroupBox()
         self.groupBox_7.setObjectName("groupBox_7")
+        _LBL_W  = 100  # одинаковая ширина всех подписей → поля выравниваются
+        _FLD_H  = 26   # единая высота всех полей ввода (QLineEdit + QComboBox)
+
         g7 = QtWidgets.QGridLayout(self.groupBox_7)
         g7.setSpacing(4)
         g7.setColumnStretch(1, 1); g7.setColumnStretch(3, 1)
-        self.label_12 = _lbl("label_12"); self.scrapCarbon   = _edit("scrapCarbon")
-        self.label_13 = _lbl("label_13"); self.scrapSerum    = _edit("scrapSerum")
-        self.label_14 = _lbl("label_14"); self.scrapSilicon  = _edit("scrapSilicon")
-        self.label_15 = _lbl("label_15"); self.scrapPhosphor = _edit("scrapPhosphor")
-        self.label_25 = _lbl("label_25"); self.scrapManganese= _edit("scrapManganese")
+
+        def _rlbl(name):
+            lbl = _lbl(name)
+            lbl.setFixedWidth(_LBL_W)
+            lbl.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            return lbl
+
+        def _fedit(name):
+            w = _edit(name)
+            w.setFixedHeight(_FLD_H)
+            return w
+
+        self.label_12 = _rlbl("label_12"); self.scrapCarbon   = _fedit("scrapCarbon")
+        self.label_13 = _rlbl("label_13"); self.scrapSerum    = _fedit("scrapSerum")
+        self.label_14 = _rlbl("label_14"); self.scrapSilicon  = _fedit("scrapSilicon")
+        self.label_15 = _rlbl("label_15"); self.scrapPhosphor = _fedit("scrapPhosphor")
+        self.label_25 = _rlbl("label_25"); self.scrapManganese= _fedit("scrapManganese")
         g7.addWidget(self.label_12, 0, 0); g7.addWidget(self.scrapCarbon,  0, 1)
         g7.addWidget(self.label_13, 0, 2); g7.addWidget(self.scrapSerum,   0, 3)
         g7.addWidget(self.label_14, 1, 0); g7.addWidget(self.scrapSilicon, 1, 1)
         g7.addWidget(self.label_15, 1, 2); g7.addWidget(self.scrapPhosphor,1, 3)
         g7.addWidget(self.label_25, 2, 0); g7.addWidget(self.scrapManganese,2,1)
+
+        # Тип лома и легирующие элементы (Cr/V/Al/Ti)
+        self.label_scrapType = _rlbl("label_scrapType")
+        self.label_scrapType.setText("Тип лома:")
+        self.scrapTypeCombo = QtWidgets.QComboBox()
+        self.scrapTypeCombo.setObjectName("scrapTypeCombo")
+        self.scrapTypeCombo.setFixedHeight(_FLD_H)
+        self.scrapTypeCombo.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.scrapTypeCombo.currentIndexChanged.connect(self.onScrapTypeChanged)
+        g7.addWidget(self.label_scrapType, 2, 2); g7.addWidget(self.scrapTypeCombo, 2, 3)
+
+        self.label_scrapCr = _rlbl("label_scrapCr"); self.label_scrapCr.setText("Cr, %")
+        self.scrapCrInput = _fedit("scrapCrInput")
+        self.label_scrapV = _rlbl("label_scrapV"); self.label_scrapV.setText("V, %")
+        self.scrapVInput = _fedit("scrapVInput")
+        self.label_scrapAl = _rlbl("label_scrapAl"); self.label_scrapAl.setText("Al, %")
+        self.scrapAlInput = _fedit("scrapAlInput")
+        self.label_scrapTi = _rlbl("label_scrapTi"); self.label_scrapTi.setText("Ti, %")
+        self.scrapTiInput = _fedit("scrapTiInput")
+        for _w in (self.scrapCrInput, self.scrapVInput, self.scrapAlInput, self.scrapTiInput):
+            _w.setText("0.0")
+        g7.addWidget(self.label_scrapCr, 3, 0); g7.addWidget(self.scrapCrInput, 3, 1)
+        g7.addWidget(self.label_scrapV,  3, 2); g7.addWidget(self.scrapVInput,  3, 3)
+        g7.addWidget(self.label_scrapAl, 4, 0); g7.addWidget(self.scrapAlInput, 4, 1)
+        g7.addWidget(self.label_scrapTi, 4, 2); g7.addWidget(self.scrapTiInput, 4, 3)
         g3v.addWidget(self.groupBox_7)
         ll.addWidget(self.groupBox_3)
 
@@ -2293,7 +3564,6 @@ class Ui_OperatorForm(object):
         mc2_row.setSpacing(5)
         self.groupBox_5 = QtWidgets.QGroupBox()
         self.groupBox_5.setObjectName("groupBox_5")
-        self.groupBox_5.setFixedWidth(148)
         g5h = QtWidgets.QHBoxLayout(self.groupBox_5)
         g5v = QtWidgets.QVBoxLayout()
         self.label_16 = _lbl("label_16")
@@ -2368,16 +3638,22 @@ class Ui_OperatorForm(object):
         main_splitter.addWidget(self._left_scroll)
 
         # ────────────────────────────────────────────────────────────────────
-        # CENTER PANEL — PROCESS FLOW
+        # CENTER PANEL — этапы расчёта (управление и симуляция — вкладка «Симуляция»)
         # ────────────────────────────────────────────────────────────────────
+        self._center_scroll = QtWidgets.QScrollArea()
+        self._center_scroll.setObjectName("center_scroll")
+        self._center_scroll.setWidgetResizable(True)
+        self._center_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self._center_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+
         self._center_panel = QtWidgets.QWidget()
         cw = self._center_panel
         cw.setObjectName("center_widget")
-        cw.setMinimumWidth(230)
+        cw.setMinimumWidth(280)
         cw.setAutoFillBackground(True)
         cv = QtWidgets.QVBoxLayout(cw)
         cv.setContentsMargins(10, 10, 10, 10)
-        cv.setSpacing(5)
+        cv.setSpacing(6)
 
         # Scenario task
         self.label_29 = _lbl("label_29")
@@ -2385,8 +3661,8 @@ class Ui_OperatorForm(object):
         self.ScenarioTask = QtWidgets.QPlainTextEdit()
         self.ScenarioTask.setReadOnly(True)
         self.ScenarioTask.setObjectName("ScenarioTask")
-        self.ScenarioTask.setMinimumHeight(50)
-        self.ScenarioTask.setMaximumHeight(80)
+        self.ScenarioTask.setMinimumHeight(44)
+        self.ScenarioTask.setMaximumHeight(64)
         cv.addWidget(self.ScenarioTask)
 
         # Scenario load progress
@@ -2396,22 +3672,31 @@ class Ui_OperatorForm(object):
         self.scenarioProgress.setFixedHeight(12)
         cv.addWidget(self.scenarioProgress)
 
-        sep = QtWidgets.QFrame()
-        sep.setFrameShape(QtWidgets.QFrame.HLine)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("QFrame { color: rgba(0,200,240,0.25); background: rgba(0,200,240,0.25); }")
-        cv.addWidget(sep)
+        sep_stages = QtWidgets.QFrame()
+        sep_stages.setFrameShape(QtWidgets.QFrame.HLine)
+        sep_stages.setFixedHeight(1)
+        sep_stages.setStyleSheet(
+            "QFrame { background: rgba(0,200,240,0.35); border: none; }")
+        cv.addWidget(sep_stages)
 
-        seq_title = QtWidgets.QLabel(
-            "\u041f\u041e\u0421\u041b\u0415\u0414\u041e\u0412\u0410\u0422\u0415\u041b\u042c\u041d\u041e\u0421\u0422\u042c  \u0420\u0410\u0421\u0427\u0401\u0422\u041e\u0412")
+        self._stages_section = QtWidgets.QWidget()
+        self._stages_section.setObjectName("stages_section")
+        stages_lay = QtWidgets.QVBoxLayout(self._stages_section)
+        stages_lay.setContentsMargins(0, 0, 0, 0)
+        stages_lay.setSpacing(5)
+
+        seq_title = QtWidgets.QLabel(tr("OperatorForm", "ПОСЛЕДОВАТЕЛЬНОСТЬ  РАСЧЁТОВ"))
+        self._seq_title = seq_title
         seq_title.setAlignment(QtCore.Qt.AlignCenter)
         seq_title.setFixedHeight(16)
         seq_title.setStyleSheet(
             "color: rgba(0,200,240,0.70); font-size: 9px; font-weight: bold; letter-spacing: 1px;")
-        cv.addWidget(seq_title)
+        stages_lay.addWidget(seq_title)
 
         self._stage_leds = {}
         self._stage_style_widgets = []
+
+        self._stage_label_widgets: list[tuple] = []
 
         def _stage_row(num, label_text, connect_fn, led_key, btn_attr,
                        guard_fn=None, guard_label=""):
@@ -2425,7 +3710,8 @@ class Ui_OperatorForm(object):
             num_lbl.setAlignment(QtCore.Qt.AlignCenter)
             led = _led()
             self._stage_leds[led_key] = led
-            stg_lbl = QtWidgets.QLabel(label_text)
+            stg_lbl = QtWidgets.QLabel(tr("OperatorForm", label_text))
+            self._stage_label_widgets.append((stg_lbl, label_text))
             self._stage_style_widgets.append((num_lbl, stg_lbl))
             calc_btn = QtWidgets.QPushButton()
             calc_btn.setIcon(_icon("Pictures/calculate.ico"))
@@ -2441,10 +3727,13 @@ class Ui_OperatorForm(object):
                     if gf is None or gf():
                         fn()
                     else:
-                        QtWidgets.QMessageBox.warning(
+                        msg_warning(
                             None,
                             "Предыдущий этап не выполнен",
-                            f"Сначала завершите этап:\n«{gl}»")
+                            tr("OperatorForm", "Сначала завершите этап:\n«{0}»").format(
+                                tr("OperatorForm", gl)
+                            ),
+                        )
                 return _on_click
 
             calc_btn.clicked.connect(_make_guarded(connect_fn, guard_fn, guard_label))
@@ -2455,55 +3744,59 @@ class Ui_OperatorForm(object):
             row.addWidget(calc_btn)
             return wrapper
 
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             1, "Металлошихта",
             self.calcMetalChargeClicked, "metalCharge", "MetalChargeCalc"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             2, "Табл. окисления",
             self.calcTableClick, "table", "CalcTable",
             guard_fn=lambda: metalChargeCalcked,
             guard_label="Металлошихта"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             3, "Расчёт шлака",
             self.slagCalcClicked, "slag", "SlagCalc",
             guard_fn=lambda: tableCalcked,
             guard_label="Табл. окисления"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             4, "Расчёт дутья",
             self.blastCalcClicked, "blast", "BlastCalc",
             guard_fn=lambda: slagCalcked,
             guard_label="Расчёт шлака"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             5, "Матер. баланс",
             self.MaterialBalanceCalcClicked, "matBalance", "MaterialBalanceCalc",
             guard_fn=lambda: blastCalcked,
             guard_label="Расчёт дутья"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             6, "Тепл. баланс",
             self.HeatBalanceCalcClicked, "heatBalance", "HeatBalanceCalc",
             guard_fn=lambda: materialBalanceCalcked,
             guard_label="Матер. баланс"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             7, "Раскисление",
             self.deoxCalc, "deox", "SteelDeoxidationCalc",
             guard_fn=lambda: heatBalanceCalcked,
             guard_label="Тепл. баланс"))
-        cv.addWidget(_stage_row(
+        stages_lay.addWidget(_stage_row(
             8, "Рекомендации",
             self.getRecomendation, "recomendation", "RecomendationCalc",
             guard_fn=lambda: heatBalanceCalcked,
             guard_label="Тепл. баланс"))
 
-        cv.addSpacing(4)
+        stages_lay.addSpacing(4)
         self.GetResExample = QtWidgets.QPushButton(
             "\u25ba  \u0417\u0410\u041f\u0423\u0421\u0422\u0418\u0422\u042c  \u0412\u0421\u0415  \u042d\u0422\u0410\u041f\u042b")
         self.GetResExample.setObjectName("GetResExample")
         self.GetResExample.setMinimumHeight(28)
         self.GetResExample.setMaximumHeight(28)
         self.GetResExample.clicked.connect(self.GetScenarioExample)
-        cv.addWidget(self.GetResExample)
-        cv.addStretch()
-        main_splitter.addWidget(cw)
+        stages_lay.addWidget(self.GetResExample)
+
+        cv.addWidget(self._stages_section, 0)
+        cv.addStretch(1)
+
+        self._center_scroll.setWidget(cw)
+        main_splitter.addWidget(self._center_scroll)
 
         # ────────────────────────────────────────────────────────────────────
         # RIGHT PANEL — MONITORING
@@ -2531,23 +3824,23 @@ class Ui_OperatorForm(object):
         temp_row = QtWidgets.QHBoxLayout()
         temp_row.setSpacing(6)
 
-        def _big_result_frame(label_txt, border_rgb, text_color, obj_name):
+        def _big_result_frame(label_key, border_rgb, text_color, obj_name):
             fr = QtWidgets.QFrame()
             fv = QtWidgets.QVBoxLayout(fr)
             fv.setContentsMargins(6, 3, 6, 3)
-            cap = QtWidgets.QLabel(label_txt)
+            cap = QtWidgets.QLabel(tr("OperatorForm", label_key))
             val = _ro_edit(obj_name)
             val.setAlignment(QtCore.Qt.AlignCenter)
             fv.addWidget(cap)
             fv.addWidget(val)
-            self._result_kpi_frames.append((fr, cap, val, border_rgb, text_color))
+            self._result_kpi_frames.append((fr, cap, val, border_rgb, text_color, label_key))
             return fr, val
 
         fr_lt, self.LiquidSteelTemp = _big_result_frame(
-            "\u0422 \u0436\u0438\u0434\u043a\u043e\u0433\u043e \u043c\u0435\u0442\u0430\u043b\u043b\u0430, °C",
+            "Т жидкого металла, °C",
             "255,120,0", "#ff6820", "LiquidSteelTemp")
         fr_ot, self.OverheatTemp = _big_result_frame(
-            "\u041f\u0435\u0440\u0435\u0433\u0440\u0435\u0432, °C",
+            "Перегрев, °C",
             "255,180,0", "#ffaa00", "OverheatTemp")
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2 = QtWidgets.QLabel()
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setObjectName(
@@ -2648,10 +3941,17 @@ class Ui_OperatorForm(object):
         if create_converter_widget is not None:
             self.converter3d = create_converter_widget()
             main_splitter.addWidget(self.converter3d)
-            main_splitter.setSizes([315, 195, 252, 398])
+            main_splitter.setSizes([340, 320, 230, 350])
+            main_splitter.setStretchFactor(0, 2)
+            main_splitter.setStretchFactor(1, 3)
+            main_splitter.setStretchFactor(2, 2)
+            main_splitter.setStretchFactor(3, 4)
         else:
             self.converter3d = None
-            main_splitter.setSizes([315, 215, 310])
+            main_splitter.setSizes([340, 320, 310])
+            main_splitter.setStretchFactor(0, 2)
+            main_splitter.setStretchFactor(1, 3)
+            main_splitter.setStretchFactor(2, 2)
 
         main_layout.addWidget(main_splitter, stretch=1)
 
@@ -2660,8 +3960,12 @@ class Ui_OperatorForm(object):
         # ════════════════════════════════════════════════════════════════════
         self.tabWidget = QtWidgets.QTabWidget()
         self.tabWidget.setObjectName("tabWidget")
-        self.tabWidget.setMinimumHeight(300)
-        self.tabWidget.setMaximumHeight(300)
+        self.tabWidget.setMinimumHeight(270)
+        self.tabWidget.setMaximumHeight(310)
+        self.tabWidget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
 
         # ── tab_7  Справка ────────────────────────────────────────────────
         self.tab_7 = QtWidgets.QWidget()
@@ -2682,6 +3986,141 @@ class Ui_OperatorForm(object):
         t7l.addWidget(self._hints_lbl, 0)
 
         self.tabWidget.addTab(self.tab_7, "")
+
+        # ── tab_simulation  Симуляция (после «Схема») ─────────────────────
+        # === CONTROL INPUTS + DYNAMIC EXTENSION v3 ===
+        self._init_control_user_state()
+        presets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets")
+        self.control_panel = ControlInputsPanel()
+        self.control_panel.configure_for_tab_embed()
+        self.control_panel.set_presets_dir(presets_dir)
+        self.control_panel.controls_changed.connect(self._on_controls_changed)
+        self.control_panel.layout_geometry_changed.connect(
+            self._on_sim_panel_geometry_changed
+        )
+        self.control_panel.apply_recalc_requested.connect(self._on_control_apply_recalc)
+        self.control_panel.simulate_requested.connect(self._on_simulate_melt)
+
+        auto_row = QtWidgets.QWidget()
+        auto_row.setObjectName("sim_auto_row")
+        auto_grid = QtWidgets.QGridLayout(auto_row)
+        auto_grid.setContentsMargins(0, 2, 0, 2)
+        auto_grid.setHorizontalSpacing(8)
+        auto_grid.setVerticalSpacing(4)
+
+        for idx, (title, attr) in enumerate((
+            ("η_CO (авто)", "_auto_eta_co"),
+            ("Z (авто)", "_auto_z_co"),
+            ("П_O₂ (авто)", "_auto_p_o2"),
+            ("K_П (авто)", "_auto_k_p"),
+            ("G_В (авто)", "_auto_g_v"),
+        )):
+            row, col = divmod(idx, 2)
+            lbl = QtWidgets.QLabel(title)
+            lbl.setProperty("class", "control_info_hint")
+            fld = QtWidgets.QLineEdit()
+            fld.setReadOnly(True)
+            fld.setMaximumHeight(22)
+            fld.setProperty("class", "control_blow_volume_readonly")
+            auto_grid.addWidget(lbl, row, col * 2)
+            auto_grid.addWidget(fld, row, col * 2 + 1)
+            setattr(self, attr, fld)
+
+        self.dynamics_charts = DynamicsChartsWidget(
+            compact=True, expand_in_tab=True
+        )
+        self.dynamics_indicators = DynamicsIndicatorsPanel(compact=True)
+
+        self.tab_simulation = QtWidgets.QWidget()
+        self.tab_simulation.setObjectName("tab_simulation")
+        sim_root = QtWidgets.QVBoxLayout(self.tab_simulation)
+        sim_root.setContentsMargins(4, 4, 4, 4)
+        sim_root.setSpacing(0)
+
+        sim_split = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        sim_split.setObjectName("simulation_splitter")
+        sim_split.setChildrenCollapsible(False)
+
+        sim_left = QtWidgets.QWidget()
+        sim_left.setObjectName("simulation_left")
+        sim_left.setMinimumWidth(320)
+        sim_left_lay = QtWidgets.QVBoxLayout(sim_left)
+        sim_left_lay.setContentsMargins(0, 0, 0, 0)
+        sim_left_lay.setSpacing(0)
+
+        sim_left_scroll = QtWidgets.QScrollArea()
+        sim_left_scroll.setObjectName("simulation_left_scroll")
+        sim_left_scroll.setWidgetResizable(True)
+        sim_left_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        sim_left_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        sim_left_inner = QtWidgets.QWidget()
+        self.sim_left_inner = sim_left_inner
+        sim_left_inner.setObjectName("simulation_left_inner")
+        sim_left_inner_lay = QtWidgets.QVBoxLayout(sim_left_inner)
+        sim_left_inner_lay.setContentsMargins(6, 6, 10, 6)
+        sim_left_inner_lay.setSpacing(6)
+        sim_left_inner_lay.addWidget(self.control_panel, 0)
+
+        auto_title = QtWidgets.QLabel("Расчётные параметры")
+        auto_title.setProperty("class", "control_knob_title")
+        sim_left_inner_lay.addWidget(auto_title, 0)
+
+        auto_row.setFixedHeight(78)
+        sim_left_inner_lay.addWidget(auto_row, 0)
+
+        self.dynamics_indicators.setFixedHeight(52)
+        sim_left_inner_lay.addWidget(self.dynamics_indicators, 0)
+
+        sim_btn_wrap = QtWidgets.QWidget()
+        sim_btn_wrap.setObjectName("simulation_btn_wrap")
+        sim_btn_wrap.setFixedHeight(36)
+        sim_btn_wrap.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding,
+            QtWidgets.QSizePolicy.Fixed,
+        )
+        sim_btn_bar = QtWidgets.QHBoxLayout(sim_btn_wrap)
+        sim_btn_bar.setObjectName("simulation_btn_bar")
+        sim_btn_bar.setContentsMargins(0, 0, 0, 0)
+        sim_btn_bar.setSpacing(6)
+        self.control_panel.detach_main_buttons_for_tab(sim_btn_bar)
+        sim_left_inner_lay.addWidget(sim_btn_wrap, 0)
+        sim_left_inner_lay.addStretch(0)
+
+        sim_left_scroll.setWidget(sim_left_inner)
+        sim_left_lay.addWidget(sim_left_scroll, 1)
+
+        self.sim_left_scroll = sim_left_scroll
+        self._sync_sim_tab_layout()
+
+        sim_right = QtWidgets.QWidget()
+        sim_right.setObjectName("simulation_right")
+        sim_right.setMinimumWidth(360)
+        sim_right_lay = QtWidgets.QVBoxLayout(sim_right)
+        sim_right_lay.setContentsMargins(4, 4, 4, 4)
+        sim_right_lay.setSpacing(0)
+        charts_title = QtWidgets.QLabel("Динамика плавки")
+        charts_title.setProperty("class", "control_knob_title")
+        sim_right_lay.addWidget(charts_title, 0)
+        self._sim_temp_hint = QtWidgets.QLabel(
+            "«Симулировать» — старт с начала. Крутилки меняют режим без сброса плавки. "
+            "τ и T — по балансу после «Рассчитать»."
+        )
+        self._sim_temp_hint.setProperty("class", "control_info_hint")
+        self._sim_temp_hint.setWordWrap(True)
+        sim_right_lay.addWidget(self._sim_temp_hint, 0)
+        sim_right_lay.addWidget(self.dynamics_charts, 1)
+
+        sim_split.addWidget(sim_left)
+        sim_split.addWidget(sim_right)
+        sim_split.setStretchFactor(0, 2)
+        sim_split.setStretchFactor(1, 3)
+        sim_split.setSizes([420, 580])
+
+        sim_root.addWidget(sim_split, 1)
+        self.tabWidget.insertTab(1, self.tab_simulation, "")
+        self.tabWidget.currentChanged.connect(self._on_tab_widget_changed)
+        self._update_dynamic_auto_fields()
+        # === END CONTROL INPUTS + DYNAMIC EXTENSION ===
 
         # ── tab  Металлошихта (oxidation table) ──────────────────────────
         self.tab = QtWidgets.QWidget()
@@ -2712,8 +4151,14 @@ class Ui_OperatorForm(object):
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
         t2l = QtWidgets.QVBoxLayout(self.tab_2)
-        t2l.setContentsMargins(6, 6, 6, 6)
-        t2l.setSpacing(5)
+        t2l.setContentsMargins(0, 0, 0, 0)
+        t2_scroll = QtWidgets.QScrollArea()
+        t2_scroll.setWidgetResizable(True)
+        t2_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        t2_inner = QtWidgets.QWidget()
+        t2_inner_l = QtWidgets.QVBoxLayout(t2_inner)
+        t2_inner_l.setContentsMargins(6, 6, 6, 6)
+        t2_inner_l.setSpacing(5)
 
         self.shlak_group_box = QtWidgets.QGroupBox()
         self.shlak_group_box.setObjectName("shlak_group_box")
@@ -2723,10 +4168,12 @@ class Ui_OperatorForm(object):
         shl_cols = QtWidgets.QHBoxLayout()
         shl_cols.setSpacing(5)
 
+        _slag_row_h = 26
+
         self.him_sostav_shlaka_group_box = QtWidgets.QGroupBox()
         self.him_sostav_shlaka_group_box.setObjectName("him_sostav_shlaka_group_box")
         hss_g = QtWidgets.QGridLayout(self.him_sostav_shlaka_group_box)
-        hss_g.setSpacing(3)
+        hss_g.setSpacing(4)
         hss_g.setColumnStretch(1, 1)
         self.SlagSiO2Label  = _lbl("SlagSiO2Label");  self.SlagSiO2  = _ro_edit("SlagSiO2")
         self.SlagCaOLabel   = _lbl("SlagCaOLabel");   self.SlagCaO   = _ro_edit("SlagCaO")
@@ -2745,6 +4192,10 @@ class Ui_OperatorForm(object):
                 (self.SlagFeOLabel,   self.SlagFeO),
                 (self.SlagFe2O3Label, self.SlagFe2O3),
                 (self.SlagWeightLabel,self.SlagWeight)]):
+            lbl.setWordWrap(False)
+            lbl.setStyleSheet("font-size: 10px; color: #b8c8d0;")
+            wdg.setFixedHeight(22)
+            hss_g.setRowMinimumHeight(r, _slag_row_h)
             hss_g.addWidget(lbl, r, 0)
             hss_g.addWidget(wdg, r, 1)
         shl_cols.addWidget(self.him_sostav_shlaka_group_box, 1)
@@ -2752,7 +4203,7 @@ class Ui_OperatorForm(object):
         self.him_sostav_shlaka_v_procentah_group_box = QtWidgets.QGroupBox()
         self.him_sostav_shlaka_v_procentah_group_box.setObjectName("him_sostav_shlaka_v_procentah_group_box")
         hssv_g = QtWidgets.QGridLayout(self.him_sostav_shlaka_v_procentah_group_box)
-        hssv_g.setSpacing(3)
+        hssv_g.setSpacing(4)
         hssv_g.setColumnStretch(1, 1)
         self.SlagSiO2Label_2  = _lbl("SlagSiO2Label_2");  self.SlagSiO2Perc  = _ro_edit("SlagSiO2Perc")
         self.SlagCaOLabel_2   = _lbl("SlagCaOLabel_2");   self.SlagCaOPerc   = _ro_edit("SlagCaOPerc")
@@ -2769,11 +4220,17 @@ class Ui_OperatorForm(object):
                 (self.SlagOthersLabel_2,self.SlagOthersPerc),
                 (self.SlagFeOLabel_2,   self.SlagFeOPerc),
                 (self.SlagFe2O3Label_2, self.SlagFe2O3Perc)]):
+            lbl.setWordWrap(False)
+            lbl.setStyleSheet("font-size: 10px; color: #b8c8d0;")
+            wdg.setFixedHeight(22)
+            hssv_g.setRowMinimumHeight(r, _slag_row_h)
             hssv_g.addWidget(lbl, r, 0)
             hssv_g.addWidget(wdg, r, 1)
         shl_cols.addWidget(self.him_sostav_shlaka_v_procentah_group_box, 1)
         shl_v.addLayout(shl_cols)
-        t2l.addWidget(self.shlak_group_box, 1)
+        t2_inner_l.addWidget(self.shlak_group_box)
+        t2_scroll.setWidget(t2_inner)
+        t2l.addWidget(t2_scroll)
         self.tabWidget.addTab(self.tab_2, "")
 
         # ── tab_3  Материальный баланс ────────────────────────────────────
@@ -2845,14 +4302,19 @@ class Ui_OperatorForm(object):
                 (self.DustLossLabel,                    self.DustLoss)]):
             lbl.setWordWrap(False)
             lbl.setStyleSheet("font-size: 10px; color: #b8c8d0;")
+            wdg.setFixedHeight(22)
+            odgb_g.setRowMinimumHeight(r, 26)
             odgb_g.addWidget(lbl, r, 0)
             odgb_g.addWidget(wdg, r, 1)
-        odgb_v.addLayout(odgb_g)
+        odgb_v.addLayout(odgb_g, 0)
         self.OutputDataTable = QtWidgets.QTableWidget()
         self.OutputDataTable.setObjectName("OutputDataTable")
         self.OutputDataTable.setColumnCount(3)
         self.OutputDataTable.setRowCount(7)
-        self.OutputDataTable.verticalHeader().setDefaultSectionSize(20)
+        _tbl_row_h = 24
+        self.OutputDataTable.verticalHeader().setDefaultSectionSize(_tbl_row_h)
+        self.OutputDataTable.verticalHeader().setMinimumWidth(140)
+        self.OutputDataTable.setMinimumHeight(7 * _tbl_row_h + 36)
         for r in range(7):
             self.OutputDataTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
         for c in range(3):
@@ -2917,18 +4379,22 @@ class Ui_OperatorForm(object):
                 (self.teplovoi_effect_reakcii_shlakoobrazovaniya_label_2,self.ChemHeatSlag),
                 (self.teplo_ot_dozhiganiya_co_label_2,                 self.HeatCO),
                 (self.obshii_prihod_tepla_label_2,                     self.TotalHeatInc)]):
+            wdg.setFixedHeight(22)
+            ps_g.setRowMinimumHeight(r, 26)
             ps_g.addWidget(lbl, r, 0)
             ps_g.addWidget(wdg, r, 1)
-        ps_v.addLayout(ps_g)
+        ps_v.addLayout(ps_g, 0)
         self.IncomingHeatTable = QtWidgets.QTableWidget()
         self.IncomingHeatTable.setObjectName("IncomingHeatTable")
         self.IncomingHeatTable.setColumnCount(1)
         self.IncomingHeatTable.setRowCount(6)
-        self.IncomingHeatTable.verticalHeader().setDefaultSectionSize(20)
+        _heat_tbl_row_h = 24
+        self.IncomingHeatTable.verticalHeader().setDefaultSectionSize(_heat_tbl_row_h)
+        self.IncomingHeatTable.verticalHeader().setMinimumWidth(200)
+        self.IncomingHeatTable.setMinimumHeight(6 * _heat_tbl_row_h + 36)
         for r in range(6):
             self.IncomingHeatTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
-        for c in range(2):
-            self.IncomingHeatTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
+        self.IncomingHeatTable.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.IncomingHeatTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.IncomingHeatTable)
         ps_v.addWidget(self.IncomingHeatTable, 1)
@@ -2971,18 +4437,21 @@ class Ui_OperatorForm(object):
                 (self.teplo_na_razlozhenie_karbonatov_label_2,      self.HeatCarbonDecom),
                 (self.teplovie_poteri_label_2,                      self.HeatLoses),
                 (self.obshii_rashod_tepla_label_2,                  self.TotalHeatCons)]):
+            wdg.setFixedHeight(22)
+            rs_g.setRowMinimumHeight(r, 26)
             rs_g.addWidget(lbl, r, 0)
             rs_g.addWidget(wdg, r, 1)
-        rs_v.addLayout(rs_g)
+        rs_v.addLayout(rs_g, 0)
         self.OutputHeatTable = QtWidgets.QTableWidget()
         self.OutputHeatTable.setObjectName("OutputHeatTable")
         self.OutputHeatTable.setColumnCount(1)
         self.OutputHeatTable.setRowCount(9)
-        self.OutputHeatTable.verticalHeader().setDefaultSectionSize(20)
+        self.OutputHeatTable.verticalHeader().setDefaultSectionSize(_heat_tbl_row_h)
+        self.OutputHeatTable.verticalHeader().setMinimumWidth(220)
+        self.OutputHeatTable.setMinimumHeight(9 * _heat_tbl_row_h + 36)
         for r in range(9):
             self.OutputHeatTable.setVerticalHeaderItem(r, QtWidgets.QTableWidgetItem())
-        for c in range(2):
-            self.OutputHeatTable.setHorizontalHeaderItem(c, QtWidgets.QTableWidgetItem())
+        self.OutputHeatTable.setHorizontalHeaderItem(0, QtWidgets.QTableWidgetItem())
         self.OutputHeatTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         _dark_table(self.OutputHeatTable)
         rs_v.addWidget(self.OutputHeatTable, 1)
@@ -3102,7 +4571,7 @@ class Ui_OperatorForm(object):
 
         _sp_exp = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        for _tab_page in (self.tab_7, self.tab, self.tab_2,
+        for _tab_page in (self.tab_7, self.tab_simulation, self.tab, self.tab_2,
                           self.tab_3, self.tab_4, self.tab_5, self.tab_6):
             _tab_page.setSizePolicy(_sp_exp)
 
@@ -3135,6 +4604,13 @@ class Ui_OperatorForm(object):
         self.addUser  = QtWidgets.QAction(OperatorForm); self.addUser.setEnabled(True); self.addUser.setObjectName("addUser")
         self.AddUser  = QtWidgets.QAction(OperatorForm); self.AddUser.setEnabled(True);  self.AddUser.setObjectName("AddUser")
         self.AddDbData= QtWidgets.QAction(OperatorForm); self.AddDbData.setEnabled(True); self.AddDbData.setObjectName("AddDbData")
+        self.actionScrapTypes = QtWidgets.QAction(OperatorForm)
+        self.actionScrapTypes.setObjectName("actionScrapTypes")
+        self.actionScrapTypes.triggered.connect(self.openScrapTypeDialog)
+
+        self.actionStoichiometryMatrix = QtWidgets.QAction(OperatorForm)
+        self.actionStoichiometryMatrix.setObjectName("actionStoichiometryMatrix")
+        self.actionStoichiometryMatrix.triggered.connect(self.openStoichiometryMatrixDialog)
 
         self.Menu.addAction(self.SaveFile)
         self.Menu.addSeparator()
@@ -3142,12 +4618,17 @@ class Ui_OperatorForm(object):
         self.Help.addAction(self.about)
         self.Administrate.addAction(self.AddUser)
         self.Administrate.addAction(self.AddDbData)
+        self.Administrate.addAction(self.actionScrapTypes)
+        self.Administrate.addAction(self.actionStoichiometryMatrix)
         self.ViewMenu = QtWidgets.QMenu(self.menubar)
         self.ViewMenu.setObjectName("ViewMenu")
-        self.theme_toggle = ThemeToggle()
-        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles = ViewTogglesBar()
+        self.view_toggles.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles.language_toggle.language_changed.connect(
+            lambda _l: self.refresh_language(OperatorForm)
+        )
         toggle_action = QtWidgets.QWidgetAction(OperatorForm)
-        toggle_action.setDefaultWidget(self.theme_toggle)
+        toggle_action.setDefaultWidget(self.view_toggles)
         self.ViewMenu.addAction(toggle_action)
 
         self.menubar.addAction(self.Menu.menuAction())
@@ -3156,6 +4637,9 @@ class Ui_OperatorForm(object):
         self.menubar.addAction(self.Help.menuAction())
 
         manager().theme_changed.connect(lambda _t: self.refresh_theme())
+        locale_manager().language_changed.connect(
+            lambda _l: self.refresh_language(OperatorForm)
+        )
 
         self.Exit.setShortcut("Ctrl+Q")
         self.Exit.triggered.connect(OperatorForm.close)
@@ -3177,9 +4661,48 @@ class Ui_OperatorForm(object):
             _tbl.setStyleSheet(app_theme.table_style(get_theme()))
         if self.converter3d and hasattr(self.converter3d, 'set_ui_theme'):
             self.converter3d.set_ui_theme(get_theme())
+        if self.converter3d and hasattr(self.converter3d, 'set_ui_language'):
+            self.converter3d.set_ui_language(get_language())
         self.refresh_theme()
+        self.refresh_language(OperatorForm)
+
+    def _refresh_locale_dependent_text(self) -> None:
+        theme = get_theme()
+        if hasattr(self, '_stages_lbl'):
+            self._stages_lbl.setText(app_theme.help_rich_html(theme))
+        if hasattr(self, '_hints_lbl'):
+            self._hints_lbl.setText(app_theme.hints_rich_html(theme))
+        if hasattr(self, '_title_lbl'):
+            self._title_lbl.setText(
+                tr("OperatorForm", "⚙  КОНВЕРТЕРНАЯ ПЛАВКА  —  ПУЛЬТ ОПЕРАТОРА")
+            )
+        if hasattr(self, 'control_panel'):
+            self.control_panel.refresh_language()
+        if hasattr(self, 'dynamics_indicators'):
+            self.dynamics_indicators.refresh_language()
+        if hasattr(self, 'dynamics_charts'):
+            self.dynamics_charts.refresh_language()
+        if getattr(self, 'converter3d', None) and hasattr(self.converter3d, 'set_ui_language'):
+            self.converter3d.set_ui_language(get_language())
+        self._refresh_static_table_labels()
+        self._refresh_recommendation_text()
+        for lbl, key in getattr(self, "_stage_label_widgets", []):
+            lbl.setText(tr("OperatorForm", key))
+        for item in getattr(self, "_result_kpi_frames", []):
+            if len(item) >= 6:
+                _fr, cap, _val, _border, _tcol, key = item
+                cap.setText(tr("OperatorForm", key))
+        if hasattr(self, "_seq_title"):
+            self._seq_title.setText(tr("OperatorForm", "ПОСЛЕДОВАТЕЛЬНОСТЬ  РАСЧЁТОВ"))
+
+    def refresh_language(self, OperatorForm):
+        self.retranslateUi(OperatorForm)
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.language_toggle.sync_from_settings()
+        self._refresh_locale_dependent_text()
+
     def retranslateUi(self, OperatorForm):
-        _t = QtCore.QCoreApplication.translate
+        from i18n import tr as _t
         OperatorForm.setWindowTitle(_t("OperatorForm", "Процесс плавки стали — Пульт оператора"))
 
         # ── Left panel labels ─────────────────────────────────────────────
@@ -3193,6 +4716,9 @@ class Ui_OperatorForm(object):
         self.label_33.setText(_t("OperatorForm", "Содержание P в стали [%масс]:"))
         self.label_34.setText(_t("OperatorForm", "Содержание C в стали [%масс]:"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Схема"))
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.tab_simulation), _t("OperatorForm", "Симуляция")
+        )
 
         # ── Default values ────────────────────────────────────────────────
         self.steelCarbon.setText("0.085");   self.steelSerum.setText("0.04")
@@ -3496,8 +5022,15 @@ class Ui_OperatorForm(object):
         self.addUser.setText(_t("OperatorForm", "Добавить пользователя"))
         self.AddUser.setText(_t("OperatorForm", "Добавить пользователя"))
         self.AddDbData.setText(_t("OperatorForm", "Добавить данные в бд"))
+        self.actionScrapTypes.setText(_t("OperatorForm", "Типы лома и реакции"))
+        self.actionStoichiometryMatrix.setText(_t("OperatorForm", "Матрица стехиометрии"))
+        if hasattr(self, "label_scrapType"):
+            self.label_scrapType.setText(_t("OperatorForm", "Тип лома:"))
         # ── Tab text for bottom detail tabs ──────────────────────────────
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Схема"))
+        self.tabWidget.setTabText(
+            self.tabWidget.indexOf(self.tab_simulation), _t("OperatorForm", "Симуляция")
+        )
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab),   _t("OperatorForm", "Окисление"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _t("OperatorForm", "Шлак"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _t("OperatorForm", "Мат. баланс"))
@@ -3506,9 +5039,12 @@ class Ui_OperatorForm(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), _t("OperatorForm", "Рекомендации"))
 
         # ── Startup ───────────────────────────────────────────────────────
+        if hasattr(self, "GetResExample"):
+            self.GetResExample.setText(_t("OperatorForm", "►  ЗАПУСТИТЬ  ВСЕ  ЭТАПЫ"))
         self.getSettings()
         self.getFluxes()
         self.getModes()
+        self.loadScrapTypeCombo()
         self.AddNewMode.setEnabled(1)
         self.tab_4.setEnabled(1)
         self.tab_5.setEnabled(1)

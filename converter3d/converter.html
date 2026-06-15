@@ -105,7 +105,7 @@
       <div class="metric-value" id="m-temp">—</div>
     </div>
     <div class="metric">
-      <div class="metric-label">O2, m&#179;</div>
+      <div class="metric-label">O2, м³/мин</div>
       <div class="metric-value" id="m-blast">—</div>
     </div>
   </div>
@@ -126,8 +126,59 @@ var converterState = {
   slagMass:    0,
   slagLevel:   0,
   blastFlow:   0,
-  temperature: 1400
+  temperature: 1400,
+  lanceHeight: 0,
+  penetrationDepth: 0,
+  reactionZoneActive: false,
+  foamDelta:   0,
+  phi:         0,
+  phiAlarm:    false
 };
+var currentUiLanguage = 'ru';
+var UI_LABELS = {
+  ru: {
+    states: { idle: 'ОЖИДАНИЕ', charged: 'ЗАГРУЖЕНО', blowing: 'ПРОДУВКА', complete: 'ГОТОВО' },
+    sceneHall: 'Вид: Цех',
+    sceneProduct: 'Вид: Продукт',
+    metal: 'Металл, т',
+    slag: 'Шлак, т',
+    temp: 'T, °C',
+    o2: 'O2, м³/мин',
+    no3d: '3D-сцена недоступна<br>(нет подключения к CDN Three.js)'
+  },
+  en: {
+    states: { idle: 'IDLE', charged: 'CHARGED', blowing: 'BLOWING', complete: 'COMPLETE' },
+    sceneHall: 'View: Shop',
+    sceneProduct: 'View: Product',
+    metal: 'Metal, t',
+    slag: 'Slag, t',
+    temp: 'T, °C',
+    o2: 'O2, m³/min',
+    no3d: '3D scene unavailable<br>(no CDN connection to Three.js)'
+  }
+};
+
+function applyMetricLabels() {
+  var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
+  document.querySelectorAll('.metric-label').forEach(function(el, i) {
+    var keys = ['metal', 'slag', 'temp', 'o2'];
+    if (keys[i]) el.textContent = L[keys[i]];
+  });
+  var no3d = document.getElementById('no3d');
+  if (no3d) no3d.innerHTML = L.no3d;
+}
+
+window.applyUiLanguage = function(lang) {
+  currentUiLanguage = (lang === 'en') ? 'en' : 'ru';
+  applyMetricLabels();
+  if (typeof syncHUD === 'function') syncHUD();
+  if (typeof setSceneMode === 'function') setSceneMode(sceneMode);
+};
+var H_FREE_BOARD_JS = 7.0;
+var FOAM_SLH_SCALE  = 0.018;
+var targetFoamSlH   = 0;
+var currentFoamSlH  = 0;
+var neckAlarmPhase  = 0;
 
 var syncScene = null;
 var setSceneMode = null;
@@ -283,13 +334,26 @@ function latheCut(profilePts, segments, material) {
   );
 }
 
+function foamSlagExtraMeters(dhFoam) {
+  var dh = Math.max(0, dhFoam || 0);
+  return Math.min(MAX_SLAG_H * 0.85, dh * FOAM_SLH_SCALE);
+}
+
+function applyFoamTargets(s) {
+  targetFoamSlH = foamSlagExtraMeters(s.foamDelta);
+}
+
 function updateConverter(data) {
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch(e) { return; }
   }
   Object.assign(converterState, data);
+  applyFoamTargets(converterState);
   if (data.uiTheme && typeof applyUiTheme === 'function') {
     applyUiTheme(data.uiTheme);
+  }
+  if (data.uiLanguage && typeof applyUiLanguage === 'function') {
+    applyUiLanguage(data.uiLanguage);
   }
   syncHUD();
   if (typeof syncScene === 'function') syncScene();
@@ -298,10 +362,10 @@ function updateConverter(data) {
 // ── HUD sync ────────────────────────────────────────────────
 function syncHUD() {
   var s = converterState;
-  var labels = { idle: 'ОЖИДАНИЕ', charged: 'ЗАГРУЖЕНО',
-                 blowing: 'ПРОДУВКА', complete: 'ГОТОВО' };
+  var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
+  var labels = L.states;
   var badge = document.getElementById('state-badge');
-  badge.textContent = labels[s.state] || 'ОЖИДАНИЕ';
+  badge.textContent = labels[s.state] || labels.idle;
 
   if (s.state === 'complete') {
     badge.style.borderColor = 'rgba(255,100,0,.70)';
@@ -437,7 +501,7 @@ function initScene() {
   scene.add(lamp1);
 
   var lamp2 = new THREE.PointLight(0xff9020, 3.2, 18, 1.4);
-  lamp2.position.set(-3.5, 6.5, 0.5);
+  lamp2.position.set(-3.5, 6.5, 0.5);2
   scene.add(lamp2);
 
   // Molten metal glow
@@ -1002,10 +1066,13 @@ function initScene() {
   var LANCE_MIN_TIP_Y  = 0.42;
   var LANCE_REST_Y     = 4.8;
 
-  function lanceTargetY(mH, slH, isBlowing) {
+  function lanceTargetY(mH, slH, isBlowing, lanceHeightM) {
     if (!isBlowing) return LANCE_REST_Y;
     var metalTopY = mH > 0.015 ? (METAL_FLOOR_Y + mH) : 1.0;
     var bathTopY  = (slH > 0.008 && mH > 0.015) ? metalTopY + slH : metalTopY;
+    if (lanceHeightM > 0) {
+      return bathTopY + lanceHeightM + LANCE_TIP_OFFSET;
+    }
     var tipY = Math.max(LANCE_MIN_TIP_Y, bathTopY - LANCE_SUBMERGE);
     return tipY + LANCE_TIP_OFFSET;
   }
@@ -1060,6 +1127,41 @@ function initScene() {
   );
   guideRing.position.y = 0;  // will be repositioned
   scene.add(guideRing);
+
+  // === DYNAMIC EXTENSION v3: подсветка горловины при Φ ≥ 0.9 ===
+  var neckAlarmMat = new THREE.MeshStandardMaterial({
+    color: 0xff2200,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.0,
+    transparent: true,
+    opacity: 0.85,
+    metalness: 0.2,
+    roughness: 0.4,
+  });
+  var neckAlarmRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.04, 8, 32),
+    neckAlarmMat
+  );
+  neckAlarmRing.position.set(0, 2.38, 0);
+  neckAlarmRing.visible = false;
+  scene.add(neckAlarmRing);
+  // === END DYNAMIC EXTENSION ===
+
+  // Полупрозрачная «лунка» (глубина внедрения струи)
+  var pitCone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.14, 0.55, 14),
+    new THREE.MeshBasicMaterial({
+      color: 0xff9922, transparent: true, opacity: 0.32,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    })
+  );
+  pitCone.rotation.x = Math.PI;
+  pitCone.position.y = -2.55;
+  pitCone.visible = false;
+  lanceGroup.add(pitCone);
+
+  var reactionLight = new THREE.PointLight(0xffcc88, 0, 2.8, 1.6);
+  scene.add(reactionLight);
 
   // ── Spark / smoke / blow particles ────────────────────────
   var N_SPARK = 120;
@@ -1216,7 +1318,7 @@ function initScene() {
     var isComplete = (s.state === 'complete');
 
     var mH = bathHeightFromLevel(s.metalLevel, 0);
-    var slH = Math.max(0, s.slagLevel) * MAX_SLAG_H;
+    var slH = Math.max(0, s.slagLevel) * MAX_SLAG_H + currentFoamSlH;
     if (layoutBathFill) layoutBathFill(mH, slH);
 
     // Temperature colour
@@ -1230,7 +1332,7 @@ function initScene() {
       }
     }
 
-    targetLanceY = lanceTargetY(mH, slH, isBlowing);
+    targetLanceY = lanceTargetY(mH, slH, isBlowing, s.lanceHeight || 0);
 
     // Glow
     targetGlow = mH * (isBlowing ? 3.0 : 0.9);
@@ -1258,8 +1360,9 @@ function initScene() {
     } else {
       scene.fog = new THREE.Fog(hallBg, 26, 50);
     }
+    var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
     document.getElementById('scene-toggle').textContent =
-      isProduct ? 'Вид: Продукт' : 'Вид: Цех';
+      isProduct ? L.sceneProduct : L.sceneHall;
     syncScene();
   };
 
@@ -1281,9 +1384,30 @@ function initScene() {
     if (converterState.state === 'complete' && tiltCurrent > 0.087) {
       pourF = Math.min(1, (tiltCurrent * 180 / Math.PI - 5) / 125);
     }
+    currentFoamSlH += (targetFoamSlH - currentFoamSlH) * Math.min(1, dt * 5.5);
     var mH = bathHeightFromLevel(converterState.metalLevel, pourF);
-    var slH = Math.max(0, converterState.slagLevel) * MAX_SLAG_H * (1 - pourF * 0.85);
+    var slH = Math.max(0, converterState.slagLevel) * MAX_SLAG_H * (1 - pourF * 0.85)
+      + currentFoamSlH * (1 - pourF * 0.5);
     if (layoutBathFill) layoutBathFill(mH, slH);
+
+    var phiVal = converterState.phi || 0;
+    var phiAlarm = !!converterState.phiAlarm;
+    if (phiAlarm) {
+      neckAlarmPhase += dt * 9.0;
+      var blink = 0.45 + 0.55 * Math.sin(neckAlarmPhase);
+      neckAlarmMat.emissiveIntensity = blink * 1.6;
+      neckAlarmMat.opacity = 0.55 + 0.35 * blink;
+      neckAlarmRing.visible = true;
+    } else if (phiVal >= 0.5) {
+      neckAlarmPhase += dt * 4.0;
+      neckAlarmMat.emissiveIntensity = 0.35 + 0.2 * Math.sin(neckAlarmPhase);
+      neckAlarmMat.emissive.setHex(0xffaa00);
+      neckAlarmMat.opacity = 0.45;
+      neckAlarmRing.visible = true;
+    } else {
+      neckAlarmMat.emissiveIntensity = 0;
+      neckAlarmRing.visible = false;
+    }
 
     lanceGroup.position.y += (targetLanceY - lanceGroup.position.y) * 0.04;
 
@@ -1312,6 +1436,24 @@ function initScene() {
     lanceLight.position.copy(lanceGroup.position);
     lanceLight.position.y -= 2.30;
     lanceLight.intensity = isBlowing ? 1.8 : 0;
+
+    var penD = converterState.penetrationDepth || 0;
+    var tipWorldY = lanceGroup.position.y - 2.30;
+    if (isBlowing && penD > 0.02) {
+      pitCone.visible = true;
+      var pitH = Math.min(1.2, Math.max(0.08, penD));
+      pitCone.scale.set(1, pitH / 0.55, 1);
+      pitCone.position.y = -2.30 - pitH * 0.5;
+    } else {
+      pitCone.visible = false;
+    }
+
+    if (converterState.reactionZoneActive && isBlowing && penD > 0) {
+      reactionLight.position.set(0, tipWorldY - penD * 0.35, 0);
+      reactionLight.intensity += (2.4 - reactionLight.intensity) * 0.08;
+    } else {
+      reactionLight.intensity += (0 - reactionLight.intensity) * 0.12;
+    }
 
     // Sparks from lance tip
     var showSpark = isBlowing && metalBody.visible;

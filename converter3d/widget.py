@@ -12,7 +12,10 @@ Exported names:
   WEBENGINE_AVAILABLE   — bool, True when Three.js backend is used.
 
 Both backends expose the same public API:
-  update_state(dict)  — push new process data; keys documented below.
+  update_state(dict)  — push new process data; keys:
+    state, metalMass, metalLevel, slagMass, slagLevel, temperature,
+    blastFlow (m³/min), lanceHeight (m), penetrationDepth (m),
+    reactionZoneActive (bool).
 """
 
 import json
@@ -126,6 +129,19 @@ class _WebEngineConverterWidget(QWidget):
                 f"if(typeof applyUiTheme==='function')applyUiTheme('{theme}');"
             )
 
+    def set_ui_language(self, lang: str) -> None:
+        try:
+            from i18n import tr
+            self._title.setText(tr("Converter3D", "3D конвертер"))
+            self._title.setToolTip(tr("Converter3D", "ЛКМ — вращение, колесо мыши — масштаб"))
+        except ImportError:
+            pass
+        lang = "en" if lang == "en" else "ru"
+        if self._page_ready:
+            self._view.page().runJavaScript(
+                f"if(typeof applyUiLanguage==='function')applyUiLanguage('{lang}');"
+            )
+
     def showEvent(self, event) -> None:
         super().showEvent(event)
         if not self._html_loaded:
@@ -152,10 +168,14 @@ class _WebEngineConverterWidget(QWidget):
             self._view.page().setZoomFactor(1.0)
             try:
                 from theme_settings import get_theme
+                from locale_settings import get_language
                 theme = get_theme()
+                lang = get_language()
                 self._view.page().runJavaScript(
                     f"if(typeof applyUiTheme==='function')applyUiTheme('{theme}');"
+                    f"if(typeof applyUiLanguage==='function')applyUiLanguage('{lang}');"
                 )
+                self.set_ui_language(lang)
             except ImportError:
                 pass
             self._view.page().runJavaScript(
@@ -168,7 +188,13 @@ class _WebEngineConverterWidget(QWidget):
     def _push_state_to_js(self, state: dict) -> None:
         if not self._page_ready:
             return
-        json_str = json.dumps(state)
+        payload = dict(state)
+        try:
+            from locale_settings import get_language
+            payload["uiLanguage"] = get_language()
+        except ImportError:
+            pass
+        json_str = json.dumps(payload)
         self._view.page().runJavaScript(
             f"if(typeof updateConverter!=='undefined')updateConverter({json_str});"
         )
@@ -189,11 +215,17 @@ class _PainterConverterWidget(QWidget):
     Reflects the same state keys as the WebEngine backend.
     """
 
-    _STATE_LABELS = {
+    _STATE_LABELS_RU = {
         'idle':     'ОЖИДАНИЕ',
         'charged':  'ЗАГРУЖЕНО',
         'blowing':  'ПРОДУВКА',
         'complete': 'ГОТОВО',
+    }
+    _STATE_LABELS_EN = {
+        'idle':     'IDLE',
+        'charged':  'CHARGED',
+        'blowing':  'BLOWING',
+        'complete': 'COMPLETE',
     }
 
     def __init__(self, parent: QWidget = None) -> None:
@@ -209,13 +241,19 @@ class _PainterConverterWidget(QWidget):
             'blastFlow':   0,
             'metalMass':   0,
             'slagMass':    0,
+            'lanceHeight': 0.0,
+            'penetrationDepth': 0.0,
+            'reactionZoneActive': False,
         }
         self._anim:   float = 0.0
         self._sparks: list  = []   # each: [nx, ny, vx, vy, life]
         self._ui_theme = "dark"
+        self._ui_language = "ru"
         try:
             from theme_settings import get_theme
+            from locale_settings import get_language
             self._ui_theme = get_theme()
+            self._ui_language = get_language()
         except ImportError:
             pass
 
@@ -237,6 +275,39 @@ class _PainterConverterWidget(QWidget):
             pass
         self._ui_theme = theme if theme == 'light' else 'dark'
         self.update()
+
+    def set_ui_language(self, lang: str) -> None:
+        self._ui_language = 'en' if lang == 'en' else 'ru'
+        self.update()
+
+    def _state_labels(self) -> dict:
+        if self._ui_language == 'en':
+            return self._STATE_LABELS_EN
+        return self._STATE_LABELS_RU
+
+    def _metric_parts(self, s: dict) -> list[str]:
+        parts = []
+        if s['metalMass'] > 0:
+            parts.append(
+                f"Me {s['metalMass']:.0f}t" if self._ui_language == 'en'
+                else f"Ме {s['metalMass']:.0f}т"
+            )
+        if s['slagMass'] > 0:
+            parts.append(
+                f"Sl {s['slagMass']:.0f}t" if self._ui_language == 'en'
+                else f"Шл {s['slagMass']:.0f}т"
+            )
+        if s.get('temperature', 0) > 0 and s['state'] in ('blowing', 'complete'):
+            parts.append(f"T {s['temperature']:.0f}°C")
+        if s.get('blastFlow', 0) > 0:
+            unit = "m³/min" if self._ui_language == 'en' else "м³/мин"
+            parts.append(f"O₂ {s['blastFlow']:.0f}{unit}")
+        if s.get('lanceHeight', 0) > 0:
+            parts.append(
+                f"L {s['lanceHeight']:.2f}m" if self._ui_language == 'en'
+                else f"Ф {s['lanceHeight']:.2f}м"
+            )
+        return parts
 
     # ── animation tick ────────────────────────────────────────────────────────
     def _tick(self) -> None:
@@ -452,10 +523,28 @@ class _PainterConverterWidget(QWidget):
         # ── oxygen lance ──────────────────────────────────────────────────────
         lance_anim = math.sin(self._anim * 8) * 1.5 if is_blowing else 0
 
-        if is_blowing and s['metalLevel'] > 0:
+        lance_h = float(s.get('lanceHeight', 0) or 0)
+        if is_blowing and lance_h > 0 and s['metalLevel'] > 0:
+            tip_y = self._metal_y - lance_h * 22 + lance_anim
+        elif is_blowing and s['metalLevel'] > 0:
             tip_y = self._metal_y - 28 + lance_anim
         else:
             tip_y = y_top - 14 + lance_anim
+
+        pen_d = float(s.get('penetrationDepth', 0) or 0)
+        if is_blowing and pen_d > 0.02 and s['metalLevel'] > 0:
+            pit_h = min(40, max(6, pen_d * 22))
+            pit = QPainterPath()
+            pit.moveTo(cx - 6, tip_y)
+            pit.lineTo(cx, tip_y + pit_h)
+            pit.lineTo(cx + 6, tip_y)
+            pit.closeSubpath()
+            p.fillPath(pit, QBrush(QColor(255, 140, 40, 90)))
+            if s.get('reactionZoneActive'):
+                rg = QRadialGradient(cx, tip_y + pit_h * 0.4, pit_h)
+                rg.setColorAt(0, QColor(255, 200, 120, 120))
+                rg.setColorAt(1, QColor(0, 0, 0, 0))
+                p.fillPath(pit, QBrush(rg))
 
         top_y = tip_y - min(100, tip_y + 10)
         l_pen = QPen(QColor(140, 200, 255, 225))
@@ -492,7 +581,7 @@ class _PainterConverterWidget(QWidget):
                 p.drawPoint(int(sp[0] * w), int(sp[1] * h))
 
         # ── HUD text ──────────────────────────────────────────────────────────
-        label = self._STATE_LABELS.get(s['state'], 'ОЖИДАНИЕ')
+        label = self._state_labels().get(s['state'], self._state_labels()['idle'])
         if s['state'] == 'complete':
             badge_col = QColor(255, 100, 20, 220)
         elif s['state'] == 'blowing':
@@ -505,15 +594,7 @@ class _PainterConverterWidget(QWidget):
         p.drawText(8, 18, label)
 
         # metrics row
-        parts = []
-        if s['metalMass'] > 0:
-            parts.append(f"Ме {s['metalMass']:.0f}т")
-        if s['slagMass'] > 0:
-            parts.append(f"Шл {s['slagMass']:.0f}т")
-        if s.get('temperature', 0) > 0 and s['state'] in ('blowing', 'complete'):
-            parts.append(f"T {s['temperature']:.0f}°C")
-        if s.get('blastFlow', 0) > 0:
-            parts.append(f"O₂ {s['blastFlow']:.0f}м³")
+        parts = self._metric_parts(s)
 
         if parts:
             p.setPen(QPen(QColor(0, 200, 240, 180)))
@@ -526,15 +607,22 @@ class _PainterConverterWidget(QWidget):
 def _wire_theme(widget: QWidget) -> QWidget:
     try:
         from theme_settings import manager, get_theme
+        from locale_settings import manager as locale_manager, get_language
         from converter3d.visual_style import set_ui_theme as vs_set
 
         vs_set(get_theme())
 
-        def _apply(theme: str) -> None:
+        def _apply_theme(theme: str) -> None:
             if hasattr(widget, 'set_ui_theme'):
                 widget.set_ui_theme(theme)
 
-        manager().theme_changed.connect(_apply)
+        def _apply_language(lang: str) -> None:
+            if hasattr(widget, 'set_ui_language'):
+                widget.set_ui_language(lang)
+
+        manager().theme_changed.connect(_apply_theme)
+        locale_manager().language_changed.connect(_apply_language)
+        _apply_language(get_language())
     except ImportError:
         pass
     return widget

@@ -44,6 +44,12 @@ _TOKENS = {
         "card_border": "rgba(128,128,128,0.5)",
         "scroll_bg": "#181828",
         "btn_hover_flat": "rgba(0,200,240,0.14)",
+        "control_warn": "#e6a817",
+        "control_danger": "#e04040",
+        "control_computed": "#6a8a9a",
+        "control_success_green": "#27ae60",
+        "control_dial_track": "rgba(0,200,240,0.22)",
+        "control_slider_groove": "rgba(0,0,0,0.35)",
     },
     THEME_LIGHT: {
         "accent": "#006494",
@@ -80,8 +86,18 @@ _TOKENS = {
         "card_border": "#a8bccf",
         "scroll_bg": "#e8eef5",
         "btn_hover_flat": "rgba(0,120,168,0.12)",
+        "control_warn": "#b8860b",
+        "control_danger": "#c03030",
+        "control_computed": "#6a7c8e",
+        "control_success_green": "#27ae60",
+        "control_dial_track": "rgba(0,100,148,0.25)",
+        "control_slider_groove": "rgba(0,0,0,0.12)",
     },
 }
+
+
+def control_success_green(theme: str | None = None) -> str:
+    return tokens(theme)["control_success_green"]
 
 
 def tokens(theme: str | None = None) -> dict:
@@ -485,6 +501,141 @@ def developer_style(theme: str | None = None) -> str:
     return operator_central_style(theme)
 
 
+def control_inputs_panel_qss(theme: str | None = None) -> str:
+    """QSS for operator control knobs (dials, sliders, range hints)."""
+    t = tokens(theme)
+    return f"""
+        QWidget#control_inputs_panel {{
+            background: transparent;
+        }}
+        QGroupBox#control_inputs_group {{
+            color: {t['accent']};
+            font-weight: bold;
+            font-size: 10px;
+            border: 1px solid {t['group_border']};
+            border-radius: 6px;
+            margin-top: 10px;
+            padding: 4px 6px 6px 6px;
+            background: {t['panel_bg']};
+        }}
+        QGroupBox#control_inputs_group > QWidget {{
+            background: transparent;
+        }}
+        QGroupBox#control_inputs_group::title {{
+            subcontrol-origin: margin; left: 8px; padding: 0 3px;
+        }}
+        QLabel.control_knob_title {{
+            color: {t['text_label']}; font-size: 9px; font-weight: bold;
+            background: transparent;
+            min-width: 0px;
+        }}
+        QLabel.control_knob_value {{
+            color: {t['accent']}; font-size: 9px; background: transparent;
+        }}
+        QFrame.control_knob_frame {{
+            min-width: 0px;
+            border: 1px solid {t['input_border']};
+            border-radius: 5px;
+            background: {t['input_bg']};
+            padding: 2px;
+        }}
+        QDoubleSpinBox.control_spin {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['text']};
+            font-size: 10px;
+            padding: 1px 3px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QDoubleSpinBox.control_spin_computed {{
+            background: {t['input_bg']};
+            border: 1px dashed {t['input_border']};
+            border-radius: 3px;
+            color: {t['control_computed']};
+            font-size: 10px;
+            font-style: italic;
+            padding: 1px 3px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QSlider::groove:horizontal {{
+            border: 1px solid {t['input_border']};
+            height: 5px;
+            background: {t['control_slider_groove']};
+            border-radius: 2px;
+        }}
+        QSlider::handle:horizontal {{
+            background: {t['accent']};
+            border: 1px solid {t['accent_dim']};
+            width: 12px;
+            margin: -5px 0;
+            border-radius: 6px;
+        }}
+        QDial {{
+            background: {t['control_dial_track']};
+            color: {t['accent']};
+        }}
+        QCheckBox.control_lock {{
+            color: {t['text_muted']}; font-size: 8px; spacing: 2px;
+        }}
+        QPushButton.control_tool_btn {{
+            background: transparent;
+            border: 1px solid {t['group_border']};
+            border-radius: 4px;
+            color: {t['text_muted']};
+            font-size: 9px;
+            padding: 2px 6px;
+            min-height: 18px;
+            max-height: 22px;
+        }}
+        QPushButton.control_tool_btn:hover {{
+            border-color: {t['accent']};
+            color: {t['accent']};
+        }}
+        QLabel.control_info_hint {{
+            color: {t['text_muted']};
+            font-size: 8px;
+            font-style: italic;
+            background: transparent;
+        }}
+        QLineEdit.control_blow_volume_readonly {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['control_computed']};
+            font-size: 10px;
+            font-style: italic;
+            padding: 2px 4px;
+            min-height: 18px;
+        }}
+        QLineEdit.control_auto_strikethrough {{
+            background: {t['input_bg']};
+            border: 1px solid {t['input_border']};
+            border-radius: 3px;
+            color: {t['text_muted']};
+            font-size: 10px;
+            text-decoration: line-through;
+            padding: 2px 4px;
+            min-height: 18px;
+        }}
+        QFrame.control_efficiency_frame {{
+            border: 1px solid {t['input_border']};
+            border-radius: 5px;
+            background: {t['input_bg']};
+        }}
+        QFrame.control_efficiency_frame[success="true"] {{
+            border-color: {t['control_success_green']};
+        }}
+        QLabel.control_efficiency_value {{
+            color: {t['accent']};
+            font-size: 11px;
+            background: transparent;
+        }}
+    """
+
+
 def converter_chrome_qss(theme: str | None = None) -> str:
     t = tokens(theme)
     return (
@@ -532,9 +683,24 @@ def indicator_card_style(theme: str | None = None, border_rgb: str = "0,120,168"
 
 
 def help_rich_html(theme: str | None = None) -> str:
+    from locale_settings import get_language, LANG_EN
     ac = html_accent(theme)
     t = tokens(theme)
     body = t["text_label"]
+    if get_language() == LANG_EN:
+        return (
+            f"<span style='color:{ac};'><b>Calculation order:</b></span>"
+            f"<span style='color:{body};'>"
+            "<br>1. <b>Metal charge</b> — charge mass calculation<br>"
+            "2. <b>Oxidation table</b> — O₂ consumption by element<br>"
+            "3. <b>Slag calculation</b> — fluxes, slag composition<br>"
+            "4. <b>Blast calculation</b> — oxygen, intensity<br>"
+            "5. <b>Material balance</b> — material in/out<br>"
+            "6. <b>Heat balance</b> — steel tapping temperature<br>"
+            "7. <b>Deoxidation</b> — ferroalloys, metal yield<br>"
+            "8. <b>Recommendations</b> — blowing mode, MgO"
+            "</span>"
+        )
     return (
         f"<span style='color:{ac};'><b>Порядок расчётов:</b></span>"
         f"<span style='color:{body};'>"
@@ -551,8 +717,19 @@ def help_rich_html(theme: str | None = None) -> str:
 
 
 def hints_rich_html(theme: str | None = None) -> str:
+    from locale_settings import get_language, LANG_EN
     ac = html_accent(theme)
     body = tokens(theme)["text_label"]
+    if get_language() == LANG_EN:
+        return (
+            f"<b style='color:{ac};'>Constraints:</b> "
+            f"<span style='color:{body};'>Min steel T, C and P content — see left panel.<br>"
+            f"</span><b style='color:{ac};'>LED:</b> "
+            f"<span style='color:#00a850;'>●</span> "
+            f"<span style='color:{body};'>calculated &nbsp; </span>"
+            f"<span style='color:#8a94a8;'>●</span> "
+            f"<span style='color:{body};'>not yet done</span>"
+        )
     return (
         f"<b style='color:{ac};'>Ограничения:</b> "
         f"<span style='color:{body};'>Мин. T стали, содержание C и P — см. левую панель.<br>"
@@ -615,6 +792,26 @@ def admin_central_style(theme: str | None = None) -> str:
         }}
     """
     return base + extra
+
+
+def secondary_button_style(theme: str | None = None) -> str:
+    """Outlined action (e.g. «Симулировать плавку»)."""
+    t = tokens(theme)
+    return f"""
+        QPushButton {{
+            background: transparent;
+            color: {t['accent']};
+            border: 1px solid {t['accent']};
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            min-height: 28px;
+        }}
+        QPushButton:hover {{
+            background: {t['btn_hover_flat']};
+        }}
+    """
 
 
 def primary_button_style(theme: str | None = None) -> str:

@@ -116,3 +116,5 @@ dmypy.json
 # Bundled PyQt5 + WebEngine for Three.js (pip --target vendor/pyqt)
 vendor/pyqt/
 converter3d/webengine_runtime/
+cursor_prompt_refactor.md
+cursor_prompt_v3.md

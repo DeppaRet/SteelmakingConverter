@@ -394,6 +394,9 @@ class ConverterGLWidget(QOpenGLWidget):
             'blastFlow':   0,
             'metalMass':   0,
             'slagMass':    0,
+            'lanceHeight': 0.0,
+            'penetrationDepth': 0.0,
+            'reactionZoneActive': False,
         }
         self._anim        = 0.0
         self._tilt        = 0.0
@@ -1197,12 +1200,31 @@ class ConverterGLPanel(QWidget):
         self._gl.set_ui_theme(theme)
         self._apply_chrome_theme()
 
+    def set_ui_language(self, lang: str) -> None:
+        try:
+            from i18n import tr
+            self._title.setText(tr("Converter3D", "3D конвертер"))
+            self._title.setToolTip(tr("Converter3D", "ЛКМ — вращение, колесо мыши — масштаб"))
+            if self._gl._scene_mode == SCENE_PRODUCT:
+                self._mode_btn.setText(tr("Converter3D", "Вид: Продукт"))
+            else:
+                self._mode_btn.setText(tr("Converter3D", "Вид: Цех"))
+        except ImportError:
+            pass
+
     def _on_toggle_mode(self):
         self._gl.toggle_scene_mode()
-        if self._gl._scene_mode == SCENE_PRODUCT:
-            self._mode_btn.setText("Вид: Продукт")
-        else:
-            self._mode_btn.setText("Вид: Цех")
+        try:
+            from i18n import tr
+            if self._gl._scene_mode == SCENE_PRODUCT:
+                self._mode_btn.setText(tr("Converter3D", "Вид: Продукт"))
+            else:
+                self._mode_btn.setText(tr("Converter3D", "Вид: Цех"))
+        except ImportError:
+            if self._gl._scene_mode == SCENE_PRODUCT:
+                self._mode_btn.setText("Вид: Продукт")
+            else:
+                self._mode_btn.setText("Вид: Цех")
 
     def update_state(self, state: dict):
         self._gl.update_state(state)
