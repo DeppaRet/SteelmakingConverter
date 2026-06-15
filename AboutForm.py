@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 
 import app_theme
 from theme_settings import get_theme, manager
+from locale_settings import manager as locale_manager
 
 
 class Ui_Dialog(object):
@@ -39,6 +40,12 @@ class Ui_Dialog(object):
         QtCore.QMetaObject.connectSlotsByName(Dialog)
         self.refresh_theme()
         manager().theme_changed.connect(lambda _t: self.refresh_theme())
+        locale_manager().language_changed.connect(
+            lambda _l: self.refresh_language(Dialog)
+        )
+
+    def refresh_language(self, Dialog):
+        self.retranslateUi(Dialog)
 
     def refresh_theme(self):
         theme = get_theme()
@@ -55,10 +62,10 @@ class Ui_Dialog(object):
             self.label.setStyleSheet(f"color: {t['text']};")
 
     def retranslateUi(self, Dialog):
-        _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "О программе"))
-        self._title_label.setText(_translate("Dialog", "О программе"))
-        self.label.setText(_translate("Dialog",
+        from i18n import tr as _t
+        Dialog.setWindowTitle(_t("Dialog", "О программе"))
+        self._title_label.setText(_t("Dialog", "О программе"))
+        self.label.setText(_t("Dialog",
             "Программный комплекс предназначен для обучения\n"
             "операторов-дистрибьюторов управлению сталеплавильным конвертером.\n\n"
             "Разработан в рамках ВКР студентом группы 429м\n"

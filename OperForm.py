@@ -37,6 +37,9 @@ from dynamics_indicators import DynamicsIndicatorsPanel
 from melt_dynamics import CALIB_DEFAULTS, MeltDynamicsEngine
 from theme_settings import manager, get_theme
 from theme_toggle import ThemeToggle
+from view_toggles import ViewTogglesBar
+from locale_settings import manager as locale_manager, get_language
+from i18n import msg_critical, msg_warning, tr
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +306,66 @@ class ConverterDiagram(QtWidgets.QFrame):
 
 
 class Ui_OperatorForm(object):
+
+    def _show_critical(self, info, title="Ошибка", text="Внимание"):
+        msg_critical(getattr(self, '_oper_form', None), title, text, info)
+
+    def _show_warning(self, info, title="Внимание", text="Внимание"):
+        msg_warning(getattr(self, '_oper_form', None), title, text, info)
+
+    _STATIC_TABLE_LABELS = frozenset({
+        "Чугун жидкий", "Лом", "Дутьё", "Итого",
+        "Металл жидкий", "Шлак", "Газ", "Избыток дутья",
+        "Выносы и выбросы", "Потери с пылью",
+    })
+
+    def _tl(self, text: str) -> str:
+        return tr("OperatorForm", text)
+
+    def _set_recommendation_lines(self, *lines_ru: str) -> None:
+        self._recommendation_lines_ru = list(lines_ru)
+        text = "\n".join(tr("OperatorForm", line) for line in lines_ru)
+        if text:
+            text += "\n"
+        self.recomendation.setPlainText(text)
+
+    def _append_recommendation_line(self, line_ru: str) -> None:
+        lines = getattr(self, "_recommendation_lines_ru", [])
+        if line_ru not in lines:
+            lines.append(line_ru)
+        self._recommendation_lines_ru = lines
+        current = self.recomendation.toPlainText().rstrip("\n")
+        addition = tr("OperatorForm", line_ru)
+        self.recomendation.setPlainText(
+            (current + "\n" + addition).strip() + "\n" if current else addition + "\n"
+        )
+
+    def _refresh_recommendation_text(self) -> None:
+        lines = getattr(self, "_recommendation_lines_ru", None)
+        if not lines:
+            return
+        text = "\n".join(tr("OperatorForm", line) for line in lines)
+        if text:
+            text += "\n"
+        self.recomendation.setPlainText(text)
+
+    def _refresh_static_table_labels(self) -> None:
+        from i18n import canonical_label
+
+        for tbl in (
+            getattr(self, "IncomingData", None),
+            getattr(self, "OutputData", None),
+        ):
+            if tbl is None:
+                continue
+            for row in range(tbl.rowCount()):
+                item = tbl.item(row, 0)
+                if item is None:
+                    continue
+                key = canonical_label(item.text())
+                if key in self._STATIC_TABLE_LABELS:
+                    item.setText(tr("OperatorForm", key))
+
     scenarioProgress = pyqtSignal(int)
     finished = pyqtSignal(str)
     def getSettings(self):
@@ -361,13 +424,7 @@ class Ui_OperatorForm(object):
                     self.FeroType.addItem((str(data)))
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -426,13 +483,7 @@ class Ui_OperatorForm(object):
 
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -524,12 +575,10 @@ class Ui_OperatorForm(object):
             self.thread.finished.connect(self.run_calculations)
             self.thread.start()
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            msg.exec_()
+            msg_critical(
+                getattr(self, '_oper_form', None),
+                "Ошибка", "Внимание", "Проверьте введенные данные! {0}".format(err),
+            )
 
     def update_progress(self, value):
         self.scenarioProgress.setValue(value)
@@ -544,12 +593,10 @@ class Ui_OperatorForm(object):
         self.ModeComboBox.setCurrentText(mode)
 
     def show_error(self, error):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("Ошибка")
-        msg.setText("Внимание")
-        msg.setInformativeText(f"Проверьте введенные данные! {error}")
-        msg.exec_()
+        msg_critical(
+            getattr(self, '_oper_form', None),
+            "Ошибка", "Внимание", f"Проверьте введенные данные! {error}",
+        )
 
     def run_calculations(self, *, reload_mode_from_db: bool = True) -> None:
         """Полный пересчёт этапов. reload_mode_from_db=False — не трогать поля режима (кнопка панели)."""
@@ -689,13 +736,7 @@ class Ui_OperatorForm(object):
                 self.user_target_C = c_val
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
         finally:
             mycursor.close()
@@ -793,13 +834,7 @@ class Ui_OperatorForm(object):
             self._update_control_scenario_context()
 
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         return
 
     def calcTableClick(self):
@@ -987,13 +1022,7 @@ class Ui_OperatorForm(object):
             global tableCalcked
             tableCalcked = True
         except Exception as err:  # mc.Error
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         return
 
     def update_oxidation_table_rows(self):
@@ -1086,6 +1115,12 @@ class Ui_OperatorForm(object):
         self.loadScrapTypeCombo()
         self._sync_scrap_type_ui()
 
+    def openStoichiometryMatrixDialog(self):
+        """Открывает диалог просмотра полной матрицы стехиометрических коэффициентов."""
+        from StoichiometryMatrixDialog import StoichiometryMatrixDialog
+        dlg = StoichiometryMatrixDialog(DBhost, DBlogin, DBpass, parent=self.centralwidget)
+        dlg.exec_()
+
     def getFluxes(self):
         try:
             query = "select FluxeName from fluxedata;"
@@ -1103,13 +1138,7 @@ class Ui_OperatorForm(object):
                 for column_number, data in enumerate(row_data):
                     self.FluxeType.addItem((str(data)))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             mycursor.close()
             DB.close()
@@ -1121,13 +1150,7 @@ class Ui_OperatorForm(object):
             self.FluxeTable.insertRow(rows)
             self.FluxeTable.setItem(rows, 0, QTableWidgetItem(text))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def removeFluxeButtonClicked(self):
         rows = self.FluxeTable.rowCount()
@@ -1158,13 +1181,7 @@ class Ui_OperatorForm(object):
             self.ChemEmission.setItem(0, 4, QTableWidgetItem(str(i[5])))
             self.ChemEmission.setItem(0, 5, QTableWidgetItem(str(i[6])))
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
         finally:
             DB.close()
             mycursor.close()
@@ -1287,13 +1304,7 @@ class Ui_OperatorForm(object):
                     'temperature': 1500,
                 })
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     # === CONTROL INPUTS START ===
     # Панель управления и симуляция — вкладка «Симуляция»; в центре — только этапы расчёта.
@@ -1908,14 +1919,14 @@ class Ui_OperatorForm(object):
 
     def _on_simulate_melt(self) -> None:
         if not self.ScenarioComboBox.currentText().strip():
-            QMessageBox.warning(
+            msg_warning(
                 None,
                 "Сценарий",
                 "Сначала выберите и загрузите сценарий.",
             )
             return
         if not self._start_simulation_session(reset=True):
-            QMessageBox.warning(
+            msg_warning(
                 None,
                 "Симуляция",
                 "Не удалось запустить расчёт. Загрузите сценарий и выполните расчёт дутья.",
@@ -1993,12 +2004,12 @@ class Ui_OperatorForm(object):
         btn = getattr(self.control_panel, "_btn_simulate", None)
         if btn is not None:
             btn.setEnabled(True)
-            btn.setText("Симулировать плавку")
-        QMessageBox.critical(None, "Симуляция", message)
+            btn.setText(tr("OperatorForm", "Симулировать плавку"))
+        msg_critical(None, "Симуляция", "Внимание", message)
 
     def _on_control_apply_recalc(self) -> None:
         if not self.ScenarioComboBox.currentText().strip():
-            QMessageBox.warning(
+            msg_warning(
                 None,
                 "Сценарий",
                 "Сначала выберите и загрузите сценарий.",
@@ -2130,13 +2141,7 @@ class Ui_OperatorForm(object):
             self._last_3d_process_state = "blowing"
             self._push_controls_to_3d(i_flow, h_c, h_l)
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def MaterialBalanceCalcClicked(self):
         try:
@@ -2271,13 +2276,13 @@ class Ui_OperatorForm(object):
 
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Чугун жидкий"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Чугун жидкий")))
             self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(
                 self._field_float(self.castWeight) * 1000, 3))))
 
             incomingDataRowCount += 1
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Лом"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Лом")))
             self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(round(
                 self._field_float(self.scrapWeight) * 1000, 3))))
 
@@ -2290,7 +2295,7 @@ class Ui_OperatorForm(object):
                 incomingDataRowCount += 1
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Дутьё"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Дутьё")))
             self.IncomingData.setItem(incomingDataRowCount, 1,
                                       QTableWidgetItem(str(round(
                                           self._field_float(self.TotalConsumptionOfBlastKg) * 1000, 3))))
@@ -2301,7 +2306,7 @@ class Ui_OperatorForm(object):
                 summary += self._cell_float(self.IncomingData, row, 1)
 
             self.IncomingData.insertRow(incomingDataRowCount)
-            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem("Итого"))
+            self.IncomingData.setItem(incomingDataRowCount, 0, QTableWidgetItem(self._tl("Итого")))
             self.IncomingData.setItem(incomingDataRowCount, 1, QTableWidgetItem(str(int(summary))))
 
             outRowCount = self.OutputData.rowCount()
@@ -2311,35 +2316,35 @@ class Ui_OperatorForm(object):
                     outRowCount -= 1
 
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Металл жидкий"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Металл жидкий")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(liquidIron * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Шлак"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Шлак")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
                 self._field_float(self.SlagWeight) * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Газ"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Газ")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(g4_2 * 1000, 3))))
 
             outRowCount+=1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Избыток дутья"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Избыток дутья")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
                 self._field_float(self.ExcessBlast) * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Выносы и выбросы"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Выносы и выбросы")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(
                 lossWithCarryOver * 1000, 3))))
 
             outRowCount += 1
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Потери с пылью"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Потери с пылью")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(dustLoss * 1000, 3))))
 
             outRowCount += 1
@@ -2348,7 +2353,7 @@ class Ui_OperatorForm(object):
                 summary += self._cell_float(self.OutputData, row, 1)
 
             self.OutputData.insertRow(outRowCount)
-            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem("Итого"))
+            self.OutputData.setItem(outRowCount, 0, QTableWidgetItem(self._tl("Итого")))
             self.OutputData.setItem(outRowCount, 1, QTableWidgetItem(str(round(summary, 3))))
 
             # Справочная разбивка по легирующим (не входит в сумму «Итого»:
@@ -2382,13 +2387,7 @@ class Ui_OperatorForm(object):
             materialBalanceCalcked = True
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def HeatBalanceCalcClicked(self):
         try:
@@ -2547,13 +2546,7 @@ class Ui_OperatorForm(object):
                     'temperature': round(SteelTemperature, 0),
                 })
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
     def deoxCalc(self):
         try:
@@ -2562,13 +2555,7 @@ class Ui_OperatorForm(object):
                 self.HeatBalanceCalcClicked()
                 heatBalanceCalcked = True
             if(self.ChemEmission.rowCount() == 0):
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Ошибка")
-                msg.setText("Внимание")
-                msg.setInformativeText("Не выбран феросплав!")
-                # msg.setInformativeText("Error: {0}".format(err))
-                msg.exec_()
+                self._show_critical("Не выбран феросплав!", "Ошибка", "Внимание")
                 return
 
             A = 0.255817 * float(self.LiquidSteelTemp.text()) - 335
@@ -2781,13 +2768,7 @@ class Ui_OperatorForm(object):
             self.stepResult()
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def recomendationCalc(self):
@@ -2797,23 +2778,11 @@ class Ui_OperatorForm(object):
                 self.HeatBalanceCalcClicked()
                 heatBalanceCalcked = True
             if(self.ChemEmission.rowCount() == 0):
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Ошибка")
-                msg.setText("Внимание")
-                msg.setInformativeText("Не выбран феросплав!")
-                # msg.setInformativeText("Error: {0}".format(err))
-                msg.exec_()
+                self._show_critical("Не выбран феросплав!", "Ошибка", "Внимание")
                 return
 
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def CheckConverterFunc(self):
@@ -2821,31 +2790,37 @@ class Ui_OperatorForm(object):
             H = float(self.height.text())
             D = float(self.diametr.text())
             attitude = H / D
-            msg = QMessageBox()
+            att_s = str(round(attitude, 2))
             if attitude > 2.1:
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру выше максимально допустимого (" + str(round(attitude, 2)) + ">2.1)\nВозможно возникновение выбросов")
+                msg_critical(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Отношение высоты рабочего объема к диаметру выше максимально допустимого ({0}>2.1)\n"
+                       "Возможно возникновение выбросов").format(att_s),
+                )
             elif attitude < 1.17:
-                msg.setIcon(QMessageBox.Critical)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Отношение высоты рабочего объема к диаметру ниже минимально допустимого (" + str(round(attitude, 2)) + ">1.17)")
+                msg_critical(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Отношение высоты рабочего объема к диаметру ниже минимально допустимого ({0}<1.17)").format(att_s),
+                )
             else:
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Проверка конвертера")
-                msg.setText("Внимание")
-                msg.setInformativeText("Проверка конвертера выполнена успешно.\nОтношение высоты рабочего объема к диаметру находится в допустимых пределах\n(1.17>" + str(round(attitude, 2)) + ">2.1)")
-            msg.exec_()
+                from i18n import msg_info
+                msg_info(
+                    getattr(self, '_oper_form', None),
+                    "Проверка конвертера",
+                    "Внимание",
+                    tr("OperatorForm",
+                       "Проверка конвертера выполнена успешно.\n"
+                       "Отношение высоты рабочего объема к диаметру находится в допустимых пределах\n"
+                       "(1.17>{0}>2.1)").format(att_s),
+                )
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     def openAbout(self):
@@ -2943,9 +2918,13 @@ class Ui_OperatorForm(object):
             slagBasicity = slagCaO / slagSiO2
             self.slag_basicity.setText(str(round(slagBasicity, 3)))
             if slagСorrosionСriteria > 3:
-                self.recomendation.setPlainText("Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты\n")
+                self._set_recommendation_lines(
+                    "Необходимо увеличить количество магнезиального флюса на 50 кг и заново произвести расчёты"
+                )
             else:
-                self.recomendation.setPlainText("Используется оптимальный расход флюсов\n")
+                self._set_recommendation_lines(
+                    "Используется оптимальный расход флюсов"
+                )
             if self.SteelPhosphorLimit.text() != "":
                 self.checkLimits()
             if getattr(self, 'converter3d', None):
@@ -2980,50 +2959,51 @@ class Ui_OperatorForm(object):
             self.SteelWeightRes.setStyleSheet(_field)
             self.resultSteelTemperature.setStyleSheet(_field)
             self.SlagWeightRes.setStyleSheet(_field)
-            checkResult = "Рассчеты завершены. Накладываемые ограничения не выполняются\n"
+            checkResult = tr("OperatorForm", "Рассчеты завершены. Накладываемые ограничения не выполняются") + "\n"
             actualSteelCarbon = float(self.DeoxidationBalance.item(0,0).text())
             actualSteelTemp = float(self.resultSteelTemperature.text())
             actualSteelPhosphor = float(self.DeoxidationBalance.item(0,6).text())
             steelCarbon = float(self.SteelCarbonLimit.text())
             minSteelTemp = float(self.MinSteelTempLimit.text())
             steelPhosphor = float(self.SteelPhosphorLimit.text())
-            recText = self.recomendation.toPlainText()
-            msg = QMessageBox()
+            extra_lines: list[str] = []
             if actualSteelCarbon > steelCarbon:
-                checkResult += "Содержание углерода в стали меньше минимально допустимого.\n"
-                recText += "Содержание углерода в стали меньше минимально допустимого.\n"
+                line = "Содержание углерода в стали меньше минимально допустимого."
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 problem = True
             if actualSteelTemp < minSteelTemp:
-                checkResult += "Температура стали меньше минимально допустимой.\n"
-                recText += "Температура стали меньше минимально допустимой.\n"
+                line = "Температура стали меньше минимально допустимой."
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 self.resultSteelTemperature.setStyleSheet("QLineEdit { background: #cc0000; color: #ffffff; border: 1px solid #ff4444; border-radius: 4px; }")
                 problem = True
             if actualSteelPhosphor > steelPhosphor:
-                checkResult += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
-                recText += "Содержание фосфора в стали меньше минимально допустимого.\nРекомендуется увеличить содержание извести и провести рассчеты еще раз.\n"
+                line = (
+                    "Содержание фосфора в стали меньше минимально допустимого.\n"
+                    "Рекомендуется увеличить содержание извести и провести рассчеты еще раз."
+                )
+                checkResult += tr("OperatorForm", line) + "\n"
+                extra_lines.append(line)
                 problem = True
+            base_lines = list(getattr(self, "_recommendation_lines_ru", []))
+            rec_lines = base_lines + extra_lines
             if problem == True:
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Проверка Результата")
-                msg.setText("Внимание")
-                msg.setInformativeText(checkResult)
-                app_theme.style_message_box(msg)
-                msg.exec_()
+                from i18n import msg_info
+                msg_info(
+                    getattr(self, '_oper_form', None),
+                    "Проверка Результата",
+                    "Внимание",
+                    checkResult,
+                )
             elif problem == False:
-                tmp = self.recomendation.toPlainText()
-                tmp += "\nПроверка результатов выполнена успешно, накладываемые ограничения выполняются"
-                recText += "Ограничения сценария выполняются\n"
-                self.recomendation.setPlainText(tmp)
-            self.recomendation.setPlainText(recText)
+                ok_line = "Проверка результатов выполнена успешно, накладываемые ограничения выполняются"
+                ok_short = "Ограничения сценария выполняются"
+                rec_lines = base_lines + [ok_line, ok_short]
+            self._recommendation_lines_ru = rec_lines
+            self._refresh_recommendation_text()
         except Exception as err:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Ошибка")
-            msg.setText("Внимание")
-            msg.setInformativeText("Проверьте введенные данные! {0}".format(err))
-            # msg.setInformativeText("Error: {0}".format(err))
-            app_theme.style_message_box(msg)
-            msg.exec_()
+            self._show_critical("Проверьте введенные данные! {0}".format(err), "Ошибка", "Внимание")
 
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -3061,12 +3041,11 @@ class Ui_OperatorForm(object):
             self._header_frame.setStyleSheet(app_theme.header_bar_style(theme))
         if hasattr(self, '_title_lbl'):
             self._title_lbl.setStyleSheet(app_theme.header_title_style(theme))
+        self._refresh_locale_dependent_text()
         if hasattr(self, '_stages_lbl'):
-            self._stages_lbl.setText(app_theme.help_rich_html(theme))
             self._stages_lbl.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_label']}; font-size: 11px;")
         if hasattr(self, '_hints_lbl'):
-            self._hints_lbl.setText(app_theme.hints_rich_html(theme))
             self._hints_lbl.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_label']}; font-size: 10px;")
         for fr, cap, val, border, tcol in getattr(self, '_indicator_widgets', []):
@@ -3077,8 +3056,8 @@ class Ui_OperatorForm(object):
             val.setStyleSheet(
                 f"QLineEdit {{ background: transparent; border: none; "
                 f"color: {tcol}; font-size: 20px; font-weight: bold; }}")
-        if hasattr(self, 'theme_toggle'):
-            self.theme_toggle.sync_from_settings()
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.theme_toggle.sync_from_settings()
         t = app_theme.tokens(theme)
         pe = (
             f"QPlainTextEdit {{ background: {t['table_bg']}; "
@@ -3123,7 +3102,8 @@ class Ui_OperatorForm(object):
             w = getattr(self, name, None)
             if w is not None:
                 w.setStyleSheet(ro_field)
-        for fr, cap, val, border, tcol in getattr(self, "_result_kpi_frames", []):
+        for item in getattr(self, "_result_kpi_frames", []):
+            fr, cap, val, border, tcol = item[:5]
             fr.setStyleSheet(app_theme.indicator_card_style(theme, border))
             cap.setStyleSheet(
                 f"color: {app_theme.tokens(theme)['text_muted']}; "
@@ -3522,22 +3502,29 @@ class Ui_OperatorForm(object):
         g3v.addLayout(g3top)
         self.groupBox_7 = QtWidgets.QGroupBox()
         self.groupBox_7.setObjectName("groupBox_7")
+        _LBL_W  = 100  # одинаковая ширина всех подписей → поля выравниваются
+        _FLD_H  = 26   # единая высота всех полей ввода (QLineEdit + QComboBox)
+
         g7 = QtWidgets.QGridLayout(self.groupBox_7)
         g7.setSpacing(4)
-        g7.setColumnMinimumWidth(0, 90)
-        g7.setColumnMinimumWidth(2, 90)
         g7.setColumnStretch(1, 1); g7.setColumnStretch(3, 1)
 
         def _rlbl(name):
             lbl = _lbl(name)
+            lbl.setFixedWidth(_LBL_W)
             lbl.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             return lbl
 
-        self.label_12 = _rlbl("label_12"); self.scrapCarbon   = _edit("scrapCarbon")
-        self.label_13 = _rlbl("label_13"); self.scrapSerum    = _edit("scrapSerum")
-        self.label_14 = _rlbl("label_14"); self.scrapSilicon  = _edit("scrapSilicon")
-        self.label_15 = _rlbl("label_15"); self.scrapPhosphor = _edit("scrapPhosphor")
-        self.label_25 = _rlbl("label_25"); self.scrapManganese= _edit("scrapManganese")
+        def _fedit(name):
+            w = _edit(name)
+            w.setFixedHeight(_FLD_H)
+            return w
+
+        self.label_12 = _rlbl("label_12"); self.scrapCarbon   = _fedit("scrapCarbon")
+        self.label_13 = _rlbl("label_13"); self.scrapSerum    = _fedit("scrapSerum")
+        self.label_14 = _rlbl("label_14"); self.scrapSilicon  = _fedit("scrapSilicon")
+        self.label_15 = _rlbl("label_15"); self.scrapPhosphor = _fedit("scrapPhosphor")
+        self.label_25 = _rlbl("label_25"); self.scrapManganese= _fedit("scrapManganese")
         g7.addWidget(self.label_12, 0, 0); g7.addWidget(self.scrapCarbon,  0, 1)
         g7.addWidget(self.label_13, 0, 2); g7.addWidget(self.scrapSerum,   0, 3)
         g7.addWidget(self.label_14, 1, 0); g7.addWidget(self.scrapSilicon, 1, 1)
@@ -3549,19 +3536,20 @@ class Ui_OperatorForm(object):
         self.label_scrapType.setText("Тип лома:")
         self.scrapTypeCombo = QtWidgets.QComboBox()
         self.scrapTypeCombo.setObjectName("scrapTypeCombo")
+        self.scrapTypeCombo.setFixedHeight(_FLD_H)
         self.scrapTypeCombo.setSizePolicy(
             QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self.scrapTypeCombo.currentIndexChanged.connect(self.onScrapTypeChanged)
         g7.addWidget(self.label_scrapType, 2, 2); g7.addWidget(self.scrapTypeCombo, 2, 3)
 
         self.label_scrapCr = _rlbl("label_scrapCr"); self.label_scrapCr.setText("Cr, %")
-        self.scrapCrInput = _edit("scrapCrInput")
+        self.scrapCrInput = _fedit("scrapCrInput")
         self.label_scrapV = _rlbl("label_scrapV"); self.label_scrapV.setText("V, %")
-        self.scrapVInput = _edit("scrapVInput")
+        self.scrapVInput = _fedit("scrapVInput")
         self.label_scrapAl = _rlbl("label_scrapAl"); self.label_scrapAl.setText("Al, %")
-        self.scrapAlInput = _edit("scrapAlInput")
+        self.scrapAlInput = _fedit("scrapAlInput")
         self.label_scrapTi = _rlbl("label_scrapTi"); self.label_scrapTi.setText("Ti, %")
-        self.scrapTiInput = _edit("scrapTiInput")
+        self.scrapTiInput = _fedit("scrapTiInput")
         for _w in (self.scrapCrInput, self.scrapVInput, self.scrapAlInput, self.scrapTiInput):
             _w.setText("0.0")
         g7.addWidget(self.label_scrapCr, 3, 0); g7.addWidget(self.scrapCrInput, 3, 1)
@@ -3697,8 +3685,8 @@ class Ui_OperatorForm(object):
         stages_lay.setContentsMargins(0, 0, 0, 0)
         stages_lay.setSpacing(5)
 
-        seq_title = QtWidgets.QLabel(
-            "\u041f\u041e\u0421\u041b\u0415\u0414\u041e\u0412\u0410\u0422\u0415\u041b\u042c\u041d\u041e\u0421\u0422\u042c  \u0420\u0410\u0421\u0427\u0401\u0422\u041e\u0412")
+        seq_title = QtWidgets.QLabel(tr("OperatorForm", "ПОСЛЕДОВАТЕЛЬНОСТЬ  РАСЧЁТОВ"))
+        self._seq_title = seq_title
         seq_title.setAlignment(QtCore.Qt.AlignCenter)
         seq_title.setFixedHeight(16)
         seq_title.setStyleSheet(
@@ -3707,6 +3695,8 @@ class Ui_OperatorForm(object):
 
         self._stage_leds = {}
         self._stage_style_widgets = []
+
+        self._stage_label_widgets: list[tuple] = []
 
         def _stage_row(num, label_text, connect_fn, led_key, btn_attr,
                        guard_fn=None, guard_label=""):
@@ -3720,7 +3710,8 @@ class Ui_OperatorForm(object):
             num_lbl.setAlignment(QtCore.Qt.AlignCenter)
             led = _led()
             self._stage_leds[led_key] = led
-            stg_lbl = QtWidgets.QLabel(label_text)
+            stg_lbl = QtWidgets.QLabel(tr("OperatorForm", label_text))
+            self._stage_label_widgets.append((stg_lbl, label_text))
             self._stage_style_widgets.append((num_lbl, stg_lbl))
             calc_btn = QtWidgets.QPushButton()
             calc_btn.setIcon(_icon("Pictures/calculate.ico"))
@@ -3736,10 +3727,13 @@ class Ui_OperatorForm(object):
                     if gf is None or gf():
                         fn()
                     else:
-                        QtWidgets.QMessageBox.warning(
+                        msg_warning(
                             None,
                             "Предыдущий этап не выполнен",
-                            f"Сначала завершите этап:\n«{gl}»")
+                            tr("OperatorForm", "Сначала завершите этап:\n«{0}»").format(
+                                tr("OperatorForm", gl)
+                            ),
+                        )
                 return _on_click
 
             calc_btn.clicked.connect(_make_guarded(connect_fn, guard_fn, guard_label))
@@ -3830,23 +3824,23 @@ class Ui_OperatorForm(object):
         temp_row = QtWidgets.QHBoxLayout()
         temp_row.setSpacing(6)
 
-        def _big_result_frame(label_txt, border_rgb, text_color, obj_name):
+        def _big_result_frame(label_key, border_rgb, text_color, obj_name):
             fr = QtWidgets.QFrame()
             fv = QtWidgets.QVBoxLayout(fr)
             fv.setContentsMargins(6, 3, 6, 3)
-            cap = QtWidgets.QLabel(label_txt)
+            cap = QtWidgets.QLabel(tr("OperatorForm", label_key))
             val = _ro_edit(obj_name)
             val.setAlignment(QtCore.Qt.AlignCenter)
             fv.addWidget(cap)
             fv.addWidget(val)
-            self._result_kpi_frames.append((fr, cap, val, border_rgb, text_color))
+            self._result_kpi_frames.append((fr, cap, val, border_rgb, text_color, label_key))
             return fr, val
 
         fr_lt, self.LiquidSteelTemp = _big_result_frame(
-            "\u0422 \u0436\u0438\u0434\u043a\u043e\u0433\u043e \u043c\u0435\u0442\u0430\u043b\u043b\u0430, °C",
+            "Т жидкого металла, °C",
             "255,120,0", "#ff6820", "LiquidSteelTemp")
         fr_ot, self.OverheatTemp = _big_result_frame(
-            "\u041f\u0435\u0440\u0435\u0433\u0440\u0435\u0432, °C",
+            "Перегрев, °C",
             "255,180,0", "#ffaa00", "OverheatTemp")
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2 = QtWidgets.QLabel()
         self.temperatura_zhidkovo_metalla_v_konce_produvki_label_2.setObjectName(
@@ -4612,8 +4606,11 @@ class Ui_OperatorForm(object):
         self.AddDbData= QtWidgets.QAction(OperatorForm); self.AddDbData.setEnabled(True); self.AddDbData.setObjectName("AddDbData")
         self.actionScrapTypes = QtWidgets.QAction(OperatorForm)
         self.actionScrapTypes.setObjectName("actionScrapTypes")
-        self.actionScrapTypes.setText("Типы лома и реакции")
         self.actionScrapTypes.triggered.connect(self.openScrapTypeDialog)
+
+        self.actionStoichiometryMatrix = QtWidgets.QAction(OperatorForm)
+        self.actionStoichiometryMatrix.setObjectName("actionStoichiometryMatrix")
+        self.actionStoichiometryMatrix.triggered.connect(self.openStoichiometryMatrixDialog)
 
         self.Menu.addAction(self.SaveFile)
         self.Menu.addSeparator()
@@ -4622,12 +4619,16 @@ class Ui_OperatorForm(object):
         self.Administrate.addAction(self.AddUser)
         self.Administrate.addAction(self.AddDbData)
         self.Administrate.addAction(self.actionScrapTypes)
+        self.Administrate.addAction(self.actionStoichiometryMatrix)
         self.ViewMenu = QtWidgets.QMenu(self.menubar)
         self.ViewMenu.setObjectName("ViewMenu")
-        self.theme_toggle = ThemeToggle()
-        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles = ViewTogglesBar()
+        self.view_toggles.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles.language_toggle.language_changed.connect(
+            lambda _l: self.refresh_language(OperatorForm)
+        )
         toggle_action = QtWidgets.QWidgetAction(OperatorForm)
-        toggle_action.setDefaultWidget(self.theme_toggle)
+        toggle_action.setDefaultWidget(self.view_toggles)
         self.ViewMenu.addAction(toggle_action)
 
         self.menubar.addAction(self.Menu.menuAction())
@@ -4636,6 +4637,9 @@ class Ui_OperatorForm(object):
         self.menubar.addAction(self.Help.menuAction())
 
         manager().theme_changed.connect(lambda _t: self.refresh_theme())
+        locale_manager().language_changed.connect(
+            lambda _l: self.refresh_language(OperatorForm)
+        )
 
         self.Exit.setShortcut("Ctrl+Q")
         self.Exit.triggered.connect(OperatorForm.close)
@@ -4657,9 +4661,48 @@ class Ui_OperatorForm(object):
             _tbl.setStyleSheet(app_theme.table_style(get_theme()))
         if self.converter3d and hasattr(self.converter3d, 'set_ui_theme'):
             self.converter3d.set_ui_theme(get_theme())
+        if self.converter3d and hasattr(self.converter3d, 'set_ui_language'):
+            self.converter3d.set_ui_language(get_language())
         self.refresh_theme()
+        self.refresh_language(OperatorForm)
+
+    def _refresh_locale_dependent_text(self) -> None:
+        theme = get_theme()
+        if hasattr(self, '_stages_lbl'):
+            self._stages_lbl.setText(app_theme.help_rich_html(theme))
+        if hasattr(self, '_hints_lbl'):
+            self._hints_lbl.setText(app_theme.hints_rich_html(theme))
+        if hasattr(self, '_title_lbl'):
+            self._title_lbl.setText(
+                tr("OperatorForm", "⚙  КОНВЕРТЕРНАЯ ПЛАВКА  —  ПУЛЬТ ОПЕРАТОРА")
+            )
+        if hasattr(self, 'control_panel'):
+            self.control_panel.refresh_language()
+        if hasattr(self, 'dynamics_indicators'):
+            self.dynamics_indicators.refresh_language()
+        if hasattr(self, 'dynamics_charts'):
+            self.dynamics_charts.refresh_language()
+        if getattr(self, 'converter3d', None) and hasattr(self.converter3d, 'set_ui_language'):
+            self.converter3d.set_ui_language(get_language())
+        self._refresh_static_table_labels()
+        self._refresh_recommendation_text()
+        for lbl, key in getattr(self, "_stage_label_widgets", []):
+            lbl.setText(tr("OperatorForm", key))
+        for item in getattr(self, "_result_kpi_frames", []):
+            if len(item) >= 6:
+                _fr, cap, _val, _border, _tcol, key = item
+                cap.setText(tr("OperatorForm", key))
+        if hasattr(self, "_seq_title"):
+            self._seq_title.setText(tr("OperatorForm", "ПОСЛЕДОВАТЕЛЬНОСТЬ  РАСЧЁТОВ"))
+
+    def refresh_language(self, OperatorForm):
+        self.retranslateUi(OperatorForm)
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.language_toggle.sync_from_settings()
+        self._refresh_locale_dependent_text()
+
     def retranslateUi(self, OperatorForm):
-        _t = QtCore.QCoreApplication.translate
+        from i18n import tr as _t
         OperatorForm.setWindowTitle(_t("OperatorForm", "Процесс плавки стали — Пульт оператора"))
 
         # ── Left panel labels ─────────────────────────────────────────────
@@ -4979,6 +5022,10 @@ class Ui_OperatorForm(object):
         self.addUser.setText(_t("OperatorForm", "Добавить пользователя"))
         self.AddUser.setText(_t("OperatorForm", "Добавить пользователя"))
         self.AddDbData.setText(_t("OperatorForm", "Добавить данные в бд"))
+        self.actionScrapTypes.setText(_t("OperatorForm", "Типы лома и реакции"))
+        self.actionStoichiometryMatrix.setText(_t("OperatorForm", "Матрица стехиометрии"))
+        if hasattr(self, "label_scrapType"):
+            self.label_scrapType.setText(_t("OperatorForm", "Тип лома:"))
         # ── Tab text for bottom detail tabs ──────────────────────────────
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_7), _t("OperatorForm", "Схема"))
         self.tabWidget.setTabText(
@@ -4992,6 +5039,8 @@ class Ui_OperatorForm(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_6), _t("OperatorForm", "Рекомендации"))
 
         # ── Startup ───────────────────────────────────────────────────────
+        if hasattr(self, "GetResExample"):
+            self.GetResExample.setText(_t("OperatorForm", "►  ЗАПУСТИТЬ  ВСЕ  ЭТАПЫ"))
         self.getSettings()
         self.getFluxes()
         self.getModes()

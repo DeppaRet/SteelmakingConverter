@@ -134,6 +134,46 @@ var converterState = {
   phi:         0,
   phiAlarm:    false
 };
+var currentUiLanguage = 'ru';
+var UI_LABELS = {
+  ru: {
+    states: { idle: 'ОЖИДАНИЕ', charged: 'ЗАГРУЖЕНО', blowing: 'ПРОДУВКА', complete: 'ГОТОВО' },
+    sceneHall: 'Вид: Цех',
+    sceneProduct: 'Вид: Продукт',
+    metal: 'Металл, т',
+    slag: 'Шлак, т',
+    temp: 'T, °C',
+    o2: 'O2, м³/мин',
+    no3d: '3D-сцена недоступна<br>(нет подключения к CDN Three.js)'
+  },
+  en: {
+    states: { idle: 'IDLE', charged: 'CHARGED', blowing: 'BLOWING', complete: 'COMPLETE' },
+    sceneHall: 'View: Shop',
+    sceneProduct: 'View: Product',
+    metal: 'Metal, t',
+    slag: 'Slag, t',
+    temp: 'T, °C',
+    o2: 'O2, m³/min',
+    no3d: '3D scene unavailable<br>(no CDN connection to Three.js)'
+  }
+};
+
+function applyMetricLabels() {
+  var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
+  document.querySelectorAll('.metric-label').forEach(function(el, i) {
+    var keys = ['metal', 'slag', 'temp', 'o2'];
+    if (keys[i]) el.textContent = L[keys[i]];
+  });
+  var no3d = document.getElementById('no3d');
+  if (no3d) no3d.innerHTML = L.no3d;
+}
+
+window.applyUiLanguage = function(lang) {
+  currentUiLanguage = (lang === 'en') ? 'en' : 'ru';
+  applyMetricLabels();
+  if (typeof syncHUD === 'function') syncHUD();
+  if (typeof setSceneMode === 'function') setSceneMode(sceneMode);
+};
 var H_FREE_BOARD_JS = 7.0;
 var FOAM_SLH_SCALE  = 0.018;
 var targetFoamSlH   = 0;
@@ -312,6 +352,9 @@ function updateConverter(data) {
   if (data.uiTheme && typeof applyUiTheme === 'function') {
     applyUiTheme(data.uiTheme);
   }
+  if (data.uiLanguage && typeof applyUiLanguage === 'function') {
+    applyUiLanguage(data.uiLanguage);
+  }
   syncHUD();
   if (typeof syncScene === 'function') syncScene();
 }
@@ -319,10 +362,10 @@ function updateConverter(data) {
 // ── HUD sync ────────────────────────────────────────────────
 function syncHUD() {
   var s = converterState;
-  var labels = { idle: 'ОЖИДАНИЕ', charged: 'ЗАГРУЖЕНО',
-                 blowing: 'ПРОДУВКА', complete: 'ГОТОВО' };
+  var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
+  var labels = L.states;
   var badge = document.getElementById('state-badge');
-  badge.textContent = labels[s.state] || 'ОЖИДАНИЕ';
+  badge.textContent = labels[s.state] || labels.idle;
 
   if (s.state === 'complete') {
     badge.style.borderColor = 'rgba(255,100,0,.70)';
@@ -1317,8 +1360,9 @@ function initScene() {
     } else {
       scene.fog = new THREE.Fog(hallBg, 26, 50);
     }
+    var L = UI_LABELS[currentUiLanguage] || UI_LABELS.ru;
     document.getElementById('scene-toggle').textContent =
-      isProduct ? 'Вид: Продукт' : 'Вид: Цех';
+      isProduct ? L.sceneProduct : L.sceneHall;
     syncScene();
   };
 

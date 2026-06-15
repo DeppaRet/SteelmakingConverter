@@ -9,6 +9,7 @@ from PyQt5 import QtCore, QtWidgets
 import app_theme
 from melt_dynamics import CALIB_DEFAULTS
 from theme_settings import get_theme
+from i18n import tr
 
 
 class DynamicsIndicatorsPanel(QtWidgets.QWidget):
@@ -64,7 +65,8 @@ class DynamicsIndicatorsPanel(QtWidgets.QWidget):
         root.setContentsMargins(0, 4, 0, 4)
         root.setSpacing(8)
 
-        eff_box = QtWidgets.QGroupBox("Эффективность дожигания")
+        eff_box = QtWidgets.QGroupBox()
+        self._eff_box = eff_box
         eff_lay = QtWidgets.QVBoxLayout(eff_box)
         self._eff_value = QtWidgets.QLabel("—")
         self._eff_value.setAlignment(QtCore.Qt.AlignCenter)
@@ -80,7 +82,8 @@ class DynamicsIndicatorsPanel(QtWidgets.QWidget):
         eff_lay.addWidget(self._eff_hint)
         root.addWidget(eff_box, 1)
 
-        phi_box = QtWidgets.QGroupBox("Риск выбросов Φ")
+        phi_box = QtWidgets.QGroupBox()
+        self._phi_box = phi_box
         phi_lay = QtWidgets.QVBoxLayout(phi_box)
         phi_row = QtWidgets.QHBoxLayout()
         self._phi_light = QtWidgets.QLabel()
@@ -96,7 +99,8 @@ class DynamicsIndicatorsPanel(QtWidgets.QWidget):
         phi_lay.addLayout(phi_row)
         root.addWidget(phi_box, 1)
 
-        dc_box = QtWidgets.QGroupBox("Невязка по углероду")
+        dc_box = QtWidgets.QGroupBox()
+        self._dc_box = dc_box
         dc_lay = QtWidgets.QVBoxLayout(dc_box)
         self._dc_value = QtWidgets.QLabel("Δ[C] = —")
         self._dc_hint = QtWidgets.QLabel("")
@@ -105,6 +109,16 @@ class DynamicsIndicatorsPanel(QtWidgets.QWidget):
         dc_lay.addWidget(self._dc_value)
         dc_lay.addWidget(self._dc_hint)
         root.addWidget(dc_box, 1)
+
+    def refresh_language(self) -> None:
+        if hasattr(self, "_eff_box"):
+            self._eff_box.setTitle(tr("DynamicsIndicators", "Эффективность дожигания"))
+        if hasattr(self, "_phi_box"):
+            self._phi_box.setTitle(tr("DynamicsIndicators", "Риск выбросов Φ"))
+        if hasattr(self, "_dc_box"):
+            self._dc_box.setTitle(tr("DynamicsIndicators", "Невязка по углероду"))
+        if self._eff_hint is not None:
+            self._eff_hint.setText(tr("DynamicsIndicators", "оптимум h_c: 1.8–2.5 м"))
 
     def set_target_carbon(self, c_target: float) -> None:
         self._target_c = c_target
@@ -163,7 +177,7 @@ class DynamicsIndicatorsPanel(QtWidgets.QWidget):
             )
             if self._dc_hint is not None:
                 self._dc_hint.setText(
-                    "Измените время продувки или режим"
+                    tr("DynamicsIndicators", "Измените время продувки или режим")
                 )
         else:
             self._dc_value.setStyleSheet(f"color: {t['text']};")

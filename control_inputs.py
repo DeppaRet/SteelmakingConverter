@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QFileDialog, QMessageBox
 import app_theme
 from melt_dynamics import HC_MAX, HC_MIN, MeltDynamicsEngine
 from theme_settings import get_theme
+from i18n import tr
 
 KEY_P_O2_MANUAL = "p_o2_manual_enabled"
 
@@ -122,6 +123,7 @@ class ControlKnob(QtWidgets.QFrame):
         ctrl_row.addWidget(self._spin)
         lay.addLayout(ctrl_row)
 
+        self._info_hint_text = info_hint
         self._info_hint_lbl = None
         if info_hint:
             hint_lbl = QtWidgets.QLabel(info_hint)
@@ -238,6 +240,13 @@ class ControlKnob(QtWidgets.QFrame):
     def set_recommended_tooltip(self, text: str) -> None:
         self._spin.setToolTip(text)
         self._title_lbl.setToolTip(text)
+
+    def set_title(self, title: str) -> None:
+        self._title_lbl.setText(title)
+
+    def set_info_hint(self, hint: str) -> None:
+        if self._info_hint_lbl is not None:
+            self._info_hint_lbl.setText(hint)
 
     def apply_tab_embed_style(self) -> None:
         """Высота и отступы для вкладки «Симуляция» (без наложения строк)."""
@@ -372,6 +381,7 @@ class ControlInputsPanel(QtWidgets.QWidget):
         o2_lay.setSpacing(4)
         po2_title = QtWidgets.QLabel("П_O₂ (авто)")
         po2_title.setProperty("class", "control_knob_title")
+        self._po2_title_lbl = po2_title
         self._p_o2_auto = QtWidgets.QLineEdit()
         self._p_o2_auto.setReadOnly(True)
         self._p_o2_auto.setFixedHeight(22)
@@ -414,6 +424,7 @@ class ControlInputsPanel(QtWidgets.QWidget):
         vol_row = QtWidgets.QHBoxLayout()
         vol_lbl = QtWidgets.QLabel("Расход дутья (расчётный):")
         vol_lbl.setProperty("class", "control_knob_title")
+        self._vol_lbl = vol_lbl
         self._blow_volume_display = QtWidgets.QLineEdit()
         self._blow_volume_display.setReadOnly(True)
         self._blow_volume_display.setProperty("class", "control_blow_volume_readonly")
@@ -669,6 +680,38 @@ class ControlInputsPanel(QtWidgets.QWidget):
     def _update_p_o2_auto_display(self) -> None:
         d = self.compute_derived()
         self._p_o2_auto.setText(f"{d['p_o2']:.1f} %")
+
+    def refresh_language(self) -> None:
+        self._group.setTitle(tr("ControlInputs", "Управляющие воздействия"))
+        titles = {
+            KEY_TARGET_C: tr("ControlInputs", "Целевое [C]_М"),
+            KEY_LANCE: tr("ControlInputs", "Фурма h_c"),
+            KEY_O2_LOSSES: tr("ControlInputs", "Потери O₂ (ручн.)"),
+            KEY_FLOW: tr("ControlInputs", "Расход O₂ i"),
+            KEY_TIME: tr("ControlInputs", "Время продувки τ"),
+        }
+        for key, title in titles.items():
+            self._knobs[key].set_title(title)
+        hint = tr("ControlInputs", "информационный параметр,\nне влияет на химию")
+        for key in TRIPLET_KEYS:
+            self._knobs[key].set_info_hint(hint)
+        self._po2_title_lbl.setText(tr("ControlInputs", "П_O₂ (авто)"))
+        self._p_o2_manual_cb.setText(tr("ControlInputs", "Ручной режим П_O₂"))
+        self._vol_lbl.setText(tr("ControlInputs", "Расход дутья (расчётный):"))
+        self._blow_volume_display.setPlaceholderText(tr("ControlInputs", "— м³"))
+        self._btn_reset.setText(tr("ControlInputs", "Сброс"))
+        self._btn_save.setText(tr("ControlInputs", "Сохр."))
+        self._btn_save.setToolTip(tr("ControlInputs", "Сохранить пресет"))
+        self._btn_load.setText(tr("ControlInputs", "Загр."))
+        self._btn_load.setToolTip(tr("ControlInputs", "Загрузить пресет"))
+        self._btn_simulate.setText(tr("ControlInputs", "Симулировать плавку"))
+        self._btn_simulate.setToolTip(
+            tr("ControlInputs", "Пошаговая динамика до целевого [C] (Δt = 30 с)")
+        )
+        self._btn_apply.setText(tr("ControlInputs", "Применить и пересчитать"))
+        self._btn_apply.setToolTip(
+            tr("ControlInputs", "Запустить полный расчёт плавки с текущими значениями крутилок")
+        )
 
     def set_theme(self, theme: str) -> None:
         self._theme = theme

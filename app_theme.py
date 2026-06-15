@@ -683,9 +683,24 @@ def indicator_card_style(theme: str | None = None, border_rgb: str = "0,120,168"
 
 
 def help_rich_html(theme: str | None = None) -> str:
+    from locale_settings import get_language, LANG_EN
     ac = html_accent(theme)
     t = tokens(theme)
     body = t["text_label"]
+    if get_language() == LANG_EN:
+        return (
+            f"<span style='color:{ac};'><b>Calculation order:</b></span>"
+            f"<span style='color:{body};'>"
+            "<br>1. <b>Metal charge</b> — charge mass calculation<br>"
+            "2. <b>Oxidation table</b> — O₂ consumption by element<br>"
+            "3. <b>Slag calculation</b> — fluxes, slag composition<br>"
+            "4. <b>Blast calculation</b> — oxygen, intensity<br>"
+            "5. <b>Material balance</b> — material in/out<br>"
+            "6. <b>Heat balance</b> — steel tapping temperature<br>"
+            "7. <b>Deoxidation</b> — ferroalloys, metal yield<br>"
+            "8. <b>Recommendations</b> — blowing mode, MgO"
+            "</span>"
+        )
     return (
         f"<span style='color:{ac};'><b>Порядок расчётов:</b></span>"
         f"<span style='color:{body};'>"
@@ -702,8 +717,19 @@ def help_rich_html(theme: str | None = None) -> str:
 
 
 def hints_rich_html(theme: str | None = None) -> str:
+    from locale_settings import get_language, LANG_EN
     ac = html_accent(theme)
     body = tokens(theme)["text_label"]
+    if get_language() == LANG_EN:
+        return (
+            f"<b style='color:{ac};'>Constraints:</b> "
+            f"<span style='color:{body};'>Min steel T, C and P content — see left panel.<br>"
+            f"</span><b style='color:{ac};'>LED:</b> "
+            f"<span style='color:#00a850;'>●</span> "
+            f"<span style='color:{body};'>calculated &nbsp; </span>"
+            f"<span style='color:#8a94a8;'>●</span> "
+            f"<span style='color:{body};'>not yet done</span>"
+        )
     return (
         f"<b style='color:{ac};'>Ограничения:</b> "
         f"<span style='color:{body};'>Мин. T стали, содержание C и P — см. левую панель.<br>"

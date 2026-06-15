@@ -11,7 +11,9 @@ import pandas as pd
 
 import app_theme
 from theme_settings import manager, get_theme
-from theme_toggle import ThemeToggle
+from view_toggles import ViewTogglesBar
+from locale_settings import manager as locale_manager
+from i18n import tr
 
 DBhost = "localhost"
 DBlogin = "root"
@@ -104,11 +106,11 @@ class Ui_AdminFom(object):
     def showTableForUsersClick(self):
         choosenTable = self.choosenTableForUsers.currentText()
         query = "SELECT * FROM "
-        if choosenTable == "Пользователи":
+        if choosenTable == tr("AdminFom", "Пользователи"):
             query += "users;"
             self.tableWidgetUsers.setColumnCount(4)
             self.tableWidgetUsers.setHorizontalHeaderLabels(["Номер", "Логин", "Пароль", "Роль"])
-        elif choosenTable == "Роли":
+        elif choosenTable == tr("AdminFom", "Роли"):
             query += "userroles;"
             self.tableWidgetUsers.setColumnCount(2)
             self.tableWidgetUsers.setHorizontalHeaderLabels(["Номер", "Роль"])
@@ -131,7 +133,7 @@ class Ui_AdminFom(object):
                     self.tableWidgetUsers.setItem(row_number, column_number, QTableWidgetItem(str(data)))
 
             usersCount = self.tableWidgetUsers.rowCount()
-            # if choosenTable == "Пользователи":
+            # if choosenTable == tr("AdminFom", "Пользователи"):
             #     for row in range(usersCount):
             #         self.tableWidgetUsers.setItem(row, 2, QTableWidgetItem(str("*********")))
         except Exception as err:  # mc.Error
@@ -148,36 +150,36 @@ class Ui_AdminFom(object):
         try:
             chTable = self.choosenTableForFactory.currentText()
             query = "SELECT * FROM "
-            if (chTable == "Режимы"):
+            if (chTable == tr("AdminFom", "Режимы")):
                 query += "v_combined_data;"
                 self.tableWidgetFactory.setColumnCount(22) #5
                 self.tableWidgetFactory.setHorizontalHeaderLabels(
                     ["Название", "Сталь", "C", "S", "P", "Si", "Mn", "Температура чугуна", "Масса чугуна", "C", "S", "P", "Si", "Mn", "Масса лома", "C", "S", "P", "Si", "Mn", "Высота", "Диаметр"]) #["Номер", "Название", "Сталь", "Лом", "Чугун"])
-            elif (chTable == "Сталь"):
+            elif (chTable == tr("AdminFom", "Сталь")):
                 query = "select steelname, scomp.SteelCarbon, scomp.SteelSerum, scomp.SteelPhosphor, scomp.SteelSilicon from steeldata as sdata left join steelcomposition as scomp on SteelComposition_idSteelComposition = idSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(5)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Марка", "Углерод", "Сера", "Фосфор", "Кремний"])
-            elif (chTable == "Состав стали"):
+            elif (chTable == tr("AdminFom", "Состав стали")):
                 query = "select steelname, scomp.SteelCarbon, scomp.SteelSerum, scomp.SteelPhosphor, scomp.SteelSilicon from steeldata as sdata left join steelcomposition as scomp on SteelComposition_idSteelComposition = idSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(5)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Марка", "Углерод", "Сера", "Фосфор", "Кремний"])
-            elif (chTable == "Чугун"):
+            elif (chTable == tr("AdminFom", "Чугун")):
                 query = "select cdata.idCastSteelData, cdata.CastSteelWeight, cdata.CastSteelTemperature, ccomp.CastSteelCarbon, ccomp.CastSteelSerum, ccomp.CastSteelPhosphor, ccomp.CastSteelSilicon, ccomp.CastSteelManganese from caststeeldata as cdata left join caststeelcomposition as ccomp on CastSteelComposition_idCastSteelComposition = idCastSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(8)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Температура", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Состав чугуна"):
+            elif (chTable == tr("AdminFom", "Состав чугуна")):
                 query = "select ccomp.idCastSteelComposition, ccomp.CastSteelCarbon, ccomp.CastSteelSerum, ccomp.CastSteelPhosphor, ccomp.CastSteelSilicon, ccomp.CastSteelManganese from caststeeldata as cdata left join caststeelcomposition as ccomp on CastSteelComposition_idCastSteelComposition = idCastSteelComposition;"
                 self.tableWidgetFactory.setColumnCount(6)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер",  "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Лом"):
+            elif (chTable == tr("AdminFom", "Лом")):
                 query = "select sdata.idScrapData, sdata.ScrapWeight, scomp.ScrapCarbon, scomp.ScrapSerum, scomp.ScrapPhosphor, scomp.ScrapSilicon, scomp.ScrapManganese from scrapdata as sdata left join scrapcomposition as scomp on ScrapComposition_idScrapComposition = idScrapComposition;"
                 self.tableWidgetFactory.setColumnCount(7)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Масса", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Состав лома"):
+            elif (chTable == tr("AdminFom", "Состав лома")):
                 query = "select scomp.idScrapComposition, scomp.ScrapCarbon, scomp.ScrapSerum, scomp.ScrapPhosphor, scomp.ScrapSilicon, scomp.ScrapManganese from scrapdata as sdata left join scrapcomposition as scomp on ScrapComposition_idScrapComposition = idScrapComposition;"
                 self.tableWidgetFactory.setColumnCount(6)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Номер", "Углерод", "Сера", "Фосфор", "Кремний", "Марганец"])
-            elif (chTable == "Флюсы"):
+            elif (chTable == tr("AdminFom", "Флюсы")):
                 query = "select fdata.FluxeName, fcomp.CaO, fcomp.SiO2, fcomp.MgO, fcomp.Fe2O3, fcomp.FeO, fcomp.MnO, fcomp.Al2O3, fcomp.CaCO3, fcomp.MgCO3 from fluxedata as fdata left join fluxecomposition as fcomp on FluxeComposition_idFluxeComposition = idFluxeComposition;"
                 self.tableWidgetFactory.setColumnCount(10)
                 self.tableWidgetFactory.setHorizontalHeaderLabels(["Название", "CaO", "SiO2", "MgO", "Fe2O3", "FeO", "MnO", "Al2O3", "CaCO3", "MgCO3"])
@@ -213,11 +215,11 @@ class Ui_AdminFom(object):
             login = self.LoginCreate.text()
             password = self.PasswordCreate.text()
             password = hashAuth.Hash.getHash(password)
-            if self.UserRoleCreate.currentText() == "Оператор":
+            if self.UserRoleCreate.currentText() == tr("AdminFom", "Оператор"):
                 role = 2
-            elif self.UserRoleCreate.currentText() == "Администратор":
+            elif self.UserRoleCreate.currentText() == tr("AdminFom", "Администратор"):
                 role = 1
-            elif self.UserRoleCreate.currentText() == "Разработчик модели":
+            elif self.UserRoleCreate.currentText() == tr("AdminFom", "Разработчик модели"):
                 role = 3
             value = (login, password, role)
             usersDB = mc.connect(
@@ -879,11 +881,11 @@ class Ui_AdminFom(object):
 
     def UpdateUser(self):
         try:
-            if self.UserRoleUpdate.currentText() == "Оператор":
+            if self.UserRoleUpdate.currentText() == tr("AdminFom", "Оператор"):
                 role = 2
-            elif self.UserRoleUpdate.currentText() == "Администратор":
+            elif self.UserRoleUpdate.currentText() == tr("AdminFom", "Администратор"):
                 role = 1
-            elif self.UserRoleUpdate.currentText() == "Разработчик модели":
+            elif self.UserRoleUpdate.currentText() == tr("AdminFom", "Разработчик модели"):
                 role = 3
             login = str(self.LoginUpdate.text())
             old_login = str(self.UserIdUpdate.currentText())
@@ -931,10 +933,15 @@ class Ui_AdminFom(object):
     def create_message(self, icon, title, text, info_text):
         msg = QMessageBox()
         msg.setIcon(icon)
-        msg.setWindowTitle(title)
-        msg.setText(text)
-        msg.setInformativeText(info_text)
+        msg.setWindowTitle(tr("Message", title))
+        msg.setText(tr("Message", text))
+        msg.setInformativeText(tr("Message", info_text))
         msg.exec_()
+
+    def refresh_language(self, AdminFom):
+        self.retranslateUi(AdminFom)
+        if hasattr(self, 'view_toggles'):
+            self.view_toggles.language_toggle.sync_from_settings()
 
     def executeSqlQuery(self):
         try:
@@ -997,8 +1004,8 @@ class Ui_AdminFom(object):
             root.style().polish(root)
             root.update()
 
-        if hasattr(self, "theme_toggle"):
-            self.theme_toggle.sync_from_settings()
+        if hasattr(self, "view_toggles"):
+            self.view_toggles.theme_toggle.sync_from_settings()
 
     def setupUi(self, AdminFom):
         self._admin_form = AdminFom
@@ -1653,16 +1660,22 @@ class Ui_AdminFom(object):
         self.menu.addAction(self.exit)
         self.menu_2.addAction(self.about)
         self.menu_view = QtWidgets.QMenu(self.menubar)
-        self.theme_toggle = ThemeToggle()
-        self.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles = ViewTogglesBar()
+        self.view_toggles.theme_toggle.theme_changed.connect(lambda _t: self.refresh_theme())
+        self.view_toggles.language_toggle.language_changed.connect(
+            lambda _l: self.refresh_language(AdminFom)
+        )
         toggle_action = QtWidgets.QWidgetAction(AdminFom)
-        toggle_action.setDefaultWidget(self.theme_toggle)
+        toggle_action.setDefaultWidget(self.view_toggles)
         self.menu_view.addAction(toggle_action)
         self.menubar.addAction(self.menu.menuAction())
         self.menubar.addAction(self.menu_2.menuAction())
         self.menubar.addAction(self.menu_view.menuAction())
 
         manager().theme_changed.connect(lambda _t: self.refresh_theme())
+        locale_manager().language_changed.connect(
+            lambda _l: self.refresh_language(AdminFom)
+        )
 
         self.retranslateUi(AdminFom)
         self.Factory.setCurrentIndex(0)
@@ -1677,7 +1690,7 @@ class Ui_AdminFom(object):
         QtCore.QTimer.singleShot(0, self.refresh_theme)
 
     def retranslateUi(self, AdminFom):
-        _translate = QtCore.QCoreApplication.translate
+        from i18n import tr as _translate
         AdminFom.setWindowTitle(_translate("AdminFom", "Добро пожаловать, администратор"))
 
         # Tab 1 — Промышленные данные

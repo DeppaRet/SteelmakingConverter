@@ -8,6 +8,7 @@ from PyQt5 import QtWidgets
 
 import app_theme
 from theme_settings import get_theme
+from i18n import tr
 
 try:
     import pyqtgraph as pg
@@ -143,6 +144,13 @@ class DynamicsChartsWidget(QtWidgets.QWidget):
         self._curve_vc.setPen(pg.mkPen(c["success"], width=2))
         self._curve_eta.setPen(pg.mkPen(c["accent"], width=2))
         self._curve_z.setPen(pg.mkPen(c["warn"], width=2))
+
+    def refresh_language(self) -> None:
+        if self._fallback is not None:
+            self._fallback.setText(
+                tr("DynamicsCharts",
+                   "Установите pyqtgraph: pip install -r requirements-dynamics.txt")
+            )
 
     def set_theme(self, theme: str) -> None:
         self._theme = theme

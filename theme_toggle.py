@@ -25,7 +25,14 @@ class ThemeToggle(QWidget):
         self._knob = 1.0 if self._light else 0.0
         self.setFixedSize(self.TRACK_W, self.TRACK_H)
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Тёмная тема (луна) / Светлая тема (солнце)")
+        self._update_tooltip()
+
+    def _update_tooltip(self) -> None:
+        try:
+            from i18n import tr
+            self.setToolTip(tr("ThemeToggle", "Тёмная тема (луна) / Светлая тема (солнце)"))
+        except ImportError:
+            self.setToolTip("Тёмная тема (луна) / Светлая тема (солнце)")
         self._anim = QPropertyAnimation(self, b"knobPos", self)
         self._anim.setDuration(160)
         self._anim.setEasingCurve(QEasingCurve.OutCubic)
@@ -72,6 +79,7 @@ class ThemeToggle(QWidget):
         self._anim.stop()
         self._light = get_theme() == THEME_LIGHT
         self._knob = 1.0 if self._light else 0.0
+        self._update_tooltip()
         self.update()
 
     def mousePressEvent(self, event) -> None:

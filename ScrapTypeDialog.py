@@ -1,28 +1,21 @@
-"""Диалог управления типами лома и матрицей стехиометрических реакций.
-
-Режимы:
-- editable=False (оператор): только просмотр. Чекбоксы IsActive, спинбоксы
-  CO_Fraction отключены; кнопки добавления/удаления типов скрыты.
-- editable=True (разработчик): полное редактирование матрицы и типов лома.
-
-Флаги влияния (МБ/Шл/Д/Т) во всех режимах доступны только для просмотра —
-они задаются при заполнении БД.
-"""
+"""Диалог управления типами лома и матрицей стехиометрических реакций."""
 from functools import partial
 
 from PyQt5 import QtCore, QtWidgets
 import mysql.connector as mc
 
+from i18n import tr, msg_critical, msg_warning
+
 try:
     import app_theme
     from theme_settings import get_theme
-except Exception:  # pragma: no cover - тема необязательна
+except Exception:  # pragma: no cover
     app_theme = None
     get_theme = None
 
 CARBON_ELEMENTS = ("C_CO", "C_CO2")
 
-COLUMNS = ["№", "Уравнение", "Акт", "Доля CO", "МБ", "Шл", "Д", "Т"]
+COLUMN_KEYS = ["№", "Уравнение", "Акт", "Доля CO", "МБ", "Шл", "Д", "Т"]
 COL_NUMBER, COL_EQUATION, COL_ACTIVE, COL_CO, COL_MB, COL_SLAG, COL_BLAST, COL_HEAT = range(8)
 
 
@@ -33,40 +26,33 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         self.db_login = db_login
         self.db_pass = db_pass
         self.editable = editable
-
-        self.setWindowTitle(
-            "Управление типами лома и матрицей реакций"
-            if editable else "Типы лома и матрица реакций (просмотр)"
-        )
         self.resize(900, 600)
-
         self._build_ui()
+        self.retranslate_ui()
         self.load_scrap_types()
         self._apply_theme()
 
-    # ── Подключение к БД ────────────────────────────────────────────────
     def _connect(self):
         return mc.connect(
             host=self.db_host, user=self.db_login,
             password=self.db_pass, database="regimdata"
         )
 
-    # ── Построение интерфейса ───────────────────────────────────────────
     def _build_ui(self):
         root = QtWidgets.QHBoxLayout(self)
         root.setContentsMargins(10, 10, 10, 10)
         root.setSpacing(10)
 
-        # Левая панель: типы лома
         left = QtWidgets.QVBoxLayout()
-        left.addWidget(QtWidgets.QLabel("Типы лома"))
+        self._types_lbl = QtWidgets.QLabel()
+        left.addWidget(self._types_lbl)
         self.typeList = QtWidgets.QListWidget()
         self.typeList.currentItemChanged.connect(self._on_type_item_changed)
         left.addWidget(self.typeList, stretch=1)
 
-        self.addTypeButton = QtWidgets.QPushButton("+ Добавить")
+        self.addTypeButton = QtWidgets.QPushButton()
         self.addTypeButton.clicked.connect(self.add_scrap_type)
-        self.delTypeButton = QtWidgets.QPushButton("- Удалить")
+        self.delTypeButton = QtWidgets.QPushButton()
         self.delTypeButton.clicked.connect(self.delete_scrap_type)
         left.addWidget(self.addTypeButton)
         left.addWidget(self.delTypeButton)
@@ -79,34 +65,52 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         left_w.setMaximumWidth(240)
         root.addWidget(left_w)
 
-        # Правая панель: таблица реакций
         right = QtWidgets.QVBoxLayout()
-        right.addWidget(QtWidgets.QLabel("Реакции для выбранного типа лома"))
+        self._reactions_lbl = QtWidgets.QLabel()
+        right.addWidget(self._reactions_lbl)
         self.table = QtWidgets.QTableWidget()
-        self.table.setColumnCount(len(COLUMNS))
-        self.table.setHorizontalHeaderLabels(COLUMNS)
+        self.table.setColumnCount(len(COLUMN_KEYS))
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         hh = self.table.horizontalHeader()
         hh.setSectionResizeMode(COL_EQUATION, QtWidgets.QHeaderView.Stretch)
         right.addWidget(self.table, stretch=1)
 
-        legend = QtWidgets.QLabel(
-            "Акт — реакция активна (редактируется в режиме разработчика). "
-            "МБ/Шл/Д/Т — влияние на материальный баланс / шлак / дутьё / тепло "
-            "(только просмотр)."
-        )
-        legend.setWordWrap(True)
-        right.addWidget(legend)
+        self._legend_lbl = QtWidgets.QLabel()
+        self._legend_lbl.setWordWrap(True)
+        right.addWidget(self._legend_lbl)
 
         btn_row = QtWidgets.QHBoxLayout()
         btn_row.addStretch()
-        self.closeButton = QtWidgets.QPushButton("Закрыть")
+        self.closeButton = QtWidgets.QPushButton()
         self.closeButton.clicked.connect(self.accept)
         btn_row.addWidget(self.closeButton)
         right.addLayout(btn_row)
 
         root.addLayout(right, stretch=1)
+
+    def retranslate_ui(self):
+        if self.editable:
+            self.setWindowTitle(tr("ScrapTypeDialog", "Управление типами лома и матрицей реакций"))
+        else:
+            self.setWindowTitle(tr("ScrapTypeDialog", "Типы лома и матрица реакций (просмотр)"))
+        self._types_lbl.setText(tr("ScrapTypeDialog", "Типы лома"))
+        self._reactions_lbl.setText(tr("ScrapTypeDialog", "Реакции для выбранного типа лома"))
+        self.table.setHorizontalHeaderLabels([
+            tr("ScrapTypeDialog", col) for col in COLUMN_KEYS
+        ])
+        self._legend_lbl.setText(tr(
+            "ScrapTypeDialog",
+            "Акт — реакция активна (редактируется в режиме разработчика). "
+            "МБ/Шл/Д/Т — влияние на материальный баланс / шлак / дутьё / тепло "
+            "(только просмотр)."
+        ))
+        self.addTypeButton.setText(tr("ScrapTypeDialog", "+ Добавить"))
+        self.delTypeButton.setText(tr("ScrapTypeDialog", "- Удалить"))
+        self.closeButton.setText(tr("ScrapTypeDialog", "Закрыть"))
+
+    def refresh_language(self):
+        self.retranslate_ui()
 
     def _apply_theme(self):
         if app_theme is None or get_theme is None:
@@ -118,7 +122,6 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         except Exception:
             pass
 
-    # ── Типы лома ───────────────────────────────────────────────────────
     def load_scrap_types(self):
         try:
             DB = self._connect()
@@ -147,7 +150,6 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         if current is not None:
             self.on_type_selected(current.data(QtCore.Qt.UserRole))
 
-    # ── Загрузка реакций для типа ───────────────────────────────────────
     def on_type_selected(self, type_id):
         if type_id is None:
             return
@@ -181,17 +183,15 @@ class ScrapTypeDialog(QtWidgets.QDialog):
             row = self.table.rowCount()
             self.table.insertRow(row)
 
-            self.table.setItem(row, COL_NUMBER, self._ro_item(str(number)))
+            self.table.setItem(row, COL_NUMBER,   self._ro_item(str(number)))
             self.table.setItem(row, COL_EQUATION, self._ro_item(equation))
 
-            # IsActive — редактируемый чекбокс (в просмотре отключён)
             chk = QtWidgets.QCheckBox()
             chk.setChecked(bool(is_active))
             chk.setEnabled(self.editable)
             chk.toggled.connect(partial(self.on_reaction_toggled, id_reaction))
             self.table.setCellWidget(row, COL_ACTIVE, self._center(chk))
 
-            # CO_Fraction — спинбокс только для углеродных реакций
             if element in CARBON_ELEMENTS:
                 spin = QtWidgets.QDoubleSpinBox()
                 spin.setRange(0.0, 1.0)
@@ -204,16 +204,14 @@ class ScrapTypeDialog(QtWidgets.QDialog):
             else:
                 self.table.setItem(row, COL_CO, self._ro_item("—"))
 
-            self.table.setItem(row, COL_MB, self._flag_item(aff_mb))
+            self.table.setItem(row, COL_MB,   self._flag_item(aff_mb))
             self.table.setItem(row, COL_SLAG, self._flag_item(aff_slag))
             self.table.setItem(row, COL_BLAST, self._flag_item(aff_blast))
             self.table.setItem(row, COL_HEAT, self._flag_item(aff_heat))
-        self.table.resizeColumnsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(COL_EQUATION, QtWidgets.QHeaderView.Stretch)
 
     @staticmethod
     def _ro_item(text):
-        item = QtWidgets.QTableWidgetItem(text)
+        item = QtWidgets.QTableWidgetItem(str(text))
         item.setFlags(QtCore.Qt.ItemIsEnabled)
         return item
 
@@ -233,7 +231,6 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         lay.addWidget(widget)
         return holder
 
-    # ── Редактирование (только при editable=True) ───────────────────────
     def on_reaction_toggled(self, reaction_id, checked):
         if not self.editable:
             return
@@ -275,7 +272,11 @@ class ScrapTypeDialog(QtWidgets.QDialog):
     def add_scrap_type(self):
         if not self.editable:
             return
-        name, ok = QtWidgets.QInputDialog.getText(self, "Новый тип лома", "Название типа:")
+        name, ok = QtWidgets.QInputDialog.getText(
+            self,
+            tr("ScrapTypeDialog", "Новый тип лома"),
+            tr("ScrapTypeDialog", "Название типа:"),
+        )
         if not ok or not name.strip():
             return
         name = name.strip()
@@ -284,7 +285,6 @@ class ScrapTypeDialog(QtWidgets.QDialog):
             cur = DB.cursor()
             cur.execute("INSERT INTO scraptype (ScrapTypeName, Description) VALUES (%s, %s)", (name, ""))
             new_id = cur.lastrowid
-            # Копируем матрицу реакций от стандартного типа (id=1)
             cur.execute("""
                 INSERT INTO scraptype_reaction (ScrapType_idScrapType, Reaction_idReaction, IsActive, CO_Fraction)
                 SELECT %s, Reaction_idReaction, IsActive, CO_Fraction
@@ -306,7 +306,7 @@ class ScrapTypeDialog(QtWidgets.QDialog):
         if type_id is None:
             return
         if type_id == 1:
-            self._warn("Стандартный тип лома (id=1) удалить нельзя.")
+            self._warn(tr("ScrapTypeDialog", "Стандартный тип лома (id=1) удалить нельзя."))
             return
         try:
             DB = self._connect()
@@ -315,7 +315,10 @@ class ScrapTypeDialog(QtWidgets.QDialog):
             used = cur.fetchone()[0]
             if used:
                 cur.close(); DB.close()
-                self._warn("Тип лома используется в записях лома (scrapdata) и не может быть удалён.")
+                self._warn(tr(
+                    "ScrapTypeDialog",
+                    "Тип лома используется в записях лома (scrapdata) и не может быть удалён."
+                ))
                 return
             cur.execute("DELETE FROM scraptype_reaction WHERE ScrapType_idScrapType = %s", (type_id,))
             cur.execute("DELETE FROM scraptype WHERE idScrapType = %s", (type_id,))
@@ -332,21 +335,16 @@ class ScrapTypeDialog(QtWidgets.QDialog):
                 self.typeList.setCurrentRow(i)
                 return
 
-    # ── Сообщения ───────────────────────────────────────────────────────
     def _error(self, err):
-        box = QtWidgets.QMessageBox(self)
-        box.setIcon(QtWidgets.QMessageBox.Critical)
-        box.setWindowTitle("Ошибка")
-        box.setText("Ошибка работы с базой данных")
-        box.setInformativeText(str(err))
-        box.exec_()
+        msg_critical(
+            self,
+            "Ошибка",
+            "Ошибка работы с базой данных",
+            str(err),
+        )
 
     def _warn(self, text):
-        box = QtWidgets.QMessageBox(self)
-        box.setIcon(QtWidgets.QMessageBox.Warning)
-        box.setWindowTitle("Внимание")
-        box.setText(text)
-        box.exec_()
+        msg_warning(self, "Внимание", text)
 
 
 if __name__ == "__main__":

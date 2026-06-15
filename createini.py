@@ -9,6 +9,7 @@ config['DBsettings'] = {
 }
 config['AppSettings'] = {
     'theme': 'dark',
+    'language': 'ru',
 }
 
 with open('./dev.ini', 'w', encoding='utf-8') as f:
